@@ -15,7 +15,7 @@ const Index = () => {
   const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'masonry'>('grid');
   const [selectedItem, setSelectedItem] = useState<SavedItem | null>(null);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState<'home' | 'health'>('home');
@@ -55,6 +55,10 @@ const Index = () => {
     }
   };
 
+  const handleHealthSummary = () => {
+    setCurrentTab('health');
+  };
+
   if (currentTab === 'health') {
     return (
       <>
@@ -69,7 +73,7 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24">
+    <div className="min-h-screen bg-background pb-20">
       <Header />
       
       <FilterBar
@@ -81,42 +85,60 @@ const Index = () => {
         onPlatformChange={setSelectedPlatform}
         onSearchChange={setSearchQuery}
         onViewModeChange={setViewMode}
+        onHealthSummary={selectedCategory === '건강' ? handleHealthSummary : undefined}
       />
 
-      <main className="container py-4">
+      <main className="container py-3 px-2">
         {filteredItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 text-center">
-            <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-              <span className="text-2xl">🔍</span>
+          <div className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
+              <span className="text-xl">🔍</span>
             </div>
-            <p className="text-muted-foreground">검색 결과가 없습니다</p>
+            <p className="text-sm text-muted-foreground">검색 결과가 없습니다</p>
           </div>
-        ) : viewMode === 'grid' ? (
-          <div className="masonry-grid">
+        ) : viewMode === 'list' ? (
+          <div className="space-y-2">
             {filteredItems.map((item, index) => (
               <div
                 key={item.id}
                 className="animate-fade-in"
-                style={{ animationDelay: `${index * 50}ms` }}
+                style={{ animationDelay: `${index * 20}ms` }}
               >
-                <SavedItemCard
+                <ListViewItem
                   item={item}
                   onClick={() => setSelectedItem(item)}
                 />
               </div>
             ))}
           </div>
-        ) : (
-          <div className="space-y-3">
+        ) : viewMode === 'masonry' ? (
+          <div className="masonry-grid">
             {filteredItems.map((item, index) => (
               <div
                 key={item.id}
                 className="animate-fade-in"
                 style={{ animationDelay: `${index * 30}ms` }}
               >
-                <ListViewItem
+                <SavedItemCard
                   item={item}
                   onClick={() => setSelectedItem(item)}
+                  isMasonry={true}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="compact-grid">
+            {filteredItems.map((item, index) => (
+              <div
+                key={item.id}
+                className="animate-fade-in"
+                style={{ animationDelay: `${index * 20}ms` }}
+              >
+                <SavedItemCard
+                  item={item}
+                  onClick={() => setSelectedItem(item)}
+                  isMasonry={false}
                 />
               </div>
             ))}
