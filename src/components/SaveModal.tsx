@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Platform, SavedItem } from '@/types/pickstack';
-import { useCategories } from '@/contexts/CategoryContext';
-import { CategoryChip, CategoryBadge } from '@/components/CategoryBadge';
+import { Platform } from '@/types/pickstack';
+import { DbCategory } from '@/hooks/useDbCategories';
+import { CategoryChip } from '@/components/CategoryBadge';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,14 +18,26 @@ import { classifyItem } from '@/utils/classifier';
 
 interface SaveModalProps {
   isOpen: boolean;
+  categories: DbCategory[];
+  getDefaultCategory: () => DbCategory;
   onClose: () => void;
-  onSave: (item: Omit<SavedItem, 'id' | 'created_at'>) => void;
+  onSave: (item: {
+    source_type: 'url' | 'text' | 'image';
+    url?: string;
+    title: string;
+    platform: Platform;
+    thumbnail_url?: string;
+    summary_3lines: string[];
+    tags: string[];
+    category_id: string;
+    user_note?: string;
+    ai_confidence?: number;
+    ai_reason?: string;
+  }) => void;
   initialUrl?: string;
 }
 
-export function SaveModal({ isOpen, onClose, onSave, initialUrl }: SaveModalProps) {
-  const { categories, getDefaultCategory } = useCategories();
-  
+export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onSave, initialUrl }: SaveModalProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [url, setUrl] = useState(initialUrl || '');
@@ -68,14 +80,25 @@ export function SaveModal({ isOpen, onClose, onSave, initialUrl }: SaveModalProp
     const generatedTitle = '분석된 콘텐츠 제목이 여기에 표시됩니다';
     setTitle(generatedTitle);
     
-    // Run classifier
+    // Run classifier with adapted categories
+    const adaptedCategories = categories.map(c => ({
+      id: c.id,
+      name: c.name,
+      color: c.color,
+      icon: c.icon || undefined,
+      keywords: c.keywords || undefined,
+      sort_order: c.sort_order,
+      created_at: c.created_at,
+      is_default: c.is_default,
+    }));
+    
     const classification = classifyItem(
       {
         platform: detectedPlatform,
         url: inputUrl,
         title: generatedTitle,
       },
-      categories
+      adaptedCategories
     );
 
     setSelectedCategoryId(classification.category_id);

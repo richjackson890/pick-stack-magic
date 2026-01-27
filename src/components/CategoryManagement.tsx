@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { useCategories } from '@/contexts/CategoryContext';
-import { CustomCategory } from '@/types/pickstack';
+import { DbCategory } from '@/hooks/useDbCategories';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,12 +16,17 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Plus, GripVertical, Pencil, Trash2, X, Settings } from 'lucide-react';
+import { Plus, GripVertical, Pencil, Trash2, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface CategoryManagementProps {
   isOpen: boolean;
+  categories: DbCategory[];
   onClose: () => void;
+  onAdd: (category: { name: string; color: string; icon?: string; keywords?: string }) => Promise<DbCategory | null>;
+  onUpdate: (id: string, updates: Partial<DbCategory>) => Promise<boolean>;
+  onDelete: (id: string) => Promise<boolean>;
+  onReorder: (categories: DbCategory[]) => Promise<boolean>;
 }
 
 const PRESET_COLORS = [
@@ -35,11 +39,10 @@ const PRESET_EMOJIS = [
   '🎵', '📚', '✈️', '🛒', '💻', '🎮', '📷', '🌱', '🏠', '❤️',
 ];
 
-export function CategoryManagement({ isOpen, onClose }: CategoryManagementProps) {
-  const { categories, addCategory, updateCategory, deleteCategory, reorderCategories } = useCategories();
-  const [editingCategory, setEditingCategory] = useState<CustomCategory | null>(null);
+export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdate, onDelete, onReorder }: CategoryManagementProps) {
+  const [editingCategory, setEditingCategory] = useState<DbCategory | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [deleteConfirm, setDeleteConfirm] = useState<CustomCategory | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<DbCategory | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   // Form state
@@ -62,7 +65,7 @@ export function CategoryManagement({ isOpen, onClose }: CategoryManagementProps)
     setIsAddDialogOpen(true);
   };
 
-  const openEditDialog = (category: CustomCategory) => {
+  const openEditDialog = (category: DbCategory) => {
     setFormName(category.name);
     setFormColor(category.color);
     setFormIcon(category.icon || '📁');
@@ -70,11 +73,11 @@ export function CategoryManagement({ isOpen, onClose }: CategoryManagementProps)
     setEditingCategory(category);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formName.trim()) return;
 
     if (editingCategory) {
-      updateCategory(editingCategory.id, {
+      await onUpdate(editingCategory.id, {
         name: formName.trim(),
         color: formColor,
         icon: formIcon,
@@ -82,7 +85,7 @@ export function CategoryManagement({ isOpen, onClose }: CategoryManagementProps)
       });
       setEditingCategory(null);
     } else {
-      addCategory({
+      await onAdd({
         name: formName.trim(),
         color: formColor,
         icon: formIcon,
@@ -93,9 +96,9 @@ export function CategoryManagement({ isOpen, onClose }: CategoryManagementProps)
     resetForm();
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (deleteConfirm) {
-      deleteCategory(deleteConfirm.id);
+      await onDelete(deleteConfirm.id);
       setDeleteConfirm(null);
     }
   };
@@ -112,7 +115,7 @@ export function CategoryManagement({ isOpen, onClose }: CategoryManagementProps)
     const [draggedItem] = newOrder.splice(draggedIndex, 1);
     newOrder.splice(index, 0, draggedItem);
     
-    reorderCategories(newOrder);
+    onReorder(newOrder);
     setDraggedIndex(index);
   };
 

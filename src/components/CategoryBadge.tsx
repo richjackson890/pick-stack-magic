@@ -1,9 +1,8 @@
-import { CustomCategory } from '@/types/pickstack';
-import { useCategories } from '@/contexts/CategoryContext';
+import { DbCategory } from '@/hooks/useDbCategories';
 import { cn } from '@/lib/utils';
 
 interface CategoryBadgeProps {
-  categoryId: string;
+  category?: DbCategory;
   size?: 'sm' | 'md';
   onClick?: () => void;
   selected?: boolean;
@@ -11,19 +10,20 @@ interface CategoryBadgeProps {
 }
 
 export function CategoryBadge({ 
-  categoryId, 
+  category, 
   size = 'sm', 
   onClick, 
   selected,
   showIcon = false 
 }: CategoryBadgeProps) {
-  const { getCategoryById, getDefaultCategory } = useCategories();
-  const category = getCategoryById(categoryId) || getDefaultCategory();
-
   const sizeClasses = {
     sm: 'text-[10px] px-2 py-0.5 gap-1',
     md: 'text-xs px-3 py-1 gap-1.5',
   };
+
+  const displayColor = category?.color || '#6b7280';
+  const displayName = category?.name || '기타';
+  const displayIcon = category?.icon;
 
   return (
     <button
@@ -36,19 +36,19 @@ export function CategoryBadge({
         selected && 'ring-2 ring-offset-2 ring-foreground/20',
         !onClick && 'cursor-default'
       )}
-      style={{ backgroundColor: category.color }}
+      style={{ backgroundColor: displayColor }}
     >
-      {showIcon && category.icon && (
-        <span className="text-[0.8em]">{category.icon}</span>
+      {showIcon && displayIcon && (
+        <span className="text-[0.8em]">{displayIcon}</span>
       )}
-      {category.name}
+      {displayName}
     </button>
   );
 }
 
-// Chip version for filter bar
+// Chip version for filter bar - works with DbCategory
 interface CategoryChipProps {
-  category: CustomCategory;
+  category: DbCategory | { id: string; name: string; color: string; icon?: string | null };
   selected?: boolean;
   onClick?: () => void;
 }

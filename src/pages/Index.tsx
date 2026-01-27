@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
-import { Platform, SavedItem } from '@/types/pickstack';
-import { mockItems, MOCK_CATEGORY_NAMES } from '@/data/mockData';
-import { useCategories } from '@/contexts/CategoryContext';
+import { useState, useMemo } from 'react';
+import { Platform } from '@/types/pickstack';
+import { useAuth } from '@/contexts/AuthContext';
+import { useDbCategories } from '@/hooks/useDbCategories';
+import { useDbItems, DbItem } from '@/hooks/useDbItems';
 import { Header } from '@/components/Header';
 import { FilterBar } from '@/components/FilterBar';
 import { SavedItemCard } from '@/components/SavedItemCard';
@@ -11,56 +12,22 @@ import { SaveModal } from '@/components/SaveModal';
 import { BottomNav } from '@/components/BottomNav';
 import { HealthReport } from '@/components/HealthReport';
 import { CategoryManagement } from '@/components/CategoryManagement';
+import { EmptyState } from '@/components/EmptyState';
+import { Loader2 } from 'lucide-react';
 
 const Index = () => {
-  const { categories, getCategoryByName } = useCategories();
+  const { user } = useAuth();
+  const { categories, loading: categoriesLoading, getCategoryById, getDefaultCategory, addCategory, updateCategory, deleteCategory, reorderCategories } = useDbCategories();
+  const { items, loading: itemsLoading, addItem, updateItem, deleteItem } = useDbItems();
   
-  // Initialize items with proper category IDs
-  const [items, setItems] = useState<SavedItem[]>(() => {
-    return mockItems.map((item) => {
-      const categoryName = MOCK_CATEGORY_NAMES[item.category_id];
-      const category = categories.find((c) => c.name === categoryName);
-      return {
-        ...item,
-        category_id: category?.id || categories.find((c) => c.is_default)?.id || item.category_id,
-      };
-    });
-  });
-
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'masonry'>('grid');
-  const [selectedItem, setSelectedItem] = useState<SavedItem | null>(null);
+  const [selectedItem, setSelectedItem] = useState<DbItem | null>(null);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isCategoryManagementOpen, setIsCategoryManagementOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState<'home' | 'health'>('home');
-
-  // Re-map items when categories change (for initial load)
-  useEffect(() => {
-    if (categories.length > 0) {
-      setItems((prev) =>
-        prev.map((item) => {
-          // Check if the current category_id is valid
-          const hasValidCategory = categories.some((c) => c.id === item.category_id);
-          if (hasValidCategory) return item;
-
-          // Try to match by mock category name
-          const categoryName = MOCK_CATEGORY_NAMES[item.category_id];
-          if (categoryName) {
-            const category = categories.find((c) => c.name === categoryName);
-            if (category) {
-              return { ...item, category_id: category.id };
-            }
-          }
-
-          // Fall back to default category
-          const defaultCategory = categories.find((c) => c.is_default);
-          return { ...item, category_id: defaultCategory?.id || item.category_id };
-        })
-      );
-    }
-  }, [categories]);
 
   // Filter items
   const filteredItems = useMemo(() => {
@@ -83,19 +50,36 @@ const Index = () => {
   const healthCategory = categories.find((c) => c.name === '건강');
   const isHealthSelected = selectedCategoryId === healthCategory?.id;
 
-  const handleSave = (newItem: Omit<SavedItem, 'id' | 'created_at'>) => {
-    const item: SavedItem = {
-      ...newItem,
-      id: Date.now().toString(),
-      created_at: new Date().toISOString(),
-    };
-    setItems((prev) => [item, ...prev]);
+  const handleSave = async (newItem: {
+    source_type: 'url' | 'text' | 'image';
+    url?: string;
+    title: string;
+    platform: Platform;
+    thumbnail_url?: string;
+    summary_3lines: string[];
+    tags: string[];
+    category_id: string;
+    user_note?: string;
+    ai_confidence?: number;
+    ai_reason?: string;
+  }) => {
+    await addItem({
+      source_type: newItem.source_type,
+      url: newItem.url || null,
+      title: newItem.title,
+      platform: newItem.platform,
+      thumbnail_url: newItem.thumbnail_url || null,
+      summary_3lines: newItem.summary_3lines,
+      tags: newItem.tags,
+      category_id: newItem.category_id,
+      user_note: newItem.user_note || null,
+      ai_confidence: newItem.ai_confidence || null,
+      ai_reason: newItem.ai_reason || null,
+    });
   };
 
-  const handleUpdateItem = (id: string, updates: Partial<SavedItem>) => {
-    setItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, ...updates } : item))
-    );
+  const handleUpdateItem = async (id: string, updates: Partial<DbItem>) => {
+    await updateItem(id, updates);
     if (selectedItem?.id === id) {
       setSelectedItem((prev) => (prev ? { ...prev, ...updates } : null));
     }
@@ -104,6 +88,18 @@ const Index = () => {
   const handleHealthSummary = () => {
     setCurrentTab('health');
   };
+
+  // Loading state
+  if (categoriesLoading || itemsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">로딩 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (currentTab === 'health') {
     return (
@@ -123,6 +119,7 @@ const Index = () => {
       <Header onSettingsClick={() => setIsCategoryManagementOpen(true)} />
       
       <FilterBar
+        categories={categories}
         selectedCategoryId={selectedCategoryId}
         selectedPlatform={selectedPlatform}
         searchQuery={searchQuery}
@@ -136,7 +133,9 @@ const Index = () => {
       />
 
       <main className="container py-3 px-2">
-        {filteredItems.length === 0 ? (
+        {items.length === 0 ? (
+          <EmptyState onAddClick={() => setIsSaveModalOpen(true)} />
+        ) : filteredItems.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
               <span className="text-xl">🔍</span>
@@ -153,6 +152,7 @@ const Index = () => {
               >
                 <ListViewItem
                   item={item}
+                  category={getCategoryById(item.category_id || '')}
                   onClick={() => setSelectedItem(item)}
                 />
               </div>
@@ -168,6 +168,7 @@ const Index = () => {
               >
                 <SavedItemCard
                   item={item}
+                  category={getCategoryById(item.category_id || '')}
                   onClick={() => setSelectedItem(item)}
                   isMasonry={true}
                 />
@@ -184,6 +185,7 @@ const Index = () => {
               >
                 <SavedItemCard
                   item={item}
+                  category={getCategoryById(item.category_id || '')}
                   onClick={() => setSelectedItem(item)}
                   isMasonry={false}
                 />
@@ -201,20 +203,29 @@ const Index = () => {
 
       <ItemDetail
         item={selectedItem}
+        categories={categories}
         isOpen={!!selectedItem}
         onClose={() => setSelectedItem(null)}
         onUpdate={handleUpdateItem}
+        onDelete={deleteItem}
       />
 
       <SaveModal
         isOpen={isSaveModalOpen}
+        categories={categories}
+        getDefaultCategory={getDefaultCategory}
         onClose={() => setIsSaveModalOpen(false)}
         onSave={handleSave}
       />
 
       <CategoryManagement
         isOpen={isCategoryManagementOpen}
+        categories={categories}
         onClose={() => setIsCategoryManagementOpen(false)}
+        onAdd={addCategory}
+        onUpdate={updateCategory}
+        onDelete={deleteCategory}
+        onReorder={reorderCategories}
       />
     </div>
   );
