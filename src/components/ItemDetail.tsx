@@ -1,6 +1,4 @@
-import { SavedItem, CATEGORIES } from '@/types/pickstack';
-import { PlatformBadge } from './PlatformBadge';
-import { CategoryTag } from './CategoryTag';
+import { SavedItem, CATEGORIES, CATEGORY_COLORS, PLATFORM_COLORS } from '@/types/pickstack';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -9,15 +7,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { ExternalLink, Calendar, Edit3, Check, X } from 'lucide-react';
-import { useState } from 'react';
+import { ExternalLink, Calendar, Check, X } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 
 interface ItemDetailProps {
@@ -32,6 +23,13 @@ export function ItemDetail({ item, isOpen, onClose, onUpdate }: ItemDetailProps)
   const [note, setNote] = useState(item?.user_note || '');
   const [category, setCategory] = useState(item?.category);
 
+  useEffect(() => {
+    if (item) {
+      setNote(item.user_note || '');
+      setCategory(item.category);
+    }
+  }, [item]);
+
   if (!item) return null;
 
   const handleSaveNote = () => {
@@ -39,79 +37,97 @@ export function ItemDetail({ item, isOpen, onClose, onUpdate }: ItemDetailProps)
     setIsEditingNote(false);
   };
 
-  const handleCategoryChange = (newCategory: string) => {
-    setCategory(newCategory as typeof category);
-    onUpdate?.(item.id, { category: newCategory as typeof category });
+  const handleCategoryChange = (newCategory: typeof category) => {
+    setCategory(newCategory);
+    onUpdate?.(item.id, { category: newCategory });
   };
 
   const formattedDate = new Date(item.created_at).toLocaleDateString('ko-KR', {
     year: 'numeric',
-    month: 'long',
+    month: 'short',
     day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
   });
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent side="bottom" className="h-[90vh] overflow-y-auto">
+      <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
         <SheetHeader className="sr-only">
           <SheetTitle>{item.title}</SheetTitle>
         </SheetHeader>
 
-        <div className="max-w-2xl mx-auto space-y-6 pb-8">
-          {/* Thumbnail */}
-          {item.thumbnail_url ? (
-            <div className="relative -mx-6 -mt-6 mb-6">
+        <div className="max-w-2xl mx-auto space-y-4 pb-6">
+          {/* Large Thumbnail with Overlay Badges */}
+          <div className="relative -mx-6 -mt-6 mb-4">
+            {item.thumbnail_url ? (
               <img
                 src={item.thumbnail_url}
                 alt={item.title}
-                className="w-full max-h-80 object-cover"
+                className="w-full aspect-video object-cover"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
+            ) : (
+              <div className={cn(
+                "w-full aspect-video flex items-center justify-center",
+                PLATFORM_COLORS[item.platform]
+              )}>
+                <span className="text-5xl text-white/90 font-bold">
+                  {item.platform.charAt(0)}
+                </span>
+              </div>
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
+            
+            {/* Platform & Category Badges */}
+            <div className="absolute top-3 left-3 flex gap-2">
+              <span className={cn(
+                "text-xs font-medium text-white px-2 py-1 rounded-full",
+                PLATFORM_COLORS[item.platform]
+              )}>
+                {item.platform}
+              </span>
+              <span className={cn(
+                "text-xs font-medium text-white px-2 py-1 rounded-full",
+                CATEGORY_COLORS[item.category]
+              )}>
+                {item.category}
+              </span>
             </div>
-          ) : (
-            <div className="h-4" />
-          )}
 
-          {/* Meta Info */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <PlatformBadge platform={item.platform} size="md" />
-            <Select value={category} onValueChange={handleCategoryChange}>
-              <SelectTrigger className="w-auto h-auto p-0 border-0 bg-transparent">
-                <CategoryTag category={item.category} size="md" />
-              </SelectTrigger>
-              <SelectContent>
-                {CATEGORIES.map((cat) => (
-                  <SelectItem key={cat} value={cat}>
-                    {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/* Open Original - Fixed Top Right */}
+            {item.url && (
+              <Button
+                size="sm"
+                className="absolute top-3 right-3"
+                onClick={() => window.open(item.url, '_blank')}
+              >
+                <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                원본
+              </Button>
+            )}
+          </div>
+
+          {/* Title & Date */}
+          <div>
+            <h1 className="text-lg font-bold text-foreground leading-snug mb-1">
+              {item.title}
+            </h1>
             <span className="text-xs text-muted-foreground flex items-center gap-1">
               <Calendar className="h-3 w-3" />
               {formattedDate}
             </span>
           </div>
 
-          {/* Title */}
-          <h1 className="text-xl font-bold text-foreground leading-tight">
-            {item.title}
-          </h1>
-
-          {/* 3-Line Summary */}
-          <div className="bg-secondary/50 rounded-lg p-4 space-y-2">
-            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+          {/* 3-Line Summary - Improved readability */}
+          <div className="bg-secondary/50 rounded-lg p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
               <span className="w-5 h-5 rounded-full gradient-primary flex items-center justify-center text-xs text-white">
                 ✨
               </span>
               AI 3줄 요약
             </h3>
-            <ul className="space-y-2">
+            <ul className="space-y-2.5">
               {item.summary_3lines.map((line, idx) => (
-                <li key={idx} className="flex items-start gap-2 text-sm text-foreground/90">
-                  <span className="text-primary font-medium shrink-0">{idx + 1}.</span>
+                <li key={idx} className="flex items-start gap-2.5 text-sm leading-relaxed text-foreground/90">
+                  <span className="text-primary font-semibold shrink-0 mt-0.5">{idx + 1}.</span>
                   {line}
                 </li>
               ))}
@@ -119,38 +135,49 @@ export function ItemDetail({ item, isOpen, onClose, onUpdate }: ItemDetailProps)
           </div>
 
           {/* Tags */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {item.tags.map((tag) => (
               <span
                 key={tag}
-                className="text-xs text-muted-foreground bg-muted px-2.5 py-1 rounded-full"
+                className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full"
               >
                 #{tag}
               </span>
             ))}
           </div>
 
-          {/* User Note */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-foreground">나의 메모</h3>
-              {!isEditingNote && (
+          {/* Category Change - 1-tap chips */}
+          <div>
+            <h3 className="text-xs font-medium text-muted-foreground mb-2">카테고리 변경</h3>
+            <div className="flex flex-wrap gap-1.5">
+              {CATEGORIES.map((cat) => (
                 <button
-                  onClick={() => setIsEditingNote(true)}
-                  className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1"
+                  key={cat}
+                  onClick={() => handleCategoryChange(cat)}
+                  className={cn(
+                    "text-xs px-2.5 py-1 rounded-full font-medium transition-all",
+                    category === cat
+                      ? cn("text-white", CATEGORY_COLORS[cat])
+                      : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  )}
                 >
-                  <Edit3 className="h-3 w-3" />
-                  편집
+                  {cat}
                 </button>
-              )}
+              ))}
             </div>
+          </div>
+
+          {/* User Note - Direct input */}
+          <div className="space-y-2">
+            <h3 className="text-xs font-medium text-muted-foreground">나의 메모</h3>
             {isEditingNote ? (
               <div className="space-y-2">
                 <Textarea
                   value={note}
                   onChange={(e) => setNote(e.target.value)}
                   placeholder="메모를 입력하세요..."
-                  className="min-h-[100px]"
+                  className="min-h-[80px] text-sm"
+                  autoFocus
                 />
                 <div className="flex gap-2">
                   <Button size="sm" onClick={handleSaveNote}>
@@ -164,13 +191,16 @@ export function ItemDetail({ item, isOpen, onClose, onUpdate }: ItemDetailProps)
                 </div>
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground bg-muted/50 rounded-lg p-3 min-h-[60px]">
-                {item.user_note || '메모가 없습니다.'}
-              </p>
+              <button
+                onClick={() => setIsEditingNote(true)}
+                className="w-full text-left text-sm text-muted-foreground bg-muted/50 rounded-lg p-3 min-h-[60px] hover:bg-muted transition-colors"
+              >
+                {item.user_note || '탭하여 메모 추가...'}
+              </button>
             )}
           </div>
 
-          {/* Original Link */}
+          {/* Bottom Open Original Button (if exists) */}
           {item.url && (
             <Button
               variant="outline"
