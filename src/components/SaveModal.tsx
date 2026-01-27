@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Category, Platform, CATEGORIES, SavedItem } from '@/types/pickstack';
-import { CategoryTag } from './CategoryTag';
-import { PlatformBadge } from './PlatformBadge';
+import { Platform, SavedItem } from '@/types/pickstack';
+import { useCategories } from '@/contexts/CategoryContext';
+import { CategoryChip, CategoryBadge } from '@/components/CategoryBadge';
+import { PlatformIcon } from '@/components/PlatformIcon';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -11,8 +12,9 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Check, Loader2, Sparkles, Link, FileText, Image } from 'lucide-react';
+import { Check, Loader2, Sparkles, Link, FileText, Image, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { classifyItem } from '@/utils/classifier';
 
 interface SaveModalProps {
   isOpen: boolean;
@@ -22,16 +24,28 @@ interface SaveModalProps {
 }
 
 export function SaveModal({ isOpen, onClose, onSave, initialUrl }: SaveModalProps) {
+  const { categories, getDefaultCategory } = useCategories();
+  
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [url, setUrl] = useState(initialUrl || '');
   const [title, setTitle] = useState('');
   const [platform, setPlatform] = useState<Platform>('Web');
-  const [category, setCategory] = useState<Category>('기타');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [thumbnail, setThumbnail] = useState('');
   const [summary, setSummary] = useState<string[]>([]);
   const [note, setNote] = useState('');
   const [sourceType, setSourceType] = useState<'url' | 'text' | 'image'>('url');
+  const [showCategorySelector, setShowCategorySelector] = useState(false);
+  const [aiConfidence, setAiConfidence] = useState(0);
+  const [top3Categories, setTop3Categories] = useState<{ category_id: string; score: number }[]>([]);
+
+  // Initialize default category
+  useEffect(() => {
+    if (categories.length > 0 && !selectedCategoryId) {
+      setSelectedCategoryId(getDefaultCategory().id);
+    }
+  }, [categories, selectedCategoryId, getDefaultCategory]);
 
   // Simulate AI analysis when URL changes
   useEffect(() => {
@@ -51,8 +65,26 @@ export function SaveModal({ isOpen, onClose, onSave, initialUrl }: SaveModalProp
     setPlatform(detectedPlatform);
 
     // Simulate AI-generated data
-    setTitle('분석된 콘텐츠 제목이 여기에 표시됩니다');
-    setCategory(detectCategory(inputUrl));
+    const generatedTitle = '분석된 콘텐츠 제목이 여기에 표시됩니다';
+    setTitle(generatedTitle);
+    
+    // Run classifier
+    const classification = classifyItem(
+      {
+        platform: detectedPlatform,
+        url: inputUrl,
+        title: generatedTitle,
+      },
+      categories
+    );
+
+    setSelectedCategoryId(classification.category_id);
+    setAiConfidence(classification.confidence);
+    setTop3Categories(classification.top3_candidates);
+    
+    // Show category selector if confidence is low
+    setShowCategorySelector(classification.confidence < 0.6);
+
     setSummary([
       '첫 번째 요약 문장입니다.',
       '두 번째 요약 문장입니다.',
@@ -75,16 +107,6 @@ export function SaveModal({ isOpen, onClose, onSave, initialUrl }: SaveModalProp
     return 'Web';
   };
 
-  const detectCategory = (url: string): Category => {
-    // Simple keyword matching for demo
-    if (url.includes('health') || url.includes('운동')) return '건강';
-    if (url.includes('invest') || url.includes('crypto')) return '투자';
-    if (url.includes('recipe') || url.includes('cook')) return '레시피';
-    if (url.includes('architecture') || url.includes('design')) return '건축';
-    if (url.includes('render') || url.includes('3d')) return '렌더링';
-    return '기타';
-  };
-
   const handleSave = () => {
     setIsSaved(true);
     
@@ -96,8 +118,9 @@ export function SaveModal({ isOpen, onClose, onSave, initialUrl }: SaveModalProp
       thumbnail_url: thumbnail,
       summary_3lines: summary,
       tags: ['태그1', '태그2', '태그3'],
-      category,
+      category_id: selectedCategoryId,
       user_note: note || undefined,
+      ai_confidence: aiConfidence,
     });
 
     // Show success animation then close
@@ -108,8 +131,11 @@ export function SaveModal({ isOpen, onClose, onSave, initialUrl }: SaveModalProp
       setUrl('');
       setTitle('');
       setNote('');
-    }, 1200);
+      setShowCategorySelector(false);
+    }, 800);
   };
+
+  const selectedCategory = categories.find((c) => c.id === selectedCategoryId);
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -212,7 +238,8 @@ export function SaveModal({ isOpen, onClose, onSave, initialUrl }: SaveModalProp
                     )}
                     
                     <div className="flex items-center gap-2">
-                      <PlatformBadge platform={platform} size="md" />
+                      <PlatformIcon platform={platform} size="md" />
+                      <span className="text-xs text-muted-foreground">{platform}</span>
                     </div>
 
                     <Input
@@ -236,18 +263,95 @@ export function SaveModal({ isOpen, onClose, onSave, initialUrl }: SaveModalProp
 
                   {/* Category Selection */}
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">카테고리</label>
-                    <div className="flex flex-wrap gap-2">
-                      {CATEGORIES.map((cat) => (
-                        <CategoryTag
-                          key={cat}
-                          category={cat}
-                          size="md"
-                          selected={category === cat}
-                          onClick={() => setCategory(cat)}
-                        />
-                      ))}
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm font-medium">카테고리</label>
+                      {aiConfidence > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          신뢰도: {Math.round(aiConfidence * 100)}%
+                        </span>
+                      )}
                     </div>
+
+                    {/* Selected Category Button */}
+                    <button
+                      onClick={() => setShowCategorySelector(!showCategorySelector)}
+                      className="w-full flex items-center justify-between p-3 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
+                    >
+                      <div className="flex items-center gap-2">
+                        {selectedCategory && (
+                          <>
+                            <span
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-sm"
+                              style={{ backgroundColor: selectedCategory.color }}
+                            >
+                              {selectedCategory.icon}
+                            </span>
+                            <span className="font-medium text-sm">{selectedCategory.name}</span>
+                          </>
+                        )}
+                      </div>
+                      <ChevronDown className={cn(
+                        "h-4 w-4 transition-transform",
+                        showCategorySelector && "rotate-180"
+                      )} />
+                    </button>
+
+                    {/* Category Options */}
+                    {showCategorySelector && (
+                      <div className="space-y-2 p-2 bg-secondary/30 rounded-lg">
+                        {/* Top 3 Recommendations */}
+                        {top3Categories.length > 0 && aiConfidence < 0.8 && (
+                          <div className="space-y-1.5">
+                            <p className="text-xs text-muted-foreground px-1">추천 카테고리</p>
+                            <div className="flex flex-wrap gap-2">
+                              {top3Categories.map(({ category_id }) => {
+                                const cat = categories.find((c) => c.id === category_id);
+                                if (!cat) return null;
+                                return (
+                                  <button
+                                    key={category_id}
+                                    onClick={() => {
+                                      setSelectedCategoryId(category_id);
+                                      setShowCategorySelector(false);
+                                    }}
+                                    className={cn(
+                                      "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all",
+                                      selectedCategoryId === category_id
+                                        ? "text-white ring-2 ring-offset-1 ring-foreground/20"
+                                        : "bg-secondary text-secondary-foreground hover:opacity-80"
+                                    )}
+                                    style={selectedCategoryId === category_id ? { backgroundColor: cat.color } : undefined}
+                                  >
+                                    {cat.icon && <span>{cat.icon}</span>}
+                                    {cat.name}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* All Categories */}
+                        <div className="space-y-1.5">
+                          <p className="text-xs text-muted-foreground px-1">전체 카테고리</p>
+                          <div className="flex flex-wrap gap-2">
+                            {categories
+                              .sort((a, b) => a.sort_order - b.sort_order)
+                              .map((cat) => (
+                                <CategoryChip
+                                  key={cat.id}
+                                  category={cat}
+                                  selected={selectedCategoryId === cat.id}
+                                  onClick={() => {
+                                    setSelectedCategoryId(cat.id);
+                                    setShowCategorySelector(false);
+                                  }}
+                                />
+                              ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Note */}
