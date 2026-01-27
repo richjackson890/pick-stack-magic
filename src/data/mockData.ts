@@ -1,5 +1,7 @@
 import { SavedItem } from '@/types/pickstack';
 
+// Note: category_id values will be matched with actual category IDs when CategoryContext initializes
+// These are placeholder IDs that will be resolved by name matching
 export const mockItems: SavedItem[] = [
   {
     id: '1',
@@ -15,7 +17,7 @@ export const mockItems: SavedItem[] = [
       '아보카도는 좋은 지방으로 포만감을 준다'
     ],
     tags: ['건강', '아침루틴', '다이어트', '영양'],
-    category: '건강',
+    category_id: 'health',
   },
   {
     id: '2',
@@ -31,7 +33,7 @@ export const mockItems: SavedItem[] = [
       '단기 변동성은 여전히 존재할 것으로 예상'
     ],
     tags: ['비트코인', '암호화폐', '투자', '반감기'],
-    category: '투자',
+    category_id: 'investment',
   },
   {
     id: '3',
@@ -47,7 +49,7 @@ export const mockItems: SavedItem[] = [
       '그린 식물로 포인트 추가'
     ],
     tags: ['인테리어', '미니멀', '주방', '홈데코'],
-    category: '건축',
+    category_id: 'architecture',
   },
   {
     id: '4',
@@ -63,7 +65,7 @@ export const mockItems: SavedItem[] = [
       '파슬리와 치즈로 마무리'
     ],
     tags: ['파스타', '간단요리', '자취요리', '레시피'],
-    category: '레시피',
+    category_id: 'recipe',
   },
   {
     id: '5',
@@ -79,7 +81,7 @@ export const mockItems: SavedItem[] = [
       '실제 사례로 보는 재질 표현'
     ],
     tags: ['D5', '렌더링', '건축시각화', '3D'],
-    category: '렌더링',
+    category_id: 'rendering',
   },
   {
     id: '6',
@@ -95,7 +97,7 @@ export const mockItems: SavedItem[] = [
       '공간 컴퓨팅의 가능성을 보여줌'
     ],
     tags: ['애플', '비전프로', 'VR', 'AR', '테크'],
-    category: '기타',
+    category_id: 'other',
   },
   {
     id: '7',
@@ -111,7 +113,7 @@ export const mockItems: SavedItem[] = [
       '힙브릿지로 엉덩이 라인 만들기'
     ],
     tags: ['홈트', '하체운동', '스쿼트', '운동'],
-    category: '건강',
+    category_id: 'health',
   },
   {
     id: '8',
@@ -127,7 +129,7 @@ export const mockItems: SavedItem[] = [
       '지지선과 저항선 찾는 방법'
     ],
     tags: ['주식', '차트분석', '기술적분석', '투자'],
-    category: '투자',
+    category_id: 'investment',
   },
   {
     id: '9',
@@ -141,7 +143,7 @@ export const mockItems: SavedItem[] = [
       '니시야마 - 가격대비 만족도 높음'
     ],
     tags: ['일본여행', '교토', '료칸', '숙소'],
-    category: '기타',
+    category_id: 'other',
   },
   {
     id: '10',
@@ -157,6 +159,16 @@ export const mockItems: SavedItem[] = [
       '3일 숙성 후 최적의 맛 완성'
     ],
     tags: ['피클', '홈메이드', '밑반찬', '레시피'],
-    category: '레시피',
+    category_id: 'recipe',
   },
 ];
+
+// Category ID mapping for mock data initialization
+export const MOCK_CATEGORY_NAMES: Record<string, string> = {
+  health: '건강',
+  investment: '투자',
+  recipe: '레시피',
+  architecture: '건축',
+  rendering: '렌더링',
+  other: '기타',
+};
