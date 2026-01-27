@@ -1,17 +1,15 @@
-import { SavedItem } from '@/types/pickstack';
-import { useCategories } from '@/contexts/CategoryContext';
+import { DbItem } from '@/hooks/useDbItems';
+import { DbCategory } from '@/hooks/useDbCategories';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { cn } from '@/lib/utils';
 
 interface ListViewItemProps {
-  item: SavedItem;
+  item: DbItem;
+  category?: DbCategory;
   onClick: () => void;
 }
 
-export function ListViewItem({ item, onClick }: ListViewItemProps) {
-  const { getCategoryById, getDefaultCategory } = useCategories();
-  const category = getCategoryById(item.category_id) || getDefaultCategory();
-
+export function ListViewItem({ item, category, onClick }: ListViewItemProps) {
   return (
     <article onClick={onClick} className={cn('flex gap-2.5 p-2.5 bg-card rounded-lg cursor-pointer shadow-sm hover:shadow-md transition-all duration-200 hover:scale-[1.01]')}>
       <div className="relative shrink-0">
@@ -30,7 +28,7 @@ export function ListViewItem({ item, onClick }: ListViewItemProps) {
         <div className="flex items-center gap-1.5">
           <span className="text-[8px] font-medium text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5" style={{ backgroundColor: category?.color || '#6b7280' }}>
             {category?.icon && <span>{category.icon}</span>}
-            {category?.name}
+            {category?.name || '기타'}
           </span>
         </div>
         <h3 className="text-xs font-semibold text-foreground line-clamp-1">{item.title}</h3>

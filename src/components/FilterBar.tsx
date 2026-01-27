@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Platform, PLATFORMS } from '@/types/pickstack';
-import { useCategories } from '@/contexts/CategoryContext';
+import { DbCategory } from '@/hooks/useDbCategories';
 import { CategoryChip } from '@/components/CategoryBadge';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Search, SlidersHorizontal, Grid3X3, List, LayoutGrid, Plus, Activity } 
 import { cn } from '@/lib/utils';
 
 interface FilterBarProps {
+  categories: DbCategory[];
   selectedCategoryId: string | null;
   selectedPlatform: Platform | null;
   searchQuery: string;
@@ -22,13 +23,12 @@ interface FilterBarProps {
   onAddCategory?: () => void;
 }
 
-export function FilterBar({ selectedCategoryId, selectedPlatform, searchQuery, viewMode, onCategoryChange, onPlatformChange, onSearchChange, onViewModeChange, onHealthSummary, onAddCategory }: FilterBarProps) {
-  const { categories } = useCategories();
+export function FilterBar({ categories, selectedCategoryId, selectedPlatform, searchQuery, viewMode, onCategoryChange, onPlatformChange, onSearchChange, onViewModeChange, onHealthSummary, onAddCategory }: FilterBarProps) {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const sortedCategories = [...categories].sort((a, b) => a.sort_order - b.sort_order);
 
   return (
-    <div className="sticky top-0 z-20 bg-background/95 backdrop-blur border-b">
+    <div className="sticky top-12 z-20 bg-background/95 backdrop-blur border-b">
       <div className="container px-2 py-2 space-y-2">
         <div className="flex items-center gap-2">
           <div className={cn('flex-1 flex items-center gap-2 bg-secondary/60 rounded-lg px-2.5 py-1.5 transition-all', isSearchFocused && 'ring-2 ring-primary/30')}>
