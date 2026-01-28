@@ -38,6 +38,22 @@ function detectPlatform(url: string): string {
   return "Web";
 }
 
+// Generate fallback title when none is available
+function generateFallbackTitle(url: string | null, platform: string): string {
+  if (!url) return `${platform} 저장 콘텐츠`;
+  try {
+    const urlObj = new URL(url);
+    const pathParts = urlObj.pathname.split('/').filter(Boolean);
+    if (pathParts.length > 0) {
+      const slug = pathParts[pathParts.length - 1].replace(/[-_]/g, ' ').slice(0, 50);
+      if (slug && slug.length > 3) return slug;
+    }
+    return `${platform} 저장 콘텐츠 (${new Date().toLocaleDateString('ko-KR')})`;
+  } catch {
+    return `${platform} 저장 콘텐츠`;
+  }
+}
+
 // Extract YouTube video ID
 function getYouTubeVideoId(url: string): string | null {
   const patterns = [
@@ -303,6 +319,11 @@ serve(async (req) => {
       tags: ["저장됨"],
       category: "기타",
       confidence: 0.3,
+      // New enhanced fields
+      core_keywords: [] as string[],
+      entities: [] as string[],
+      hashtags: [] as string[],
+      intent: "정보" as string,
     };
 
     // Call Lovable AI for analysis (LIGHT MODE)
@@ -318,7 +339,7 @@ serve(async (req) => {
           `${c.name}${c.keywords ? ` [키워드: ${c.keywords}]` : ""}`
         ).join("\n");
 
-        // Light mode prompt - with user category priority
+        // Light mode prompt - with user category priority and enhanced metadata extraction
         const prompt = mode === "light" 
           ? `콘텐츠 분석:
 
@@ -337,7 +358,11 @@ JSON 응답 (반드시 이 형식):
   "tags": ["태그1", "태그2", "태그3", "태그4", "태그5"],
   "final_category": "카테고리명",
   "confidence": 0.0-1.0,
-  "why_category": "분류 근거 한 문장"
+  "why_category": "분류 근거 한 문장",
+  "core_keywords": ["핵심키워드1", "핵심키워드2", "핵심키워드3", "핵심키워드4", "핵심키워드5"],
+  "entities": ["사람/브랜드/장소/툴 고유명사"],
+  "hashtags": ["#해시태그1", "#해시태그2", "#해시태그3"],
+  "intent": "정보/튜토리얼/구매/영감/뉴스/후기/레퍼런스 중 하나"
 }
 
 분류 규칙:
@@ -346,7 +371,11 @@ JSON 응답 (반드시 이 형식):
 3. 건강 관련: 루틴/실행 관점 (시간대, 횟수, 주의사항 형태로)
 4. 투자/의학/법률: 단정 금지, "참고/일반 정보" 톤 유지
 5. 애매하면 "기타" 선택
-6. summary_3는 한국어, 실용적 핵심 3개`
+6. summary_3는 한국어, 실용적 핵심 3개
+7. core_keywords: 검색용 핵심 5-8개
+8. entities: 고유명사(사람, 브랜드, 장소, 툴명) 추출
+9. hashtags: 원문에 있는 해시태그 또는 생성
+10. intent: 콘텐츠 목적 분류`
           : `콘텐츠 심층 분석:
 
 URL: ${item.url || "없음"}
@@ -365,7 +394,11 @@ JSON 응답:
   "tags": ["태그1", "태그2", "태그3", "태그4", "태그5", "태그6", "태그7"],
   "final_category": "카테고리명",
   "confidence": 0.0-1.0,
-  "why_category": "분류 근거"
+  "why_category": "분류 근거",
+  "core_keywords": ["핵심키워드1", "핵심키워드2", "핵심키워드3", "핵심키워드4", "핵심키워드5", "핵심키워드6", "핵심키워드7", "핵심키워드8"],
+  "entities": ["고유명사들"],
+  "hashtags": ["#해시태그"],
+  "intent": "정보/튜토리얼/구매/영감/뉴스/후기/레퍼런스"
 }
 
 분류 규칙:
@@ -410,8 +443,14 @@ JSON 응답:
               tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, mode === "light" ? 5 : 7) : [],
               category: parsed.final_category || parsed.category || "기타",
               confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
+              // Enhanced fields
+              core_keywords: Array.isArray(parsed.core_keywords) ? parsed.core_keywords.slice(0, 8) : [],
+              entities: Array.isArray(parsed.entities) ? parsed.entities.slice(0, 10) : [],
+              hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags.slice(0, 5) : [],
+              intent: parsed.intent || "정보",
             };
             console.log(`[analyze-content] Parsed AI result: category=${aiResult.category}, confidence=${aiResult.confidence}`);
+            console.log(`[analyze-content] Enhanced metadata: keywords=${aiResult.core_keywords.length}, entities=${aiResult.entities.length}, intent=${aiResult.intent}`);
             if (parsed.why_category) {
               console.log(`[analyze-content] Category reason: ${parsed.why_category}`);
             }
@@ -450,7 +489,13 @@ JSON 응답:
       }
     }
 
-    // Update item with analysis results
+    // Generate fallback_title if title is empty
+    const fallbackTitle = aiResult.title || title || generateFallbackTitle(item.url, platform);
+    
+    // Generate smart_snippet from summary
+    const smartSnippet = aiResult.summary_3[0] || description?.slice(0, 100) || "";
+
+    // Update item with analysis results including new metadata
     const updateData = {
       title: aiResult.title,
       platform: platform,
@@ -466,6 +511,13 @@ JSON 응답:
       ai_finished_at: new Date().toISOString(),
       url_hash: urlHash,
       analysis_mode: mode,
+      // New enhanced metadata fields
+      fallback_title: fallbackTitle,
+      smart_snippet: smartSnippet,
+      core_keywords: aiResult.core_keywords,
+      entities: aiResult.entities,
+      hashtags: aiResult.hashtags,
+      intent: aiResult.intent,
     };
 
     console.log("[analyze-content] Updating item with results...");

@@ -8,9 +8,9 @@ import { useUserSettings } from '@/hooks/useUserSettings';
 import { useBatchAnalyze } from '@/hooks/useBatchAnalyze';
 import { useContentAnalysis } from '@/hooks/useContentAnalysis';
 import { Header } from '@/components/Header';
-import { FilterBar } from '@/components/FilterBar';
+import { EnhancedFilterBar } from '@/components/EnhancedFilterBar';
 import { GlassCard } from '@/components/GlassCard';
-import { ListViewItem } from '@/components/ListViewItem';
+import { TextThumbnailCard } from '@/components/TextThumbnailCard';
 import { ItemDetail } from '@/components/ItemDetail';
 import { SaveModal } from '@/components/SaveModal';
 import { GlassDock } from '@/components/GlassDock';
@@ -53,18 +53,24 @@ const Index = () => {
     message: string;
   }>({ show: false, type: 'info', message: '' });
 
-  // Filter items
+  // Enhanced filter with search_blob
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
       if (selectedCategoryId && item.category_id !== selectedCategoryId) return false;
       if (selectedPlatform && item.platform !== selectedPlatform) return false;
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
-        return (
-          item.title.toLowerCase().includes(query) ||
-          item.tags.some((tag) => tag.toLowerCase().includes(query)) ||
-          item.summary_3lines.some((line) => line.toLowerCase().includes(query))
-        );
+        // Search in multiple fields for better discovery
+        const searchBlob = (item as any).search_blob?.toLowerCase() || '';
+        const titleMatch = item.title?.toLowerCase().includes(query);
+        const tagMatch = item.tags?.some((tag) => tag.toLowerCase().includes(query));
+        const summaryMatch = item.summary_3lines?.some((line) => line?.toLowerCase().includes(query));
+        const keywordMatch = (item as any).core_keywords?.some((kw: string) => kw?.toLowerCase().includes(query));
+        const hashtagMatch = (item as any).hashtags?.some((ht: string) => ht?.toLowerCase().includes(query));
+        const entityMatch = (item as any).entities?.some((e: string) => e?.toLowerCase().includes(query));
+        const blobMatch = searchBlob.includes(query);
+        
+        return titleMatch || tagMatch || summaryMatch || keywordMatch || hashtagMatch || entityMatch || blobMatch;
       }
       return true;
     });
@@ -195,8 +201,9 @@ const Index = () => {
     <div ref={containerRef} className="min-h-screen pb-24">
       <Header onSettingsClick={() => setIsCategoryManagementOpen(true)} />
       
-      <FilterBar
+      <EnhancedFilterBar
         categories={categories}
+        items={items}
         selectedCategoryId={selectedCategoryId}
         selectedPlatform={selectedPlatform}
         searchQuery={searchQuery}
@@ -245,10 +252,12 @@ const Index = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.03 }}
               >
-                <ListViewItem
+                <TextThumbnailCard
                   item={item}
                   category={getCategoryById(item.category_id || '')}
                   onClick={() => setSelectedItem(item)}
+                  onRetryAnalysis={() => handleRetryAnalysis(item.id)}
+                  highlightQuery={searchQuery}
                 />
               </motion.div>
             ))}

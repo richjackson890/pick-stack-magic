@@ -61,10 +61,17 @@ export type Database = {
           ai_status: string
           analysis_mode: string
           category_id: string | null
+          core_keywords: string[] | null
           created_at: string
+          entities: string[] | null
           extracted_text: string | null
+          fallback_title: string | null
+          hashtags: string[] | null
           id: string
+          intent: string | null
           platform: string
+          search_blob: string | null
+          smart_snippet: string | null
           source_type: string
           summary_3lines: string[] | null
           tags: string[] | null
@@ -86,10 +93,17 @@ export type Database = {
           ai_status?: string
           analysis_mode?: string
           category_id?: string | null
+          core_keywords?: string[] | null
           created_at?: string
+          entities?: string[] | null
           extracted_text?: string | null
+          fallback_title?: string | null
+          hashtags?: string[] | null
           id?: string
+          intent?: string | null
           platform?: string
+          search_blob?: string | null
+          smart_snippet?: string | null
           source_type?: string
           summary_3lines?: string[] | null
           tags?: string[] | null
@@ -111,10 +125,17 @@ export type Database = {
           ai_status?: string
           analysis_mode?: string
           category_id?: string | null
+          core_keywords?: string[] | null
           created_at?: string
+          entities?: string[] | null
           extracted_text?: string | null
+          fallback_title?: string | null
+          hashtags?: string[] | null
           id?: string
+          intent?: string | null
           platform?: string
+          search_blob?: string | null
+          smart_snippet?: string | null
           source_type?: string
           summary_3lines?: string[] | null
           tags?: string[] | null
@@ -177,7 +198,31 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      search_items: {
+        Args: {
+          p_categories?: string[]
+          p_limit?: number
+          p_platforms?: string[]
+          p_query: string
+          p_user_id: string
+        }
+        Returns: {
+          ai_status: string
+          category_id: string
+          core_keywords: string[]
+          created_at: string
+          entities: string[]
+          fallback_title: string
+          hashtags: string[]
+          id: string
+          platform: string
+          rank: number
+          smart_snippet: string
+          tags: string[]
+          thumbnail_url: string
+          title: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
