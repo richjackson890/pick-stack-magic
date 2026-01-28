@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from 'framer-motion';
 import { DbItem, AiStatus } from '@/hooks/useDbItems';
 import { DbCategory } from '@/hooks/useDbCategories';
@@ -8,6 +8,7 @@ import { GlassChip } from '@/components/GlassChip';
 import { LiquidSpinner, AnalysisSteps } from '@/components/LiquidSpinner';
 import { Textarea } from '@/components/ui/textarea';
 import { useGenerateCover } from '@/hooks/useGenerateCover';
+import { TextThumbnailCard, isForceTextThumb, fallbackKeywords } from '@/components/PickStackThumbs';
 import { ExternalLink, Calendar, Trash2, RefreshCw, AlertCircle, X, Sparkles, ImagePlus } from 'lucide-react';
 import {
   AlertDialog,
@@ -83,6 +84,15 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
   const formattedDate = new Date(item.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
   const isStuck = isProcessingStuck(item);
   const isAiGenerated = item.thumbnail_url?.includes('/covers/');
+  
+  // 인스타/쓰레드는 무조건 텍스트 썸네일 사용
+  const forceTextThumbnail = useMemo(() => {
+    return isForceTextThumb(item.url) || isForceTextThumb(item.thumbnail_url);
+  }, [item.url, item.thumbnail_url]);
+  
+  const keywords = useMemo(() => {
+    return (item.tags?.length ? item.tags : fallbackKeywords(item.title)) as string[];
+  }, [item.tags, item.title]);
 
   const handleNoteChange = (value: string) => { 
     setNote(value); 
@@ -285,7 +295,16 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
               <div className="max-w-2xl mx-auto px-4 pb-8 space-y-4">
                 {/* Hero Image */}
                 <div className="relative -mx-4 rounded-2xl overflow-hidden">
-                  {item.thumbnail_url ? (
+                  {/* 인스타/쓰레드는 무조건 텍스트 썸네일 */}
+                  {forceTextThumbnail ? (
+                    <div className="w-full aspect-video">
+                      <TextThumbnailCard
+                        title={item.title}
+                        keywords={keywords}
+                        category={currentCategory?.name}
+                      />
+                    </div>
+                  ) : item.thumbnail_url ? (
                     <>
                       <img src={item.thumbnail_url} alt={item.title} className="w-full aspect-video object-cover" />
                       {/* AI Generated indicator */}
@@ -298,15 +317,10 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
                     </>
                   ) : (
                     <div className="w-full aspect-video">
-                      <FallbackCover
-                        platform={item.platform}
+                      <TextThumbnailCard
                         title={item.title}
-                        summary={item.summary_3lines?.[0]}
-                        tags={item.tags}
-                        categoryName={currentCategory?.name}
-                        categoryColor={currentCategory?.color}
-                        categoryIcon={currentCategory?.icon || undefined}
-                        size="lg"
+                        keywords={keywords}
+                        category={currentCategory?.name}
                       />
                     </div>
                   )}
@@ -346,38 +360,41 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
                   )}
                 </div>
 
-                {/* AI Cover Generation Button */}
-                <motion.button
-                  whileTap={{ scale: 0.98 }}
-                  onClick={async () => {
-                    const newUrl = await generateCover({
-                      itemId: item.id,
-                      title: item.title,
-                      summary: item.summary_3lines?.[0],
-                      tags: item.tags,
-                      categoryName: currentCategory?.name,
-                      platform: item.platform,
-                    });
-                    if (newUrl) {
-                      onUpdate?.(item.id, { thumbnail_url: newUrl });
-                      onRefetch?.();
-                    }
-                  }}
-                  disabled={isGenerating}
-                  className="glass-button w-full py-2.5 font-medium flex items-center justify-center gap-2 text-sm"
-                >
-                  {isGenerating ? (
-                    <>
-                      <LiquidSpinner size="sm" />
-                      AI 커버 생성 중...
-                    </>
-                  ) : (
-                    <>
-                      <ImagePlus className="h-4 w-4" />
-                      {item.thumbnail_url ? '커버 다시 생성' : 'AI 커버 생성'}
-                    </>
-                  )}
-                </motion.button>
+                {/* AI Cover Generation Button - 인스타/쓰레드일 경우 숨김 */}
+                {!forceTextThumbnail && (
+                  <motion.button
+                    whileTap={{ scale: 0.98 }}
+                    onClick={async () => {
+                      const newUrl = await generateCover({
+                        itemId: item.id,
+                        title: item.title,
+                        summary: item.summary_3lines?.[0],
+                        tags: item.tags,
+                        categoryName: currentCategory?.name,
+                        platform: item.platform,
+                        sourceUrl: item.url || undefined,
+                      });
+                      if (newUrl) {
+                        onUpdate?.(item.id, { thumbnail_url: newUrl });
+                        onRefetch?.();
+                      }
+                    }}
+                    disabled={isGenerating}
+                    className="glass-button w-full py-2.5 font-medium flex items-center justify-center gap-2 text-sm"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <LiquidSpinner size="sm" />
+                        AI 커버 생성 중...
+                      </>
+                    ) : (
+                      <>
+                        <ImagePlus className="h-4 w-4" />
+                        {item.thumbnail_url ? '커버 다시 생성' : 'AI 커버 생성'}
+                      </>
+                    )}
+                  </motion.button>
+                )}
 
                 {/* Title & Date */}
                 <div>
