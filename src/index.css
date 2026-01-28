@@ -4,79 +4,80 @@
 
 @layer base {
   :root {
-    --background: 220 20% 97%;
-    --foreground: 220 20% 10%;
+    /* Modern Light Mode - Clean & Airy */
+    --background: 220 25% 98%;
+    --foreground: 220 25% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 220 20% 10%;
+    --card-foreground: 220 25% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 10%;
+    --popover-foreground: 220 25% 15%;
 
-    --primary: 24 100% 55%;
+    --primary: 24 95% 53%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 15% 94%;
-    --secondary-foreground: 220 20% 20%;
+    --secondary: 220 20% 96%;
+    --secondary-foreground: 220 25% 25%;
 
-    --muted: 220 10% 92%;
-    --muted-foreground: 220 10% 45%;
+    --muted: 220 15% 94%;
+    --muted-foreground: 220 15% 50%;
 
-    --accent: 280 70% 60%;
+    --accent: 260 65% 60%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 84% 60%;
+    --destructive: 0 75% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 15% 88%;
-    --input: 220 15% 88%;
-    --ring: 24 100% 55%;
+    --border: 220 20% 90%;
+    --input: 220 20% 92%;
+    --ring: 24 95% 53%;
 
     --radius: 1rem;
 
-    /* Neon Accent Colors */
-    --neon-purple: 280 80% 65%;
-    --neon-pink: 330 85% 60%;
-    --neon-cyan: 190 90% 50%;
-    --neon-orange: 24 100% 55%;
+    /* Modern Soft Accent Colors */
+    --neon-purple: 260 70% 62%;
+    --neon-pink: 330 75% 58%;
+    --neon-cyan: 185 80% 48%;
+    --neon-orange: 24 95% 53%;
 
-    /* Glass Effects */
-    --glass-bg: 0 0% 100% / 0.7;
-    --glass-border: 0 0% 100% / 0.3;
-    --glass-highlight: 0 0% 100% / 0.5;
-    --glass-blur: 20px;
+    /* Glass Effects - Light Mode (Softer, more translucent) */
+    --glass-bg: 0 0% 100% / 0.85;
+    --glass-border: 220 20% 85% / 0.6;
+    --glass-highlight: 0 0% 100% / 0.9;
+    --glass-blur: 16px;
 
-    /* Category Colors */
-    --category-health: 160 70% 45%;
-    --category-investment: 220 80% 55%;
-    --category-recipe: 35 95% 55%;
-    --category-architecture: 280 60% 55%;
-    --category-rendering: 190 80% 45%;
-    --category-other: 0 0% 55%;
+    /* Category Colors - Softer for light mode */
+    --category-health: 160 60% 42%;
+    --category-investment: 220 70% 52%;
+    --category-recipe: 35 85% 50%;
+    --category-architecture: 260 55% 55%;
+    --category-rendering: 185 70% 42%;
+    --category-other: 220 10% 55%;
 
     /* Platform Colors */
-    --platform-instagram: 330 80% 55%;
-    --platform-youtube: 0 85% 50%;
-    --platform-tiktok: 180 100% 35%;
-    --platform-twitter: 200 90% 50%;
-    --platform-facebook: 220 75% 50%;
-    --platform-pinterest: 0 80% 45%;
-    --platform-naver: 150 85% 40%;
-    --platform-web: 0 0% 50%;
+    --platform-instagram: 330 75% 52%;
+    --platform-youtube: 0 80% 48%;
+    --platform-tiktok: 180 90% 32%;
+    --platform-twitter: 200 85% 48%;
+    --platform-facebook: 220 70% 48%;
+    --platform-pinterest: 0 75% 42%;
+    --platform-naver: 150 80% 38%;
+    --platform-web: 220 10% 50%;
 
-    /* Shadows */
-    --shadow-glass: 0 4px 30px hsl(0 0% 0% / 0.1);
-    --shadow-glow: 0 0 20px hsl(var(--neon-purple) / 0.3);
-    --shadow-neon: 0 0 30px hsl(var(--neon-cyan) / 0.4);
+    /* Shadows - Softer for light mode */
+    --shadow-glass: 0 4px 24px hsl(220 30% 30% / 0.08);
+    --shadow-glow: 0 0 24px hsl(var(--neon-purple) / 0.15);
+    --shadow-neon: 0 0 32px hsl(var(--neon-cyan) / 0.2);
 
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 0 0% 99%;
+    --sidebar-foreground: 220 25% 20%;
+    --sidebar-primary: 220 25% 15%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 220 20% 96%;
+    --sidebar-accent-foreground: 220 25% 15%;
+    --sidebar-border: 220 20% 92%;
+    --sidebar-ring: 24 95% 53%;
   }
 
   .dark {
@@ -142,18 +143,18 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-family: 'Pretendard Variable', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    /* Subtle background gradient for dark mode */
+    /* Modern light mode gradient - subtle and clean */
     background: linear-gradient(
-      135deg,
+      165deg,
       hsl(var(--background)) 0%,
-      hsl(225 30% 6%) 50%,
-      hsl(240 25% 8%) 100%
+      hsl(220 30% 96%) 50%,
+      hsl(230 25% 97%) 100%
     );
     min-height: 100vh;
   }
 
   .dark body {
-    /* Grain texture overlay */
+    /* Grain texture overlay for dark mode */
     background-image: 
       url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E"),
       linear-gradient(
@@ -168,7 +169,7 @@
 }
 
 @layer utilities {
-  /* Glass Card System */
+  /* Glass Card System - Modern Light Mode */
   .glass {
     background: hsl(var(--glass-bg));
     backdrop-filter: blur(var(--glass-blur));
@@ -181,6 +182,9 @@
     @apply glass rounded-2xl;
     position: relative;
     overflow: hidden;
+    box-shadow: 
+      0 1px 3px hsl(220 30% 30% / 0.06),
+      0 4px 16px hsl(220 30% 30% / 0.06);
   }
 
   .glass-card::before {
@@ -194,14 +198,19 @@
     pointer-events: none;
   }
 
+  .dark .glass-card {
+    box-shadow: var(--shadow-glass);
+  }
+
   .glass-button {
     @apply glass rounded-xl;
     transition: all 0.2s ease;
+    box-shadow: 0 2px 8px hsl(220 30% 30% / 0.08);
   }
 
   .glass-button:hover {
     background: hsl(var(--glass-bg));
-    box-shadow: var(--shadow-glow);
+    box-shadow: 0 4px 16px hsl(var(--primary) / 0.15);
   }
 
   .glass-chip {
@@ -209,6 +218,7 @@
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid hsl(var(--glass-border));
+    box-shadow: 0 1px 4px hsl(220 30% 30% / 0.05);
     @apply rounded-full;
   }
 
@@ -217,6 +227,10 @@
     backdrop-filter: blur(var(--glass-blur));
     -webkit-backdrop-filter: blur(var(--glass-blur));
     border-top: 1px solid hsl(var(--glass-border));
+    box-shadow: 0 -2px 20px hsl(220 30% 30% / 0.08);
+  }
+
+  .dark .glass-dock {
     box-shadow: 0 -4px 30px hsl(0 0% 0% / 0.15);
   }
 
@@ -225,10 +239,21 @@
     backdrop-filter: blur(32px);
     -webkit-backdrop-filter: blur(32px);
     border: 1px solid hsl(var(--glass-border));
+    box-shadow: 0 8px 32px hsl(220 30% 30% / 0.12);
   }
 
-  /* Neon Glow Effects */
+  .dark .glass-sheet {
+    box-shadow: 0 8px 32px hsl(0 0% 0% / 0.4);
+  }
+
+  /* Soft Glow Effects - Modern & Subtle */
   .neon-glow {
+    box-shadow: 
+      0 2px 12px hsl(var(--neon-purple) / 0.2),
+      0 4px 24px hsl(var(--neon-purple) / 0.1);
+  }
+
+  .dark .neon-glow {
     box-shadow: 
       0 0 10px hsl(var(--neon-purple) / 0.4),
       0 0 20px hsl(var(--neon-purple) / 0.2),
@@ -237,12 +262,24 @@
 
   .neon-glow-cyan {
     box-shadow: 
+      0 2px 12px hsl(var(--neon-cyan) / 0.2),
+      0 4px 24px hsl(var(--neon-cyan) / 0.1);
+  }
+
+  .dark .neon-glow-cyan {
+    box-shadow: 
       0 0 10px hsl(var(--neon-cyan) / 0.4),
       0 0 20px hsl(var(--neon-cyan) / 0.2),
       0 0 40px hsl(var(--neon-cyan) / 0.1);
   }
 
   .neon-glow-orange {
+    box-shadow: 
+      0 4px 16px hsl(var(--neon-orange) / 0.25),
+      0 8px 32px hsl(var(--neon-orange) / 0.15);
+  }
+
+  .dark .neon-glow-orange {
     box-shadow: 
       0 0 15px hsl(var(--neon-orange) / 0.5),
       0 0 30px hsl(var(--neon-orange) / 0.3),

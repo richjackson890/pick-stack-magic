@@ -15,10 +15,11 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// Enable dark mode by default
-function useDarkMode() {
+// Use system preference or light mode by default
+function useTheme() {
   useEffect(() => {
-    document.documentElement.classList.add('dark');
+    // Remove forced dark mode - use light mode as default for modern clean look
+    document.documentElement.classList.remove('dark');
   }, []);
 }
 
@@ -60,9 +61,9 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-// App wrapper to apply dark mode
+// App wrapper to apply theme
 function AppRoutes() {
-  useDarkMode();
+  useTheme();
   
   return (
     <Routes>
