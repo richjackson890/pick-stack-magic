@@ -6,6 +6,19 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Generate URL hash for deduplication
+function generateUrlHash(url: string): string {
+  // Simple hash: normalize URL and create a deterministic string
+  const normalized = url.toLowerCase().replace(/\/$/, "").replace(/^https?:\/\//, "").replace(/^www\./, "");
+  let hash = 0;
+  for (let i = 0; i < normalized.length; i++) {
+    const char = normalized.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return `${hash.toString(16)}_${normalized.length}`;
+}
+
 // Platform detection from URL
 function detectPlatform(url: string): string {
   const urlLower = url.toLowerCase();
@@ -38,11 +51,16 @@ function getYouTubeVideoId(url: string): string | null {
   return null;
 }
 
-// Fetch YouTube oEmbed data
+// Fetch YouTube oEmbed data with timeout
 async function fetchYouTubeOEmbed(url: string): Promise<{ title: string; thumbnail_url: string; author_name?: string } | null> {
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+    
     const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
-    const response = await fetch(oembedUrl);
+    const response = await fetch(oembedUrl, { signal: controller.signal });
+    clearTimeout(timeout);
+    
     if (!response.ok) return null;
     const data = await response.json();
     return {
@@ -51,20 +69,28 @@ async function fetchYouTubeOEmbed(url: string): Promise<{ title: string; thumbna
       author_name: data.author_name || "",
     };
   } catch (error) {
-    console.error("YouTube oEmbed fetch error:", error);
+    console.error("[analyze-content] YouTube oEmbed fetch error:", error);
     return null;
   }
 }
 
-// Fetch generic Open Graph metadata
+// Fetch generic Open Graph metadata with timeout
 async function fetchOpenGraphData(url: string): Promise<{ title?: string; description?: string; image?: string }> {
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+    
     const response = await fetch(url, {
       headers: { "User-Agent": "Mozilla/5.0 (compatible; PickStackBot/1.0)" },
+      signal: controller.signal,
     });
+    clearTimeout(timeout);
+    
     if (!response.ok) return {};
     
     const html = await response.text();
+    console.log(`[analyze-content] Fetched HTML length: ${html.length}`);
+    
     const ogTitle = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)?.[1];
     const ogDescription = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)?.[1];
     const ogImage = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)?.[1];
@@ -77,7 +103,7 @@ async function fetchOpenGraphData(url: string): Promise<{ title?: string; descri
       image: ogImage || "",
     };
   } catch (error) {
-    console.error("Open Graph fetch error:", error);
+    console.error("[analyze-content] Open Graph fetch error:", error);
     return {};
   }
 }
@@ -87,9 +113,14 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  let itemId: string | undefined;
+  let supabase: any;
+  let userId: string | undefined;
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
+      console.error("[analyze-content] Missing auth header");
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -100,7 +131,7 @@ serve(async (req) => {
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
@@ -108,45 +139,119 @@ serve(async (req) => {
     const token = authHeader.replace("Bearer ", "");
     const { data: claims, error: authError } = await supabase.auth.getClaims(token);
     if (authError || !claims?.claims) {
+      console.error("[analyze-content] Auth error:", authError);
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const userId = claims.claims.sub;
+    userId = claims.claims.sub;
 
-    const { item_id } = await req.json();
-    if (!item_id) {
+    const body = await req.json();
+    itemId = body.item_id;
+    const mode = body.mode || "light"; // light or deep
+    
+    if (!itemId) {
       return new Response(JSON.stringify({ error: "item_id is required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    console.log(`[analyze-content] Starting analysis for item: ${item_id}`);
+    console.log(`[analyze-content] ========== START ==========`);
+    console.log(`[analyze-content] Item: ${itemId}, Mode: ${mode}, User: ${userId}`);
 
     // Get the item
     const { data: item, error: itemError } = await supabase
       .from("items")
       .select("*")
-      .eq("id", item_id)
+      .eq("id", itemId)
       .eq("user_id", userId)
       .single();
 
     if (itemError || !item) {
-      console.error("Item fetch error:", itemError);
+      console.error("[analyze-content] Item fetch error:", itemError);
       return new Response(JSON.stringify({ error: "Item not found" }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Update status to processing
+    console.log(`[analyze-content] Item URL: ${item.url}`);
+    console.log(`[analyze-content] Current status: ${item.ai_status}`);
+
+    // Generate URL hash for deduplication
+    const urlHash = item.url ? generateUrlHash(item.url) : null;
+    console.log(`[analyze-content] URL hash: ${urlHash}`);
+
+    // Check for existing analysis with same URL hash (skip if already done and mode is light)
+    if (urlHash && mode === "light" && item.ai_status === "done") {
+      console.log("[analyze-content] Already analyzed (done), skipping AI call");
+      return new Response(
+        JSON.stringify({ success: true, cached: true, message: "Already analyzed" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check for duplicate URL from other items
+    if (urlHash && mode === "light") {
+      const { data: existingItems } = await supabase
+        .from("items")
+        .select("id, title, thumbnail_url, summary_3lines, tags, category_id, ai_confidence")
+        .eq("user_id", userId)
+        .eq("url_hash", urlHash)
+        .eq("ai_status", "done")
+        .neq("id", itemId)
+        .limit(1);
+
+      if (existingItems && existingItems.length > 0) {
+        const existing = existingItems[0];
+        console.log(`[analyze-content] Found existing analysis from item: ${existing.id}`);
+        
+        // Copy results from existing item
+        const copyData = {
+          title: existing.title || item.title,
+          thumbnail_url: existing.thumbnail_url,
+          summary_3lines: existing.summary_3lines,
+          tags: existing.tags,
+          category_id: existing.category_id,
+          ai_confidence: existing.ai_confidence,
+          ai_status: "done",
+          ai_error: null,
+          url_hash: urlHash,
+          analysis_mode: "light",
+          ai_finished_at: new Date().toISOString(),
+        };
+
+        await supabase
+          .from("items")
+          .update(copyData)
+          .eq("id", itemId)
+          .eq("user_id", userId);
+
+        console.log("[analyze-content] Copied existing analysis, no AI call needed");
+        return new Response(
+          JSON.stringify({ success: true, cached: true, data: copyData }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // Update status to processing with tracking info
+    const currentAttempts = (item.ai_attempts || 0) + 1;
     await supabase
       .from("items")
-      .update({ ai_status: "processing" })
-      .eq("id", item_id)
+      .update({ 
+        ai_status: "processing",
+        ai_started_at: new Date().toISOString(),
+        ai_attempts: currentAttempts,
+        url_hash: urlHash,
+        analysis_mode: mode,
+      })
+      .eq("id", itemId)
       .eq("user_id", userId);
+
+    console.log(`[analyze-content] Updated to processing (attempt ${currentAttempts})`);
 
     // Get user categories
     const { data: userCategories } = await supabase
@@ -156,7 +261,6 @@ serve(async (req) => {
       .order("sort_order", { ascending: true });
 
     const categoryList = userCategories || [];
-    const categoryNames = categoryList.map((c) => c.name);
 
     // Fetch metadata based on platform
     let title = item.title || "";
@@ -165,72 +269,81 @@ serve(async (req) => {
     let extractedText = "";
     const platform = detectPlatform(item.url || "");
 
+    console.log(`[analyze-content] Detected platform: ${platform}`);
+
     if (platform === "YouTube" && item.url) {
+      console.log("[analyze-content] Fetching YouTube oEmbed...");
       const oembedData = await fetchYouTubeOEmbed(item.url);
       if (oembedData) {
         title = oembedData.title || title;
         thumbnailUrl = oembedData.thumbnail_url || thumbnailUrl;
         description = `YouTube 영상 by ${oembedData.author_name || "Unknown"}`;
+        console.log(`[analyze-content] YouTube title: ${title}`);
       }
-      // Try to get higher quality thumbnail
       const videoId = getYouTubeVideoId(item.url);
       if (videoId) {
         thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
       }
     } else if (item.url) {
+      console.log("[analyze-content] Fetching Open Graph data...");
       const ogData = await fetchOpenGraphData(item.url);
       title = ogData.title || title;
       thumbnailUrl = ogData.image || thumbnailUrl;
       description = ogData.description || "";
+      console.log(`[analyze-content] OG title: ${title}`);
     }
 
     extractedText = [title, description].filter(Boolean).join("\n\n");
+    console.log(`[analyze-content] Extracted text length: ${extractedText.length}`);
 
-    // Call Lovable AI for analysis
+    // Default result (used if AI fails or not configured)
     let aiResult = {
-      title: title || "제목 없음",
-      summary_3: ["콘텐츠 요약을 불러오는 중...", "", ""],
+      title: title || item.title || "제목 없음",
+      summary_3: ["콘텐츠가 저장되었습니다.", "", ""],
       tags: ["저장됨"],
       category: "기타",
-      confidence: 0.5,
+      confidence: 0.3,
     };
 
+    // Call Lovable AI for analysis (LIGHT MODE)
     if (lovableApiKey) {
       try {
-        const categoryInfo = categoryList.map((c) => ({
+        const categoryInfo = categoryList.map((c: any) => ({
           name: c.name,
           keywords: c.keywords || "",
         }));
 
-        const prompt = `다음 콘텐츠를 분석해주세요.
+        // Light mode prompt - shorter, focused
+        const prompt = mode === "light" 
+          ? `콘텐츠 분석 (라이트 모드):
+
+URL: ${item.url || "없음"}
+플랫폼: ${platform}
+제목: ${title || "없음"}
+설명: ${description ? description.slice(0, 300) : "없음"}
+
+카테고리: ${categoryInfo.map((c: any) => c.name).join(", ")}
+
+JSON 응답:
+{"title":"제목(50자)","summary_3":["요약1(25-35자)","요약2(25-35자)","요약3(25-35자)"],"tags":["태그1","태그2","태그3","태그4","태그5"],"category":"카테고리명","confidence":0.8}
+
+규칙: summary_3는 한국어, 실용적 핵심 3개. tags 최대 5개. category는 위 목록에서 선택.`
+          : `콘텐츠 심층 분석:
 
 URL: ${item.url || "없음"}
 플랫폼: ${platform}
 제목: ${title || "없음"}
 설명: ${description || "없음"}
-추출 텍스트: ${extractedText || "없음"}
+추출 텍스트: ${extractedText.slice(0, 1000) || "없음"}
 
-사용자 카테고리 목록:
-${categoryInfo.map((c) => `- ${c.name}${c.keywords ? ` (키워드: ${c.keywords})` : ""}`).join("\n")}
+사용자 카테고리:
+${categoryInfo.map((c: any) => `- ${c.name}${c.keywords ? ` (${c.keywords})` : ""}`).join("\n")}
 
-다음 JSON 형식으로 응답해주세요:
-{
-  "title": "콘텐츠 제목 (한국어로, 50자 이내)",
-  "summary_3": ["첫번째 요약 포인트 (20-35자)", "두번째 요약 포인트 (20-35자)", "세번째 요약 포인트 (20-35자)"],
-  "tags": ["태그1", "태그2", "태그3"],
-  "category": "카테고리명",
-  "confidence": 0.0-1.0
-}
-
-규칙:
-- summary_3는 한국어로, 짧고 실용적인 핵심 포인트 3개
-- 건강/투자/요리/건축/렌더링툴 관련이면 '실행 팁' 중심으로 요약
-- category는 위 사용자 카테고리 중 가장 적합한 것 선택
-- 적합한 카테고리가 없으면 "기타"
-- confidence는 분류 확신도 (0.0~1.0)
-- 정보가 부족하면 confidence를 낮게`;
+JSON 응답:
+{"title":"제목","summary_3":["상세요약1","상세요약2","상세요약3"],"tags":["태그1","태그2","태그3","태그4","태그5","태그6","태그7"],"category":"카테고리명","confidence":0.0-1.0}`;
 
         console.log("[analyze-content] Calling Lovable AI...");
+        console.log(`[analyze-content] Prompt length: ${prompt.length}`);
 
         const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
@@ -241,29 +354,34 @@ ${categoryInfo.map((c) => `- ${c.name}${c.keywords ? ` (키워드: ${c.keywords}
           body: JSON.stringify({
             model: "google/gemini-3-flash-preview",
             messages: [
-              { role: "system", content: "당신은 콘텐츠 분석 전문가입니다. 주어진 콘텐츠를 분석하고 요약, 태그, 카테고리를 생성합니다. 항상 요청된 JSON 형식으로만 응답합니다." },
+              { role: "system", content: "콘텐츠 분석 전문가. JSON만 응답." },
               { role: "user", content: prompt },
             ],
-            temperature: 0.3,
+            temperature: 0.2,
+            max_tokens: 500,
           }),
         });
+
+        console.log(`[analyze-content] AI response status: ${aiResponse.status}`);
 
         if (aiResponse.ok) {
           const aiData = await aiResponse.json();
           const content = aiData.choices?.[0]?.message?.content || "";
-          console.log("[analyze-content] AI response:", content);
+          console.log("[analyze-content] AI response content:", content.slice(0, 200));
 
-          // Parse JSON from response
           const jsonMatch = content.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             const parsed = JSON.parse(jsonMatch[0]);
             aiResult = {
               title: parsed.title || title || "제목 없음",
               summary_3: Array.isArray(parsed.summary_3) ? parsed.summary_3.slice(0, 3) : ["요약 없음", "", ""],
-              tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 7) : [],
+              tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, mode === "light" ? 5 : 7) : [],
               category: parsed.category || "기타",
               confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
             };
+            console.log("[analyze-content] Parsed AI result successfully");
+          } else {
+            console.error("[analyze-content] Failed to parse JSON from AI response");
           }
         } else {
           const errorText = await aiResponse.text();
@@ -275,10 +393,11 @@ ${categoryInfo.map((c) => `- ${c.name}${c.keywords ? ` (키워드: ${c.keywords}
           if (aiResponse.status === 402) {
             throw new Error("AI 크레딧이 부족합니다.");
           }
+          throw new Error(`AI API error: ${aiResponse.status}`);
         }
-      } catch (aiError) {
+      } catch (aiError: any) {
         console.error("[analyze-content] AI processing error:", aiError);
-        // Continue with default values if AI fails
+        throw aiError; // Re-throw to trigger error handling
       }
     } else {
       console.log("[analyze-content] LOVABLE_API_KEY not configured, using defaults");
@@ -286,12 +405,11 @@ ${categoryInfo.map((c) => `- ${c.name}${c.keywords ? ` (키워드: ${c.keywords}
 
     // Find category ID
     let categoryId = item.category_id;
-    const matchedCategory = categoryList.find((c) => c.name === aiResult.category);
+    const matchedCategory = categoryList.find((c: any) => c.name === aiResult.category);
     if (matchedCategory) {
       categoryId = matchedCategory.id;
     } else {
-      // Fall back to default category
-      const defaultCategory = categoryList.find((c) => c.name === "기타");
+      const defaultCategory = categoryList.find((c: any) => c.name === "기타");
       if (defaultCategory) {
         categoryId = defaultCategory.id;
       }
@@ -306,61 +424,59 @@ ${categoryInfo.map((c) => `- ${c.name}${c.keywords ? ` (키워드: ${c.keywords}
       tags: aiResult.tags,
       category_id: categoryId,
       ai_confidence: aiResult.confidence,
-      ai_reason: `AI 자동 분류: ${aiResult.category} (신뢰도: ${Math.round(aiResult.confidence * 100)}%)`,
+      ai_reason: `AI ${mode === "light" ? "라이트" : "딥"} 분석: ${aiResult.category} (${Math.round(aiResult.confidence * 100)}%)`,
       extracted_text: extractedText || null,
       ai_status: "done",
       ai_error: null,
+      ai_finished_at: new Date().toISOString(),
+      url_hash: urlHash,
+      analysis_mode: mode,
     };
 
-    console.log("[analyze-content] Updating item with:", updateData);
+    console.log("[analyze-content] Updating item with results...");
 
     const { error: updateError } = await supabase
       .from("items")
       .update(updateData)
-      .eq("id", item_id)
+      .eq("id", itemId)
       .eq("user_id", userId);
 
     if (updateError) {
-      console.error("[analyze-content] Update error:", updateError);
+      console.error("[analyze-content] DB update error:", updateError);
       throw updateError;
     }
 
-    console.log(`[analyze-content] Successfully analyzed item: ${item_id}`);
+    console.log(`[analyze-content] ========== SUCCESS ==========`);
+    console.log(`[analyze-content] Item ${itemId} analyzed successfully`);
 
     return new Response(
       JSON.stringify({ success: true, data: updateData }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error) {
-    console.error("[analyze-content] Error:", error);
+  } catch (error: any) {
+    console.error("[analyze-content] ========== ERROR ==========");
+    console.error("[analyze-content] Error:", error.message || error);
 
-    // Try to update item with error status
-    try {
-      const authHeader = req.headers.get("Authorization");
-      if (authHeader) {
-        const supabase = createClient(
-          Deno.env.get("SUPABASE_URL")!,
-          Deno.env.get("SUPABASE_ANON_KEY")!,
-          { global: { headers: { Authorization: authHeader } } }
-        );
-        
-        const { item_id } = await req.json().catch(() => ({}));
-        if (item_id) {
-          await supabase
-            .from("items")
-            .update({
-              ai_status: "error",
-              ai_error: error instanceof Error ? error.message : "Unknown error",
-            })
-            .eq("id", item_id);
-        }
+    // Update item with error status
+    if (supabase && itemId && userId) {
+      try {
+        await supabase
+          .from("items")
+          .update({
+            ai_status: "error",
+            ai_error: error.message || "Unknown error",
+            ai_finished_at: new Date().toISOString(),
+          })
+          .eq("id", itemId)
+          .eq("user_id", userId);
+        console.log("[analyze-content] Updated item to error status");
+      } catch (e) {
+        console.error("[analyze-content] Failed to update error status:", e);
       }
-    } catch (e) {
-      console.error("[analyze-content] Failed to update error status:", e);
     }
 
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "Analysis failed" }),
+      JSON.stringify({ error: error.message || "Analysis failed" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

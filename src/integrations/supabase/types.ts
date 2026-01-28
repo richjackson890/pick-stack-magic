@@ -56,6 +56,7 @@ export type Database = {
           ai_error: string | null
           ai_reason: string | null
           ai_status: string
+          analysis_mode: string
           category_id: string | null
           created_at: string
           extracted_text: string | null
@@ -68,6 +69,7 @@ export type Database = {
           title: string
           updated_at: string
           url: string | null
+          url_hash: string | null
           user_id: string
           user_note: string | null
         }
@@ -76,6 +78,7 @@ export type Database = {
           ai_error?: string | null
           ai_reason?: string | null
           ai_status?: string
+          analysis_mode?: string
           category_id?: string | null
           created_at?: string
           extracted_text?: string | null
@@ -88,6 +91,7 @@ export type Database = {
           title: string
           updated_at?: string
           url?: string | null
+          url_hash?: string | null
           user_id: string
           user_note?: string | null
         }
@@ -96,6 +100,7 @@ export type Database = {
           ai_error?: string | null
           ai_reason?: string | null
           ai_status?: string
+          analysis_mode?: string
           category_id?: string | null
           created_at?: string
           extracted_text?: string | null
@@ -108,6 +113,7 @@ export type Database = {
           title?: string
           updated_at?: string
           url?: string | null
+          url_hash?: string | null
           user_id?: string
           user_note?: string | null
         }
@@ -123,6 +129,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          auto_analyze: boolean
           avatar_url: string | null
           created_at: string
           display_name: string | null
@@ -133,6 +140,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          auto_analyze?: boolean
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
@@ -143,6 +151,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          auto_analyze?: boolean
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null

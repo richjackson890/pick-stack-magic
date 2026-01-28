@@ -3,6 +3,8 @@ import { Platform } from '@/types/pickstack';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDbCategories } from '@/hooks/useDbCategories';
 import { useDbItems, DbItem } from '@/hooks/useDbItems';
+import { useUserSettings } from '@/hooks/useUserSettings';
+import { useBatchAnalyze } from '@/hooks/useBatchAnalyze';
 import { supabase } from '@/integrations/supabase/client';
 import { Header } from '@/components/Header';
 import { FilterBar } from '@/components/FilterBar';
@@ -14,12 +16,18 @@ import { BottomNav } from '@/components/BottomNav';
 import { HealthReport } from '@/components/HealthReport';
 import { CategoryManagement } from '@/components/CategoryManagement';
 import { EmptyState } from '@/components/EmptyState';
-import { Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { Loader2, Zap, Play } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
   const { user } = useAuth();
+  const { toast } = useToast();
   const { categories, loading: categoriesLoading, getCategoryById, getDefaultCategory, addCategory, updateCategory, deleteCategory, reorderCategories } = useDbCategories();
   const { items, loading: itemsLoading, addItem, updateItem, deleteItem, refetch } = useDbItems();
+  const { settings, updateAutoAnalyze } = useUserSettings();
+  const { analyzePending, isProcessing, progress } = useBatchAnalyze();
   
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
@@ -47,9 +55,19 @@ const Index = () => {
     });
   }, [items, selectedCategoryId, selectedPlatform, searchQuery]);
 
+  // Count pending items for batch analyze
+  const pendingItems = useMemo(() => items.filter(i => i.ai_status === 'pending'), [items]);
+
   // Check if health category is selected
   const healthCategory = categories.find((c) => c.name === '건강');
   const isHealthSelected = selectedCategoryId === healthCategory?.id;
+
+  // Handle batch analyze
+  const handleBatchAnalyze = async () => {
+    const ids = pendingItems.map(i => i.id);
+    await analyzePending(ids);
+    refetch();
+  };
 
   const handleSave = async (newItem: {
     source_type: 'url' | 'text' | 'image';
@@ -78,8 +96,13 @@ const Index = () => {
       ai_reason: newItem.ai_reason || null,
       ai_status: 'pending',
       ai_error: null,
+      ai_started_at: null,
+      ai_finished_at: null,
+      ai_attempts: 0,
       extracted_text: null,
-    });
+      url_hash: null,
+      analysis_mode: 'light',
+    } as any);
     
     // Trigger content analysis in background
     if (savedItem?.id) {
@@ -87,17 +110,20 @@ const Index = () => {
     }
   };
   
-  // Trigger analysis via edge function
+  // Trigger analysis via edge function (respects auto_analyze setting)
   const triggerAnalysis = async (itemId: string) => {
+    if (!settings.auto_analyze) {
+      console.log('[Index] Auto-analyze disabled, skipping');
+      return;
+    }
     try {
       console.log('[Index] Triggering analysis for:', itemId);
       const { error } = await supabase.functions.invoke('analyze-content', {
-        body: { item_id: itemId },
+        body: { item_id: itemId, mode: 'light' },
       });
       if (error) {
         console.error('[Index] Analysis trigger error:', error);
       } else {
-        // Refetch items after analysis
         setTimeout(() => refetch(), 2000);
       }
     } catch (e) {
