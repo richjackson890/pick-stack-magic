@@ -313,34 +313,66 @@ serve(async (req) => {
           keywords: c.keywords || "",
         }));
 
-        // Light mode prompt - shorter, focused
+        // Build category context with keywords for better matching
+        const categoryContext = categoryInfo.map((c: any) => 
+          `${c.name}${c.keywords ? ` [키워드: ${c.keywords}]` : ""}`
+        ).join("\n");
+
+        // Light mode prompt - with user category priority
         const prompt = mode === "light" 
-          ? `콘텐츠 분석 (라이트 모드):
+          ? `콘텐츠 분석:
 
 URL: ${item.url || "없음"}
 플랫폼: ${platform}
 제목: ${title || "없음"}
-설명: ${description ? description.slice(0, 300) : "없음"}
+설명: ${description ? description.slice(0, 500) : "없음"}
 
-카테고리: ${categoryInfo.map((c: any) => c.name).join(", ")}
+[사용자 카테고리 목록 - 반드시 이 중에서 선택]:
+${categoryContext}
 
-JSON 응답:
-{"title":"제목(50자)","summary_3":["요약1(25-35자)","요약2(25-35자)","요약3(25-35자)"],"tags":["태그1","태그2","태그3","태그4","태그5"],"category":"카테고리명","confidence":0.8}
+JSON 응답 (반드시 이 형식):
+{
+  "title": "콘텐츠 제목 (50자 이내)",
+  "summary_3": ["핵심요약1 (25-35자)", "핵심요약2 (25-35자)", "핵심요약3 (25-35자)"],
+  "tags": ["태그1", "태그2", "태그3", "태그4", "태그5"],
+  "final_category": "카테고리명",
+  "confidence": 0.0-1.0,
+  "why_category": "분류 근거 한 문장"
+}
 
-규칙: summary_3는 한국어, 실용적 핵심 3개. tags 최대 5개. category는 위 목록에서 선택.`
+분류 규칙:
+1. final_category는 반드시 위 카테고리 목록 중 하나만 선택
+2. 키워드가 있으면 해당 키워드와 콘텐츠 매칭 우선 고려
+3. 건강 관련: 루틴/실행 관점 (시간대, 횟수, 주의사항 형태로)
+4. 투자/의학/법률: 단정 금지, "참고/일반 정보" 톤 유지
+5. 애매하면 "기타" 선택
+6. summary_3는 한국어, 실용적 핵심 3개`
           : `콘텐츠 심층 분석:
 
 URL: ${item.url || "없음"}
 플랫폼: ${platform}
 제목: ${title || "없음"}
 설명: ${description || "없음"}
-추출 텍스트: ${extractedText.slice(0, 1000) || "없음"}
+추출 텍스트: ${extractedText.slice(0, 1500) || "없음"}
 
-사용자 카테고리:
-${categoryInfo.map((c: any) => `- ${c.name}${c.keywords ? ` (${c.keywords})` : ""}`).join("\n")}
+[사용자 카테고리 목록]:
+${categoryContext}
 
 JSON 응답:
-{"title":"제목","summary_3":["상세요약1","상세요약2","상세요약3"],"tags":["태그1","태그2","태그3","태그4","태그5","태그6","태그7"],"category":"카테고리명","confidence":0.0-1.0}`;
+{
+  "title": "콘텐츠 제목",
+  "summary_3": ["상세요약1", "상세요약2", "상세요약3"],
+  "tags": ["태그1", "태그2", "태그3", "태그4", "태그5", "태그6", "태그7"],
+  "final_category": "카테고리명",
+  "confidence": 0.0-1.0,
+  "why_category": "분류 근거"
+}
+
+분류 규칙:
+1. final_category는 위 목록 중 하나만 선택
+2. 사용자 카테고리 키워드 우선 매칭
+3. 건강 관련: 루틴/실행 관점 문장
+4. 투자/의학/법률: 단정 금지`;
 
         console.log("[analyze-content] Calling Lovable AI...");
         console.log(`[analyze-content] Prompt length: ${prompt.length}`);
@@ -376,10 +408,13 @@ JSON 응답:
               title: parsed.title || title || "제목 없음",
               summary_3: Array.isArray(parsed.summary_3) ? parsed.summary_3.slice(0, 3) : ["요약 없음", "", ""],
               tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, mode === "light" ? 5 : 7) : [],
-              category: parsed.category || "기타",
+              category: parsed.final_category || parsed.category || "기타",
               confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
             };
-            console.log("[analyze-content] Parsed AI result successfully");
+            console.log(`[analyze-content] Parsed AI result: category=${aiResult.category}, confidence=${aiResult.confidence}`);
+            if (parsed.why_category) {
+              console.log(`[analyze-content] Category reason: ${parsed.why_category}`);
+            }
           } else {
             console.error("[analyze-content] Failed to parse JSON from AI response");
           }

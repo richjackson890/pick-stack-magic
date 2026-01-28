@@ -19,11 +19,10 @@ interface FilterBarProps {
   onPlatformChange: (platform: Platform | null) => void;
   onSearchChange: (query: string) => void;
   onViewModeChange: (mode: 'grid' | 'list' | 'masonry') => void;
-  onHealthSummary?: () => void;
   onAddCategory?: () => void;
 }
 
-export function FilterBar({ categories, selectedCategoryId, selectedPlatform, searchQuery, viewMode, onCategoryChange, onPlatformChange, onSearchChange, onViewModeChange, onHealthSummary, onAddCategory }: FilterBarProps) {
+export function FilterBar({ categories, selectedCategoryId, selectedPlatform, searchQuery, viewMode, onCategoryChange, onPlatformChange, onSearchChange, onViewModeChange, onAddCategory }: FilterBarProps) {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const sortedCategories = [...categories].sort((a, b) => a.sort_order - b.sort_order);
 
@@ -35,7 +34,7 @@ export function FilterBar({ categories, selectedCategoryId, selectedPlatform, se
             <Search className="h-3.5 w-3.5 text-muted-foreground" />
             <Input type="text" placeholder="검색..." value={searchQuery} onChange={(e) => onSearchChange(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setIsSearchFocused(false)} className="border-0 bg-transparent h-6 px-0 text-sm focus-visible:ring-0" />
           </div>
-          {onHealthSummary && <Button variant="outline" size="sm" onClick={onHealthSummary} className="h-8 px-2.5 text-xs gap-1.5"><Activity className="h-3.5 w-3.5" />종합요약</Button>}
+          
           <Popover>
             <PopoverTrigger asChild><Button variant={selectedPlatform ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8">{selectedPlatform ? <PlatformIcon platform={selectedPlatform} size="sm" /> : <SlidersHorizontal className="h-3.5 w-3.5" />}</Button></PopoverTrigger>
             <PopoverContent className="w-72 p-3" align="end">
