@@ -1,6 +1,8 @@
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { Platform } from '@/types/pickstack';
 import { cn } from '@/lib/utils';
+import { IconDisplay } from '@/components/IconPicker';
+import { migrateIconKey } from '@/lib/iconRegistry';
 
 interface FallbackCoverProps {
   platform: Platform;
@@ -112,7 +114,11 @@ export function FallbackCover({
           </div>
           
           {categoryIcon && (
-            <span className="text-white/80 text-xs">{categoryIcon}</span>
+            <IconDisplay 
+              iconKey={migrateIconKey(categoryIcon)} 
+              size="sm" 
+              className="text-white/80" 
+            />
           )}
         </div>
 

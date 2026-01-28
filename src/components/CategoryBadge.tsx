@@ -1,5 +1,7 @@
 import { DbCategory } from '@/hooks/useDbCategories';
 import { cn } from '@/lib/utils';
+import { IconDisplay } from '@/components/IconPicker';
+import { migrateIconKey } from '@/lib/iconRegistry';
 
 interface CategoryBadgeProps {
   category?: DbCategory;
@@ -21,9 +23,14 @@ export function CategoryBadge({
     md: 'text-xs px-3 py-1 gap-1.5',
   };
 
+  const iconSizes = {
+    sm: 'sm' as const,
+    md: 'sm' as const,
+  };
+
   const displayColor = category?.color || '#6b7280';
   const displayName = category?.name || '기타';
-  const displayIcon = category?.icon;
+  const displayIcon = migrateIconKey(category?.icon || null);
 
   return (
     <button
@@ -38,8 +45,8 @@ export function CategoryBadge({
       )}
       style={{ backgroundColor: displayColor }}
     >
-      {showIcon && displayIcon && (
-        <span className="text-[0.8em]">{displayIcon}</span>
+      {showIcon && (
+        <IconDisplay iconKey={displayIcon} size={iconSizes[size]} className="text-white/90" />
       )}
       {displayName}
     </button>
@@ -54,6 +61,8 @@ interface CategoryChipProps {
 }
 
 export function CategoryChip({ category, selected, onClick }: CategoryChipProps) {
+  const iconKey = migrateIconKey(category.icon || null);
+
   return (
     <button
       onClick={onClick}
@@ -65,7 +74,7 @@ export function CategoryChip({ category, selected, onClick }: CategoryChipProps)
       )}
       style={selected ? { backgroundColor: category.color } : undefined}
     >
-      {category.icon && <span>{category.icon}</span>}
+      <IconDisplay iconKey={iconKey} size="sm" className={selected ? 'text-white/90' : ''} />
       {category.name}
     </button>
   );

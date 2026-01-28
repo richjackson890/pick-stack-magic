@@ -16,8 +16,11 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Plus, GripVertical, Pencil, Trash2, Settings } from 'lucide-react';
+import { Plus, GripVertical, Pencil, Trash2, Settings, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { IconPicker, IconDisplay } from '@/components/IconPicker';
+import { CategoryTemplates } from '@/components/CategoryTemplates';
+import { CategoryTemplate, migrateIconKey } from '@/lib/iconRegistry';
 
 interface CategoryManagementProps {
   isOpen: boolean;
@@ -30,25 +33,23 @@ interface CategoryManagementProps {
 }
 
 const PRESET_COLORS = [
-  '#10b981', '#3b82f6', '#f97316', '#8b5cf6', '#ec4899',
-  '#ef4444', '#14b8a6', '#f59e0b', '#6366f1', '#84cc16',
-];
-
-const PRESET_EMOJIS = [
-  '💪', '📈', '🍳', '🏛️', '🎨', '📁', '💡', '🎯', '🔥', '⭐',
-  '🎵', '📚', '✈️', '🛒', '💻', '🎮', '📷', '🌱', '🏠', '❤️',
+  '#10b981', '#22c55e', '#14b8a6', '#06b6d4', '#0ea5e9',
+  '#3b82f6', '#6366f1', '#8b5cf6', '#a855f7', '#d946ef',
+  '#ec4899', '#f43f5e', '#ef4444', '#f97316', '#f59e0b',
+  '#eab308', '#84cc16', '#64748b',
 ];
 
 export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdate, onDelete, onReorder }: CategoryManagementProps) {
   const [editingCategory, setEditingCategory] = useState<DbCategory | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<DbCategory | null>(null);
+  const [isTemplatesOpen, setIsTemplatesOpen] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
 
   // Form state
   const [formName, setFormName] = useState('');
   const [formColor, setFormColor] = useState(PRESET_COLORS[0]);
-  const [formIcon, setFormIcon] = useState('📁');
+  const [formIcon, setFormIcon] = useState('emoji:📁');
   const [formKeywords, setFormKeywords] = useState('');
 
   const sortedCategories = [...categories].sort((a, b) => a.sort_order - b.sort_order);
@@ -56,7 +57,7 @@ export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdat
   const resetForm = () => {
     setFormName('');
     setFormColor(PRESET_COLORS[0]);
-    setFormIcon('📁');
+    setFormIcon('emoji:📁');
     setFormKeywords('');
   };
 
@@ -68,7 +69,7 @@ export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdat
   const openEditDialog = (category: DbCategory) => {
     setFormName(category.name);
     setFormColor(category.color);
-    setFormIcon(category.icon || '📁');
+    setFormIcon(migrateIconKey(category.icon));
     setFormKeywords(category.keywords || '');
     setEditingCategory(category);
   };
@@ -100,6 +101,17 @@ export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdat
     if (deleteConfirm) {
       await onDelete(deleteConfirm.id);
       setDeleteConfirm(null);
+    }
+  };
+
+  const handleTemplatesSelect = async (templates: CategoryTemplate[]) => {
+    for (const template of templates) {
+      await onAdd({
+        name: template.name,
+        color: template.color,
+        icon: template.icon,
+        keywords: template.keywords,
+      });
     }
   };
 
@@ -135,6 +147,16 @@ export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdat
           </SheetHeader>
 
           <div className="mt-6 space-y-4">
+            {/* Quick Add Templates */}
+            <Button
+              variant="outline"
+              className="w-full bg-gradient-to-r from-primary/5 to-violet-500/5 border-primary/20 hover:border-primary/40"
+              onClick={() => setIsTemplatesOpen(true)}
+            >
+              <Sparkles className="h-4 w-4 mr-2 text-primary" />
+              추천 카테고리에서 추가
+            </Button>
+
             {/* Category List */}
             <div className="space-y-2">
               {sortedCategories.map((category, index) => (
@@ -155,10 +177,14 @@ export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdat
                   )}
                   
                   <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm"
+                    className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-sm shadow-inner"
                     style={{ backgroundColor: category.color }}
                   >
-                    {category.icon || '📁'}
+                    <IconDisplay 
+                      iconKey={migrateIconKey(category.icon)} 
+                      size="sm" 
+                      className="text-white drop-shadow-sm" 
+                    />
                   </div>
 
                   <div className="flex-1 min-w-0">
@@ -201,7 +227,7 @@ export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdat
               onClick={openAddDialog}
             >
               <Plus className="h-4 w-4 mr-2" />
-              카테고리 추가
+              새 카테고리 추가
             </Button>
 
             <p className="text-xs text-muted-foreground text-center">
@@ -228,6 +254,16 @@ export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdat
           </DialogHeader>
 
           <div className="space-y-4">
+            {/* Preview */}
+            <div className="flex items-center justify-center py-4">
+              <div 
+                className="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl shadow-lg"
+                style={{ backgroundColor: formColor }}
+              >
+                <IconDisplay iconKey={formIcon} size="lg" className="text-white drop-shadow-md scale-125" />
+              </div>
+            </div>
+
             <div>
               <label className="text-sm font-medium">이름</label>
               <Input
@@ -239,35 +275,41 @@ export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdat
             </div>
 
             <div>
-              <label className="text-sm font-medium">아이콘</label>
-              <div className="flex flex-wrap gap-2 mt-1">
-                {PRESET_EMOJIS.map((emoji) => (
+              <label className="text-sm font-medium mb-2 block">아이콘</label>
+              <IconPicker 
+                value={formIcon} 
+                onChange={setFormIcon} 
+                color={formColor}
+                trigger={
                   <button
-                    key={emoji}
-                    onClick={() => setFormIcon(emoji)}
                     className={cn(
-                      'w-9 h-9 rounded-lg flex items-center justify-center text-lg transition-all',
-                      formIcon === emoji
-                        ? 'bg-primary text-primary-foreground ring-2 ring-primary'
-                        : 'bg-secondary hover:bg-secondary/80'
+                      'w-full h-12 rounded-lg flex items-center justify-center gap-3 transition-all',
+                      'border-2 border-dashed border-muted-foreground/30 hover:border-primary/50',
+                      'bg-muted/50 hover:bg-muted'
                     )}
                   >
-                    {emoji}
+                    <div 
+                      className="w-8 h-8 rounded-lg flex items-center justify-center"
+                      style={{ backgroundColor: formColor }}
+                    >
+                      <IconDisplay iconKey={formIcon} size="md" className="text-white" />
+                    </div>
+                    <span className="text-sm text-muted-foreground">아이콘 변경</span>
                   </button>
-                ))}
-              </div>
+                }
+              />
             </div>
 
             <div>
               <label className="text-sm font-medium">색상</label>
-              <div className="flex flex-wrap gap-2 mt-1">
+              <div className="flex flex-wrap gap-2 mt-2">
                 {PRESET_COLORS.map((color) => (
                   <button
                     key={color}
                     onClick={() => setFormColor(color)}
                     className={cn(
-                      'w-8 h-8 rounded-full transition-all',
-                      formColor === color && 'ring-2 ring-offset-2 ring-foreground'
+                      'w-7 h-7 rounded-full transition-all hover:scale-110',
+                      formColor === color && 'ring-2 ring-offset-2 ring-foreground scale-110'
                     )}
                     style={{ backgroundColor: color }}
                   />
@@ -328,6 +370,14 @@ export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdat
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Category Templates Dialog */}
+      <CategoryTemplates
+        isOpen={isTemplatesOpen}
+        onClose={() => setIsTemplatesOpen(false)}
+        onSelectTemplates={handleTemplatesSelect}
+        existingCategoryNames={categories.map(c => c.name)}
+      />
     </>
   );
 }
