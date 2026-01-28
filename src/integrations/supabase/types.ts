@@ -53,9 +53,12 @@ export type Database = {
       items: {
         Row: {
           ai_confidence: number | null
+          ai_error: string | null
           ai_reason: string | null
+          ai_status: string
           category_id: string | null
           created_at: string
+          extracted_text: string | null
           id: string
           platform: string
           source_type: string
@@ -70,9 +73,12 @@ export type Database = {
         }
         Insert: {
           ai_confidence?: number | null
+          ai_error?: string | null
           ai_reason?: string | null
+          ai_status?: string
           category_id?: string | null
           created_at?: string
+          extracted_text?: string | null
           id?: string
           platform?: string
           source_type?: string
@@ -87,9 +93,12 @@ export type Database = {
         }
         Update: {
           ai_confidence?: number | null
+          ai_error?: string | null
           ai_reason?: string | null
+          ai_status?: string
           category_id?: string | null
           created_at?: string
+          extracted_text?: string | null
           id?: string
           platform?: string
           source_type?: string

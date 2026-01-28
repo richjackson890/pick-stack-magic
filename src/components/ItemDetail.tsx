@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { DbItem } from '@/hooks/useDbItems';
+import { DbItem, AiStatus } from '@/hooks/useDbItems';
 import { DbCategory } from '@/hooks/useDbCategories';
 import { CategoryChip } from '@/components/CategoryBadge';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { ExternalLink, Calendar, Trash2 } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { ExternalLink, Calendar, Trash2, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,6 +19,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface ItemDetailProps {
   item: DbItem | null;
@@ -26,11 +29,14 @@ interface ItemDetailProps {
   onClose: () => void;
   onUpdate?: (id: string, updates: Partial<DbItem>) => void;
   onDelete?: (id: string) => void;
+  onRefetch?: () => void;
 }
 
-export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDelete }: ItemDetailProps) {
+export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDelete, onRefetch }: ItemDetailProps) {
+  const { toast } = useToast();
   const [note, setNote] = useState(item?.user_note || '');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [isReanalyzing, setIsReanalyzing] = useState(false);
 
   useEffect(() => { if (item) setNote(item.user_note || ''); }, [item]);
 
@@ -52,6 +58,139 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
   const handleDelete = () => {
     onDelete?.(item.id);
     onClose();
+  };
+
+  const handleReanalyze = async () => {
+    setIsReanalyzing(true);
+    try {
+      console.log('[ItemDetail] Reanalyzing item:', item.id);
+      
+      // Update status to pending first
+      onUpdate?.(item.id, { ai_status: 'pending', ai_error: null });
+      
+      const { error } = await supabase.functions.invoke('analyze-content', {
+        body: { item_id: item.id },
+      });
+
+      if (error) {
+        console.error('[ItemDetail] Reanalysis error:', error);
+        toast({
+          title: '재분석 실패',
+          description: error.message || '다시 시도해주세요.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'AI 재분석 완료',
+          description: '콘텐츠가 다시 분석되었습니다.',
+        });
+        // Refetch to get updated data
+        onRefetch?.();
+      }
+    } catch (e: any) {
+      console.error('[ItemDetail] Reanalysis failed:', e);
+      toast({
+        title: '재분석 실패',
+        description: e.message || '다시 시도해주세요.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsReanalyzing(false);
+    }
+  };
+
+  const renderSummary = () => {
+    const status = item.ai_status || 'pending';
+    
+    if (status === 'pending' || status === 'processing' || isReanalyzing) {
+      return (
+        <div className="bg-secondary/50 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            AI 분석 중...
+          </h3>
+          <div className="space-y-2.5">
+            <Skeleton className="h-4 w-full" />
+            <Skeleton className="h-4 w-5/6" />
+            <Skeleton className="h-4 w-4/6" />
+          </div>
+        </div>
+      );
+    }
+    
+    if (status === 'error') {
+      return (
+        <div className="bg-destructive/10 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-destructive mb-2 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4" />
+            분석 실패
+          </h3>
+          <p className="text-xs text-muted-foreground mb-3">
+            {item.ai_error || '콘텐츠를 분석하는 중 오류가 발생했습니다.'}
+          </p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleReanalyze}
+            disabled={isReanalyzing}
+          >
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            다시 시도
+          </Button>
+        </div>
+      );
+    }
+    
+    // status === 'done'
+    const summaryLines = item.summary_3lines.filter(Boolean);
+    
+    if (summaryLines.length === 0) {
+      return (
+        <div className="bg-secondary/50 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-foreground mb-2">✨ AI 3줄 요약</h3>
+          <p className="text-sm text-muted-foreground">요약 정보가 없습니다.</p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="mt-2"
+            onClick={handleReanalyze}
+            disabled={isReanalyzing}
+          >
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            AI 분석 요청
+          </Button>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="bg-secondary/50 rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-semibold text-foreground">✨ AI 3줄 요약</h3>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-7 px-2"
+            onClick={handleReanalyze}
+            disabled={isReanalyzing}
+          >
+            <RefreshCw className={`h-3 w-3 ${isReanalyzing ? 'animate-spin' : ''}`} />
+          </Button>
+        </div>
+        <ul className="space-y-2.5">
+          {summaryLines.map((line, idx) => (
+            <li key={idx} className="flex items-start gap-2.5 text-sm leading-relaxed text-foreground/90">
+              <span className="text-primary font-semibold shrink-0">{idx + 1}.</span>{line}
+            </li>
+          ))}
+        </ul>
+        {item.ai_confidence !== null && (
+          <p className="text-[10px] text-muted-foreground mt-3">
+            AI 분류 신뢰도: {Math.round((item.ai_confidence || 0) * 100)}%
+          </p>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -76,18 +215,7 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
           </div>
           <div><h1 className="text-lg font-bold text-foreground leading-snug mb-1">{item.title}</h1><span className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />{formattedDate}</span></div>
           
-          {item.summary_3lines.length > 0 && (
-            <div className="bg-secondary/50 rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-foreground mb-3">✨ AI 3줄 요약</h3>
-              <ul className="space-y-2.5">
-                {item.summary_3lines.map((line, idx) => (
-                  <li key={idx} className="flex items-start gap-2.5 text-sm leading-relaxed text-foreground/90">
-                    <span className="text-primary font-semibold shrink-0">{idx + 1}.</span>{line}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          {renderSummary()}
           
           {item.tags.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
