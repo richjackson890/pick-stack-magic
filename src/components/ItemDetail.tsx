@@ -172,7 +172,30 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
       );
     }
     
-    if (status === 'pending' || status === 'processing' || isReanalyzing) {
+    // PENDING: Show "waiting" with "Analyze Now" button
+    if (status === 'pending' && !isReanalyzing) {
+      return (
+        <div className="bg-muted/50 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+            ⏳ 분석 대기중
+          </h3>
+          <p className="text-xs text-muted-foreground mb-3">
+            AI 분석이 아직 시작되지 않았습니다.
+          </p>
+          <Button 
+            variant="default" 
+            size="sm" 
+            onClick={() => handleReanalyze('light')}
+          >
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            지금 분석하기
+          </Button>
+        </div>
+      );
+    }
+    
+    // PROCESSING: Show loading spinner
+    if (status === 'processing' || isReanalyzing) {
       return (
         <div className="bg-secondary/50 rounded-lg p-4">
           <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
