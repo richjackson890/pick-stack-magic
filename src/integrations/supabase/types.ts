@@ -52,9 +52,12 @@ export type Database = {
       }
       items: {
         Row: {
+          ai_attempts: number
           ai_confidence: number | null
           ai_error: string | null
+          ai_finished_at: string | null
           ai_reason: string | null
+          ai_started_at: string | null
           ai_status: string
           analysis_mode: string
           category_id: string | null
@@ -74,9 +77,12 @@ export type Database = {
           user_note: string | null
         }
         Insert: {
+          ai_attempts?: number
           ai_confidence?: number | null
           ai_error?: string | null
+          ai_finished_at?: string | null
           ai_reason?: string | null
+          ai_started_at?: string | null
           ai_status?: string
           analysis_mode?: string
           category_id?: string | null
@@ -96,9 +102,12 @@ export type Database = {
           user_note?: string | null
         }
         Update: {
+          ai_attempts?: number
           ai_confidence?: number | null
           ai_error?: string | null
+          ai_finished_at?: string | null
           ai_reason?: string | null
+          ai_started_at?: string | null
           ai_status?: string
           analysis_mode?: string
           category_id?: string | null
