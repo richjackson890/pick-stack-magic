@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { isForceTextThumb } from '@/components/PickStackThumbs';
 
 interface GenerateCoverParams {
   itemId: string;
@@ -9,6 +10,7 @@ interface GenerateCoverParams {
   tags?: string[];
   categoryName?: string;
   platform?: string;
+  sourceUrl?: string;
 }
 
 export function useGenerateCover() {
@@ -22,7 +24,17 @@ export function useGenerateCover() {
     tags,
     categoryName,
     platform,
+    sourceUrl,
   }: GenerateCoverParams): Promise<string | null> => {
+    // 인스타/쓰레드는 AI 커버 생성 스킵 (텍스트 썸네일 사용)
+    if (isForceTextThumb(sourceUrl)) {
+      toast({
+        title: '텍스트 썸네일 사용',
+        description: '이 플랫폼은 텍스트 기반 썸네일이 표시됩니다.',
+      });
+      return null;
+    }
+
     setIsGenerating(true);
 
     try {
