@@ -44,12 +44,21 @@ function isProcessingStuck(item: DbItem): boolean {
   return (now - startedAt) > fiveMinutes;
 }
 
+interface DebugRequestInfo {
+  url: string;
+  hasAuth: boolean;
+  status: number | null;
+  body: string | null;
+  timestamp: string;
+}
+
 export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDelete, onRefetch }: ItemDetailProps) {
   const { toast } = useToast();
   const [note, setNote] = useState(item?.user_note || '');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
+  const [debugRequest, setDebugRequest] = useState<DebugRequestInfo | null>(null);
 
   // Check for debug mode in URL
   useEffect(() => {
@@ -82,15 +91,36 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
 
   const handleReanalyze = async (mode: 'light' | 'deep' = 'light') => {
     setIsReanalyzing(true);
+    setDebugRequest(null);
+    
+    // Build the endpoint URL for debug display
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const endpointUrl = `${supabaseUrl}/functions/v1/analyze-content`;
+    
     try {
       console.log('[ItemDetail] Reanalyzing item:', item.id, 'mode:', mode);
       
       // Reset status first
       onUpdate?.(item.id, { ai_status: 'pending', ai_error: null });
       
+      // Get session to check auth header
+      const { data: sessionData } = await supabase.auth.getSession();
+      const hasAuth = !!sessionData?.session?.access_token;
+      
       const { data, error } = await supabase.functions.invoke('analyze-content', {
         body: { item_id: item.id, mode },
       });
+
+      // Update debug info
+      if (showDebug) {
+        setDebugRequest({
+          url: endpointUrl,
+          hasAuth,
+          status: error ? (error as any).status || 500 : 200,
+          body: JSON.stringify(error || data, null, 2),
+          timestamp: new Date().toLocaleString('ko-KR'),
+        });
+      }
 
       if (error) {
         console.error('[ItemDetail] Reanalysis error:', error);
@@ -114,6 +144,17 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
       }
     } catch (e: any) {
       console.error('[ItemDetail] Reanalysis failed:', e);
+      
+      if (showDebug) {
+        setDebugRequest({
+          url: endpointUrl,
+          hasAuth: false,
+          status: null,
+          body: e.message || String(e),
+          timestamp: new Date().toLocaleString('ko-KR'),
+        });
+      }
+      
       toast({
         title: '재분석 실패',
         description: e.message || '다시 시도해주세요.',
@@ -141,6 +182,23 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
         <p><span className="text-muted-foreground">url_hash:</span> {item.url_hash || 'null'}</p>
         {item.ai_error && <p className="text-destructive"><span className="text-muted-foreground">ai_error:</span> {item.ai_error}</p>}
         {isStuck && <p className="text-orange-600 font-semibold">⚠️ Processing 5분 초과 (stuck)</p>}
+        
+        {/* Edge Function Request Debug */}
+        {debugRequest && (
+          <div className="mt-3 pt-3 border-t border-muted-foreground/20 space-y-1">
+            <div className="font-semibold text-primary mb-1">🔗 Last Edge Function Call</div>
+            <p><span className="text-muted-foreground">timestamp:</span> {debugRequest.timestamp}</p>
+            <p className="break-all"><span className="text-muted-foreground">url:</span> {debugRequest.url}</p>
+            <p><span className="text-muted-foreground">Authorization:</span> {debugRequest.hasAuth ? <span className="text-green-600">✓ Present</span> : <span className="text-destructive">✗ Missing</span>}</p>
+            <p><span className="text-muted-foreground">status:</span> <span className={debugRequest.status === 200 ? 'text-green-600' : 'text-destructive'}>{debugRequest.status ?? 'N/A'}</span></p>
+            <div>
+              <span className="text-muted-foreground">response:</span>
+              <pre className="mt-1 p-2 bg-background rounded text-[10px] overflow-x-auto max-h-40 overflow-y-auto whitespace-pre-wrap break-all">
+                {debugRequest.body}
+              </pre>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
