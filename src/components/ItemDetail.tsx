@@ -78,21 +78,23 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
     }
   }, [isReanalyzing]);
 
+  // 인스타/쓰레드는 무조건 텍스트 썸네일 사용 (훅은 조건문 전에 위치해야 함)
+  const forceTextThumbnail = useMemo(() => {
+    if (!item) return false;
+    return isForceTextThumb(item.url) || isForceTextThumb(item.thumbnail_url);
+  }, [item?.url, item?.thumbnail_url]);
+  
+  const keywords = useMemo(() => {
+    if (!item) return [];
+    return (item.tags?.length ? item.tags : fallbackKeywords(item.title)) as string[];
+  }, [item?.tags, item?.title]);
+
   if (!item) return null;
 
   const currentCategory = categories.find(c => c.id === item.category_id);
   const formattedDate = new Date(item.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
   const isStuck = isProcessingStuck(item);
   const isAiGenerated = item.thumbnail_url?.includes('/covers/');
-  
-  // 인스타/쓰레드는 무조건 텍스트 썸네일 사용
-  const forceTextThumbnail = useMemo(() => {
-    return isForceTextThumb(item.url) || isForceTextThumb(item.thumbnail_url);
-  }, [item.url, item.thumbnail_url]);
-  
-  const keywords = useMemo(() => {
-    return (item.tags?.length ? item.tags : fallbackKeywords(item.title)) as string[];
-  }, [item.tags, item.title]);
 
   const handleNoteChange = (value: string) => { 
     setNote(value); 
