@@ -3,6 +3,7 @@ import { Platform } from '@/types/pickstack';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDbCategories } from '@/hooks/useDbCategories';
 import { useDbItems, DbItem } from '@/hooks/useDbItems';
+import { supabase } from '@/integrations/supabase/client';
 import { Header } from '@/components/Header';
 import { FilterBar } from '@/components/FilterBar';
 import { SavedItemCard } from '@/components/SavedItemCard';
@@ -18,7 +19,7 @@ import { Loader2 } from 'lucide-react';
 const Index = () => {
   const { user } = useAuth();
   const { categories, loading: categoriesLoading, getCategoryById, getDefaultCategory, addCategory, updateCategory, deleteCategory, reorderCategories } = useDbCategories();
-  const { items, loading: itemsLoading, addItem, updateItem, deleteItem } = useDbItems();
+  const { items, loading: itemsLoading, addItem, updateItem, deleteItem, refetch } = useDbItems();
   
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
@@ -63,7 +64,7 @@ const Index = () => {
     ai_confidence?: number;
     ai_reason?: string;
   }) => {
-    await addItem({
+    const savedItem = await addItem({
       source_type: newItem.source_type,
       url: newItem.url || null,
       title: newItem.title,
@@ -75,7 +76,33 @@ const Index = () => {
       user_note: newItem.user_note || null,
       ai_confidence: newItem.ai_confidence || null,
       ai_reason: newItem.ai_reason || null,
+      ai_status: 'pending',
+      ai_error: null,
+      extracted_text: null,
     });
+    
+    // Trigger content analysis in background
+    if (savedItem?.id) {
+      triggerAnalysis(savedItem.id);
+    }
+  };
+  
+  // Trigger analysis via edge function
+  const triggerAnalysis = async (itemId: string) => {
+    try {
+      console.log('[Index] Triggering analysis for:', itemId);
+      const { error } = await supabase.functions.invoke('analyze-content', {
+        body: { item_id: itemId },
+      });
+      if (error) {
+        console.error('[Index] Analysis trigger error:', error);
+      } else {
+        // Refetch items after analysis
+        setTimeout(() => refetch(), 2000);
+      }
+    } catch (e) {
+      console.error('[Index] Analysis trigger failed:', e);
+    }
   };
 
   const handleUpdateItem = async (id: string, updates: Partial<DbItem>) => {
@@ -208,6 +235,7 @@ const Index = () => {
         onClose={() => setSelectedItem(null)}
         onUpdate={handleUpdateItem}
         onDelete={deleteItem}
+        onRefetch={refetch}
       />
 
       <SaveModal

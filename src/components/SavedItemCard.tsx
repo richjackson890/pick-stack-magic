@@ -2,6 +2,7 @@ import { DbItem } from '@/hooks/useDbItems';
 import { DbCategory } from '@/hooks/useDbCategories';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { cn } from '@/lib/utils';
+import { Loader2 } from 'lucide-react';
 
 interface SavedItemCardProps {
   item: DbItem;
@@ -12,6 +13,7 @@ interface SavedItemCardProps {
 
 export function SavedItemCard({ item, category, onClick, isMasonry = false }: SavedItemCardProps) {
   const hasThumbnail = !!item.thumbnail_url;
+  const isAnalyzing = item.ai_status === 'pending' || item.ai_status === 'processing';
 
   return (
     <article
@@ -31,8 +33,14 @@ export function SavedItemCard({ item, category, onClick, isMasonry = false }: Sa
           </div>
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/50" />
-        <div className="absolute top-1.5 left-1.5">
+        <div className="absolute top-1.5 left-1.5 flex items-center gap-1">
           <PlatformIcon platform={item.platform} size="sm" />
+          {isAnalyzing && (
+            <span className="flex items-center gap-0.5 bg-black/50 text-white text-[8px] px-1.5 py-0.5 rounded-full">
+              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+              분석중
+            </span>
+          )}
         </div>
         <span className="absolute bottom-1.5 right-1.5 text-[8px] font-medium text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5" style={{ backgroundColor: category?.color || '#6b7280' }}>
           {category?.icon && <span>{category.icon}</span>}
