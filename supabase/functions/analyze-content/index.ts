@@ -90,14 +90,104 @@ async function fetchYouTubeOEmbed(url: string): Promise<{ title: string; thumbna
   }
 }
 
-// Fetch generic Open Graph metadata with timeout
-async function fetchOpenGraphData(url: string): Promise<{ title?: string; description?: string; image?: string }> {
+// Decode HTML entities
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(dec))
+    .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
+}
+
+// Extract main text content from HTML (more comprehensive extraction)
+function extractTextContent(html: string): string {
+  // Remove script, style, nav, footer, header, aside tags
+  let cleaned = html
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<nav[^>]*>[\s\S]*?<\/nav>/gi, '')
+    .replace(/<footer[^>]*>[\s\S]*?<\/footer>/gi, '')
+    .replace(/<header[^>]*>[\s\S]*?<\/header>/gi, '')
+    .replace(/<aside[^>]*>[\s\S]*?<\/aside>/gi, '')
+    .replace(/<noscript[^>]*>[\s\S]*?<\/noscript>/gi, '')
+    .replace(/<!--[\s\S]*?-->/g, '');
+  
+  // Extract article or main content preferentially
+  const articleMatch = cleaned.match(/<article[^>]*>([\s\S]*?)<\/article>/i);
+  const mainMatch = cleaned.match(/<main[^>]*>([\s\S]*?)<\/main>/i);
+  const contentDiv = cleaned.match(/<div[^>]*class="[^"]*(?:content|article|post|entry|body)[^"]*"[^>]*>([\s\S]*?)<\/div>/i);
+  
+  let targetHtml = articleMatch?.[1] || mainMatch?.[1] || contentDiv?.[1] || cleaned;
+  
+  // Extract headings for keywords
+  const headings: string[] = [];
+  targetHtml.replace(/<h[1-6][^>]*>([^<]+)<\/h[1-6]>/gi, (_, content) => {
+    headings.push(content.trim());
+    return '';
+  });
+  
+  // Extract paragraph text
+  const paragraphs: string[] = [];
+  targetHtml.replace(/<p[^>]*>([^<]+(?:<[^>]+>[^<]*)*)<\/p>/gi, (_, content) => {
+    const text = content.replace(/<[^>]+>/g, '').trim();
+    if (text.length > 20) paragraphs.push(text);
+    return '';
+  });
+  
+  // Extract list items
+  const listItems: string[] = [];
+  targetHtml.replace(/<li[^>]*>([^<]+(?:<[^>]+>[^<]*)*)<\/li>/gi, (_, content) => {
+    const text = content.replace(/<[^>]+>/g, '').trim();
+    if (text.length > 10) listItems.push(text);
+    return '';
+  });
+  
+  // Combine extracted text
+  const allText = [
+    ...headings.slice(0, 10),
+    ...paragraphs.slice(0, 20),
+    ...listItems.slice(0, 15),
+  ].join('\n');
+  
+  return decodeHtmlEntities(allText).replace(/\s+/g, ' ').trim();
+}
+
+// Extract hashtags from text
+function extractHashtags(text: string): string[] {
+  const matches = text.match(/#[\w가-힣]+/g) || [];
+  return [...new Set(matches)].slice(0, 10);
+}
+
+// Extract @mentions
+function extractMentions(text: string): string[] {
+  const matches = text.match(/@[\w._]+/g) || [];
+  return [...new Set(matches)].slice(0, 5);
+}
+
+// Fetch generic Open Graph metadata with comprehensive text extraction
+async function fetchOpenGraphData(url: string): Promise<{ 
+  title?: string; 
+  description?: string; 
+  image?: string;
+  extractedText?: string;
+  hashtags?: string[];
+  author?: string;
+  keywords?: string[];
+}> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
     
     const response = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; PickStackBot/1.0)" },
+      headers: { 
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+      },
       signal: controller.signal,
     });
     clearTimeout(timeout);
@@ -107,16 +197,36 @@ async function fetchOpenGraphData(url: string): Promise<{ title?: string; descri
     const html = await response.text();
     console.log(`[analyze-content] Fetched HTML length: ${html.length}`);
     
+    // OG and meta tags
     const ogTitle = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)?.[1];
     const ogDescription = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)?.[1];
     const ogImage = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)?.[1];
     const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
     const metaDescription = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)?.[1];
+    const metaKeywords = html.match(/<meta[^>]*name=["']keywords["'][^>]*content=["']([^"']+)["']/i)?.[1];
+    const author = html.match(/<meta[^>]*name=["']author["'][^>]*content=["']([^"']+)["']/i)?.[1];
+    const twitterDescription = html.match(/<meta[^>]*name=["']twitter:description["'][^>]*content=["']([^"']+)["']/i)?.[1];
+    
+    // Extract comprehensive text content
+    const extractedText = extractTextContent(html);
+    console.log(`[analyze-content] Extracted main text length: ${extractedText.length}`);
+    
+    // Extract hashtags from content
+    const hashtags = extractHashtags(html);
+    
+    // Parse meta keywords
+    const keywords = metaKeywords?.split(',').map(k => k.trim()).filter(Boolean) || [];
+    
+    const description = ogDescription || metaDescription || twitterDescription || "";
     
     return {
-      title: ogTitle || titleTag || "",
-      description: ogDescription || metaDescription || "",
+      title: decodeHtmlEntities(ogTitle || titleTag || ""),
+      description: decodeHtmlEntities(description),
       image: ogImage || "",
+      extractedText: extractedText.slice(0, 3000), // Limit to 3000 chars
+      hashtags,
+      author,
+      keywords,
     };
   } catch (error) {
     console.error("[analyze-content] Open Graph fetch error:", error);
@@ -306,11 +416,33 @@ serve(async (req) => {
       title = ogData.title || title;
       thumbnailUrl = ogData.image || thumbnailUrl;
       description = ogData.description || "";
+      
+      // Use comprehensive extracted text
+      if (ogData.extractedText) {
+        extractedText = ogData.extractedText;
+        console.log(`[analyze-content] Rich text extraction: ${extractedText.length} chars`);
+      }
+      
+      // Merge hashtags from page
+      const pageHashtags = ogData.hashtags || [];
+      
+      // Include author and keywords in context
+      if (ogData.author) {
+        description = `${description} (저자: ${ogData.author})`;
+      }
+      if (ogData.keywords?.length) {
+        description = `${description} [키워드: ${ogData.keywords.slice(0, 5).join(', ')}]`;
+      }
+      
       console.log(`[analyze-content] OG title: ${title}`);
+      console.log(`[analyze-content] Page hashtags: ${pageHashtags.join(', ')}`);
     }
 
-    extractedText = [title, description].filter(Boolean).join("\n\n");
-    console.log(`[analyze-content] Extracted text length: ${extractedText.length}`);
+    // Build comprehensive extracted text (don't overwrite if already populated from rich extraction)
+    if (!extractedText || extractedText.length < 100) {
+      extractedText = [title, description].filter(Boolean).join("\n\n");
+    }
+    console.log(`[analyze-content] Final extracted text length: ${extractedText.length}`);
 
     // Default result (used if AI fails or not configured)
     let aiResult = {
@@ -340,6 +472,9 @@ serve(async (req) => {
         ).join("\n");
 
         // Light mode prompt - with user category priority and enhanced metadata extraction
+        // Include extracted text for better analysis
+        const textForAnalysis = extractedText.slice(0, 1500);
+        
         const prompt = mode === "light" 
           ? `콘텐츠 분석:
 
@@ -347,19 +482,20 @@ URL: ${item.url || "없음"}
 플랫폼: ${platform}
 제목: ${title || "없음"}
 설명: ${description ? description.slice(0, 500) : "없음"}
+본문 추출: ${textForAnalysis || "없음"}
 
 [사용자 카테고리 목록 - 반드시 이 중에서 선택]:
 ${categoryContext}
 
 JSON 응답 (반드시 이 형식):
 {
-  "title": "콘텐츠 제목 (50자 이내)",
+  "title": "콘텐츠 제목 (50자 이내, 한국어)",
   "summary_3": ["핵심요약1 (25-35자)", "핵심요약2 (25-35자)", "핵심요약3 (25-35자)"],
   "tags": ["태그1", "태그2", "태그3", "태그4", "태그5"],
   "final_category": "카테고리명",
   "confidence": 0.0-1.0,
   "why_category": "분류 근거 한 문장",
-  "core_keywords": ["핵심키워드1", "핵심키워드2", "핵심키워드3", "핵심키워드4", "핵심키워드5"],
+  "core_keywords": ["핵심키워드1", "핵심키워드2", "핵심키워드3", "핵심키워드4", "핵심키워드5", "핵심키워드6", "핵심키워드7", "핵심키워드8"],
   "entities": ["사람/브랜드/장소/툴 고유명사"],
   "hashtags": ["#해시태그1", "#해시태그2", "#해시태그3"],
   "intent": "정보/튜토리얼/구매/영감/뉴스/후기/레퍼런스 중 하나"
@@ -372,9 +508,9 @@ JSON 응답 (반드시 이 형식):
 4. 투자/의학/법률: 단정 금지, "참고/일반 정보" 톤 유지
 5. 애매하면 "기타" 선택
 6. summary_3는 한국어, 실용적 핵심 3개
-7. core_keywords: 검색용 핵심 5-8개
+7. core_keywords: 본문에서 추출한 검색용 핵심 키워드 5-8개 (검색에 유용한 단어)
 8. entities: 고유명사(사람, 브랜드, 장소, 툴명) 추출
-9. hashtags: 원문에 있는 해시태그 또는 생성
+9. hashtags: 원문에 있는 해시태그 또는 관련 해시태그 생성
 10. intent: 콘텐츠 목적 분류`
           : `콘텐츠 심층 분석:
 
