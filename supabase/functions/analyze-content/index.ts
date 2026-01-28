@@ -24,7 +24,7 @@ function detectPlatform(url: string): string {
   const urlLower = url.toLowerCase();
   if (urlLower.includes("youtube.com") || urlLower.includes("youtu.be")) return "YouTube";
   if (urlLower.includes("instagram.com")) return "Instagram";
-  if (urlLower.includes("threads.net")) return "Threads";
+  if (urlLower.includes("threads.net") || urlLower.includes("threads.com")) return "Threads";
   if (urlLower.includes("tiktok.com")) return "TikTok";
   if (urlLower.includes("facebook.com") || urlLower.includes("fb.com")) return "Facebook";
   if (urlLower.includes("twitter.com") || urlLower.includes("x.com")) return "X";
