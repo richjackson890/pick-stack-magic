@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Platform } from '@/types/pickstack';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDbCategories } from '@/hooks/useDbCategories';
@@ -8,15 +9,17 @@ import { useBatchAnalyze } from '@/hooks/useBatchAnalyze';
 import { useContentAnalysis } from '@/hooks/useContentAnalysis';
 import { Header } from '@/components/Header';
 import { FilterBar } from '@/components/FilterBar';
-import { SavedItemCard } from '@/components/SavedItemCard';
+import { GlassCard } from '@/components/GlassCard';
 import { ListViewItem } from '@/components/ListViewItem';
 import { ItemDetail } from '@/components/ItemDetail';
 import { SaveModal } from '@/components/SaveModal';
-import { BottomNav } from '@/components/BottomNav';
+import { GlassDock } from '@/components/GlassDock';
 import { AIReport } from '@/components/AIReport';
 import { CategoryManagement } from '@/components/CategoryManagement';
 import { EmptyState } from '@/components/EmptyState';
-import { Loader2 } from 'lucide-react';
+import { LiquidSpinner } from '@/components/LiquidSpinner';
+import { GlassToast } from '@/components/GlassToast';
+import { RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
@@ -36,6 +39,19 @@ const Index = () => {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isCategoryManagementOpen, setIsCategoryManagementOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState<'home' | 'report'>('home');
+  
+  // Pull to refresh state
+  const [isPulling, setIsPulling] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [pullDistance, setPullDistance] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  // Toast state
+  const [toastState, setToastState] = useState<{
+    show: boolean;
+    type: 'success' | 'error' | 'loading' | 'info';
+    message: string;
+  }>({ show: false, type: 'info', message: '' });
 
   // Filter items
   const filteredItems = useMemo(() => {
@@ -69,6 +85,17 @@ const Index = () => {
     await triggerAutoAnalysis(itemId);
     setTimeout(() => refetch(), 1500);
   };
+
+  // Pull to refresh handler
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await refetch();
+    setTimeout(() => {
+      setIsRefreshing(false);
+      setToastState({ show: true, type: 'success', message: '업데이트 완료' });
+      setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 2000);
+    }, 800);
+  }, [refetch]);
 
   const handleSave = async (newItem: {
     source_type: 'url' | 'text' | 'image';
@@ -120,13 +147,25 @@ const Index = () => {
     }
   };
 
+  const handleDeleteItem = async (itemId: string) => {
+    await deleteItem(itemId);
+    setToastState({ show: true, type: 'success', message: '삭제되었습니다' });
+    setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 2000);
+  };
+
   // Loading state
   if (categoriesLoading || itemsLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          <p className="text-sm text-muted-foreground">로딩 중...</p>
+          <LiquidSpinner size="lg" />
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="text-sm text-muted-foreground"
+          >
+            로딩 중...
+          </motion.p>
         </div>
       </div>
     );
@@ -143,7 +182,7 @@ const Index = () => {
           onBatchAnalyze={handleBatchAnalyze}
           isProcessing={isProcessing}
         />
-        <BottomNav
+        <GlassDock
           currentTab={currentTab}
           onTabChange={setCurrentTab}
           onAdd={() => setIsSaveModalOpen(true)}
@@ -153,7 +192,7 @@ const Index = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div ref={containerRef} className="min-h-screen pb-24">
       <Header onSettingsClick={() => setIsCategoryManagementOpen(true)} />
       
       <FilterBar
@@ -169,70 +208,104 @@ const Index = () => {
         onAddCategory={() => setIsCategoryManagementOpen(true)}
       />
 
+      {/* Pull to Refresh Indicator */}
+      <AnimatePresence>
+        {isRefreshing && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="flex justify-center py-4"
+          >
+            <LiquidSpinner size="sm" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <main className="container py-3 px-2">
         {items.length === 0 ? (
           <EmptyState onAddClick={() => setIsSaveModalOpen(true)} />
         ) : filteredItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="w-12 h-12 rounded-full bg-muted flex items-center justify-center mb-3">
-              <span className="text-xl">🔍</span>
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col items-center justify-center py-16 text-center"
+          >
+            <div className="w-14 h-14 rounded-2xl glass flex items-center justify-center mb-4">
+              <span className="text-2xl">🔍</span>
             </div>
             <p className="text-sm text-muted-foreground">검색 결과가 없습니다</p>
-          </div>
+          </motion.div>
         ) : viewMode === 'list' ? (
           <div className="space-y-2">
             {filteredItems.map((item, index) => (
-              <div
+              <motion.div
                 key={item.id}
-                className="animate-fade-in"
-                style={{ animationDelay: `${index * 20}ms` }}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.03 }}
               >
                 <ListViewItem
                   item={item}
                   category={getCategoryById(item.category_id || '')}
                   onClick={() => setSelectedItem(item)}
                 />
-              </div>
+              </motion.div>
             ))}
           </div>
         ) : viewMode === 'masonry' ? (
           <div className="masonry-grid">
             {filteredItems.map((item, index) => (
-              <div
+              <motion.div
                 key={item.id}
-                className="animate-fade-in"
-                style={{ animationDelay: `${index * 30}ms` }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.04 }}
               >
-                <SavedItemCard
+                <GlassCard
                   item={item}
                   category={getCategoryById(item.category_id || '')}
                   onClick={() => setSelectedItem(item)}
+                  onDelete={() => handleDeleteItem(item.id)}
                   isMasonry={true}
                 />
-              </div>
+              </motion.div>
             ))}
           </div>
         ) : (
           <div className="compact-grid">
             {filteredItems.map((item, index) => (
-              <div
+              <motion.div
                 key={item.id}
-                className="animate-fade-in"
-                style={{ animationDelay: `${index * 20}ms` }}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.03 }}
               >
-                <SavedItemCard
+                <GlassCard
                   item={item}
                   category={getCategoryById(item.category_id || '')}
                   onClick={() => setSelectedItem(item)}
+                  onDelete={() => handleDeleteItem(item.id)}
                   isMasonry={false}
                 />
-              </div>
+              </motion.div>
             ))}
           </div>
         )}
+
+        {/* Refresh Button */}
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="fixed bottom-28 right-4 glass-button w-12 h-12 rounded-full flex items-center justify-center neon-glow"
+        >
+          <RefreshCw className={`h-5 w-5 text-muted-foreground ${isRefreshing ? 'animate-spin' : ''}`} />
+        </motion.button>
       </main>
 
-      <BottomNav
+      <GlassDock
         currentTab={currentTab}
         onTabChange={setCurrentTab}
         onAdd={() => setIsSaveModalOpen(true)}
@@ -264,6 +337,13 @@ const Index = () => {
         onUpdate={updateCategory}
         onDelete={deleteCategory}
         onReorder={reorderCategories}
+      />
+
+      <GlassToast
+        show={toastState.show}
+        type={toastState.type}
+        message={toastState.message}
+        onClose={() => setToastState(prev => ({ ...prev, show: false }))}
       />
     </div>
   );
