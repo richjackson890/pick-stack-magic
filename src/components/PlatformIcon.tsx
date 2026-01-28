@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 interface PlatformIconProps {
   platform: Platform;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
   className?: string;
 }
 
@@ -108,6 +108,7 @@ const platformColors: Record<Platform, string> = {
 
 export function PlatformIcon({ platform, size = 'sm', className }: PlatformIconProps) {
   const sizeClasses = {
+    xs: 'w-4 h-4 p-0.5',
     sm: 'w-5 h-5 p-1',
     md: 'w-6 h-6 p-1',
     lg: 'w-8 h-8 p-1.5',

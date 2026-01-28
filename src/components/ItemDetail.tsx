@@ -3,10 +3,12 @@ import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from '
 import { DbItem, AiStatus } from '@/hooks/useDbItems';
 import { DbCategory } from '@/hooks/useDbCategories';
 import { PlatformIcon } from '@/components/PlatformIcon';
+import { FallbackCover } from '@/components/FallbackCover';
 import { GlassChip } from '@/components/GlassChip';
 import { LiquidSpinner, AnalysisSteps } from '@/components/LiquidSpinner';
 import { Textarea } from '@/components/ui/textarea';
-import { ExternalLink, Calendar, Trash2, RefreshCw, AlertCircle, Bug, X } from 'lucide-react';
+import { useGenerateCover } from '@/hooks/useGenerateCover';
+import { ExternalLink, Calendar, Trash2, RefreshCw, AlertCircle, X, Sparkles, ImagePlus } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,6 +45,7 @@ function isProcessingStuck(item: DbItem): boolean {
 
 export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDelete, onRefetch }: ItemDetailProps) {
   const { toast } = useToast();
+  const { generateCover, isGenerating } = useGenerateCover();
   const [note, setNote] = useState(item?.user_note || '');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
@@ -79,6 +82,7 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
   const currentCategory = categories.find(c => c.id === item.category_id);
   const formattedDate = new Date(item.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
   const isStuck = isProcessingStuck(item);
+  const isAiGenerated = item.thumbnail_url?.includes('/covers/');
 
   const handleNoteChange = (value: string) => { 
     setNote(value); 
@@ -282,13 +286,31 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
                 {/* Hero Image */}
                 <div className="relative -mx-4 rounded-2xl overflow-hidden">
                   {item.thumbnail_url ? (
-                    <img src={item.thumbnail_url} alt={item.title} className="w-full aspect-video object-cover" />
+                    <>
+                      <img src={item.thumbnail_url} alt={item.title} className="w-full aspect-video object-cover" />
+                      {/* AI Generated indicator */}
+                      {isAiGenerated && (
+                        <div className="absolute top-12 right-3 flex items-center gap-1 bg-gradient-to-r from-purple-500/90 to-pink-500/90 text-white text-[9px] font-bold px-2 py-1 rounded-full shadow-lg">
+                          <Sparkles className="h-3 w-3" />
+                          AI 생성
+                        </div>
+                      )}
+                    </>
                   ) : (
-                    <div className="w-full aspect-video flex items-center justify-center" style={{ backgroundColor: currentCategory?.color || '#6b7280' }}>
-                      <PlatformIcon platform={item.platform} size="lg" />
+                    <div className="w-full aspect-video">
+                      <FallbackCover
+                        platform={item.platform}
+                        title={item.title}
+                        summary={item.summary_3lines?.[0]}
+                        tags={item.tags}
+                        categoryName={currentCategory?.name}
+                        categoryColor={currentCategory?.color}
+                        categoryIcon={currentCategory?.icon || undefined}
+                        size="lg"
+                      />
                     </div>
                   )}
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 pointer-events-none" />
                   
                   {/* Close Button */}
                   <motion.button
@@ -323,6 +345,39 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
                     </motion.button>
                   )}
                 </div>
+
+                {/* AI Cover Generation Button */}
+                <motion.button
+                  whileTap={{ scale: 0.98 }}
+                  onClick={async () => {
+                    const newUrl = await generateCover({
+                      itemId: item.id,
+                      title: item.title,
+                      summary: item.summary_3lines?.[0],
+                      tags: item.tags,
+                      categoryName: currentCategory?.name,
+                      platform: item.platform,
+                    });
+                    if (newUrl) {
+                      onUpdate?.(item.id, { thumbnail_url: newUrl });
+                      onRefetch?.();
+                    }
+                  }}
+                  disabled={isGenerating}
+                  className="glass-button w-full py-2.5 font-medium flex items-center justify-center gap-2 text-sm"
+                >
+                  {isGenerating ? (
+                    <>
+                      <LiquidSpinner size="sm" />
+                      AI 커버 생성 중...
+                    </>
+                  ) : (
+                    <>
+                      <ImagePlus className="h-4 w-4" />
+                      {item.thumbnail_url ? '커버 다시 생성' : 'AI 커버 생성'}
+                    </>
+                  )}
+                </motion.button>
 
                 {/* Title & Date */}
                 <div>
