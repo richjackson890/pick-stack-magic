@@ -5,7 +5,7 @@ import { useDbCategories } from '@/hooks/useDbCategories';
 import { useDbItems, DbItem } from '@/hooks/useDbItems';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useBatchAnalyze } from '@/hooks/useBatchAnalyze';
-import { supabase } from '@/integrations/supabase/client';
+import { useContentAnalysis } from '@/hooks/useContentAnalysis';
 import { Header } from '@/components/Header';
 import { FilterBar } from '@/components/FilterBar';
 import { SavedItemCard } from '@/components/SavedItemCard';
@@ -28,6 +28,7 @@ const Index = () => {
   const { items, loading: itemsLoading, addItem, updateItem, deleteItem, refetch } = useDbItems();
   const { settings, updateAutoAnalyze } = useUserSettings();
   const { analyzePending, isProcessing, progress } = useBatchAnalyze();
+  const { triggerAutoAnalysis } = useContentAnalysis();
   
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
@@ -104,30 +105,16 @@ const Index = () => {
       analysis_mode: 'light',
     } as any);
     
-    // Trigger content analysis in background
-    if (savedItem?.id) {
-      triggerAnalysis(savedItem.id);
-    }
-  };
-  
-  // Trigger analysis via edge function (respects auto_analyze setting)
-  const triggerAnalysis = async (itemId: string) => {
-    if (!settings.auto_analyze) {
-      console.log('[Index] Auto-analyze disabled, skipping');
-      return;
-    }
-    try {
-      console.log('[Index] Triggering analysis for:', itemId);
-      const { error } = await supabase.functions.invoke('analyze-content', {
-        body: { item_id: itemId, mode: 'light' },
+    // Trigger content analysis in background if auto_analyze is enabled
+    if (savedItem?.id && settings.auto_analyze) {
+      console.log('[Index] Auto-analyze enabled, triggering analysis...');
+      triggerAutoAnalysis(savedItem.id).then((result) => {
+        console.log('[Index] Auto-analysis result:', result);
+        // Refetch after a short delay to get updated data
+        setTimeout(() => refetch(), 1500);
       });
-      if (error) {
-        console.error('[Index] Analysis trigger error:', error);
-      } else {
-        setTimeout(() => refetch(), 2000);
-      }
-    } catch (e) {
-      console.error('[Index] Analysis trigger failed:', e);
+    } else if (savedItem?.id) {
+      console.log('[Index] Auto-analyze disabled, item saved as pending');
     }
   };
 
