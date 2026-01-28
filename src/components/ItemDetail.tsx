@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ExternalLink, Calendar, Trash2, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
+import { ExternalLink, Calendar, Trash2, RefreshCw, AlertCircle, Loader2, Bug } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,11 +32,30 @@ interface ItemDetailProps {
   onRefetch?: () => void;
 }
 
+// Check if processing is stuck (> 5 minutes)
+function isProcessingStuck(item: DbItem): boolean {
+  if (item.ai_status !== 'processing') return false;
+  if (!item.ai_started_at) return false;
+  
+  const startedAt = new Date(item.ai_started_at).getTime();
+  const now = Date.now();
+  const fiveMinutes = 5 * 60 * 1000;
+  
+  return (now - startedAt) > fiveMinutes;
+}
+
 export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDelete, onRefetch }: ItemDetailProps) {
   const { toast } = useToast();
   const [note, setNote] = useState(item?.user_note || '');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
+
+  // Check for debug mode in URL
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setShowDebug(params.get('debug') === '1');
+  }, []);
 
   useEffect(() => { if (item) setNote(item.user_note || ''); }, [item]);
 
@@ -44,6 +63,7 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
 
   const currentCategory = categories.find(c => c.id === item.category_id);
   const formattedDate = new Date(item.created_at).toLocaleDateString('ko-KR', { year: 'numeric', month: 'short', day: 'numeric' });
+  const isStuck = isProcessingStuck(item);
 
   const handleNoteChange = (value: string) => { 
     setNote(value); 
@@ -60,16 +80,16 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
     onClose();
   };
 
-  const handleReanalyze = async () => {
+  const handleReanalyze = async (mode: 'light' | 'deep' = 'light') => {
     setIsReanalyzing(true);
     try {
-      console.log('[ItemDetail] Reanalyzing item:', item.id);
+      console.log('[ItemDetail] Reanalyzing item:', item.id, 'mode:', mode);
       
-      // Update status to pending first
+      // Reset status first
       onUpdate?.(item.id, { ai_status: 'pending', ai_error: null });
       
-      const { error } = await supabase.functions.invoke('analyze-content', {
-        body: { item_id: item.id },
+      const { data, error } = await supabase.functions.invoke('analyze-content', {
+        body: { item_id: item.id, mode },
       });
 
       if (error) {
@@ -79,12 +99,17 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
           description: error.message || '다시 시도해주세요.',
           variant: 'destructive',
         });
+      } else if (data?.cached) {
+        toast({
+          title: '기존 분석 결과 사용',
+          description: '동일 URL의 기존 분석이 적용되었습니다.',
+        });
+        onRefetch?.();
       } else {
         toast({
-          title: 'AI 재분석 완료',
-          description: '콘텐츠가 다시 분석되었습니다.',
+          title: mode === 'deep' ? 'AI 딥 분석 완료' : 'AI 분석 완료',
+          description: '콘텐츠가 분석되었습니다.',
         });
-        // Refetch to get updated data
         onRefetch?.();
       }
     } catch (e: any) {
@@ -99,8 +124,53 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
     }
   };
 
+  const renderDebugInfo = () => {
+    if (!showDebug) return null;
+    
+    return (
+      <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono space-y-1">
+        <div className="flex items-center gap-1 font-semibold text-muted-foreground mb-2">
+          <Bug className="h-3 w-3" />
+          Debug Info
+        </div>
+        <p><span className="text-muted-foreground">ai_status:</span> <span className={item.ai_status === 'error' ? 'text-destructive' : item.ai_status === 'done' ? 'text-green-600' : 'text-yellow-600'}>{item.ai_status}</span></p>
+        <p><span className="text-muted-foreground">ai_attempts:</span> {item.ai_attempts || 0}</p>
+        <p><span className="text-muted-foreground">ai_started_at:</span> {item.ai_started_at ? new Date(item.ai_started_at).toLocaleString('ko-KR') : 'null'}</p>
+        <p><span className="text-muted-foreground">ai_finished_at:</span> {item.ai_finished_at ? new Date(item.ai_finished_at).toLocaleString('ko-KR') : 'null'}</p>
+        <p><span className="text-muted-foreground">analysis_mode:</span> {item.analysis_mode || 'light'}</p>
+        <p><span className="text-muted-foreground">url_hash:</span> {item.url_hash || 'null'}</p>
+        {item.ai_error && <p className="text-destructive"><span className="text-muted-foreground">ai_error:</span> {item.ai_error}</p>}
+        {isStuck && <p className="text-orange-600 font-semibold">⚠️ Processing 5분 초과 (stuck)</p>}
+      </div>
+    );
+  };
+
   const renderSummary = () => {
     const status = item.ai_status || 'pending';
+    
+    // Check for stuck processing
+    if (isStuck) {
+      return (
+        <div className="bg-orange-500/10 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-orange-600 mb-2 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4" />
+            분석 시간 초과
+          </h3>
+          <p className="text-xs text-muted-foreground mb-3">
+            5분 이상 처리 중입니다. 재시도해주세요.
+          </p>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => handleReanalyze('light')}
+            disabled={isReanalyzing}
+          >
+            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isReanalyzing ? 'animate-spin' : ''}`} />
+            다시 시도
+          </Button>
+        </div>
+      );
+    }
     
     if (status === 'pending' || status === 'processing' || isReanalyzing) {
       return (
@@ -131,7 +201,7 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
           <Button 
             variant="outline" 
             size="sm" 
-            onClick={handleReanalyze}
+            onClick={() => handleReanalyze('light')}
             disabled={isReanalyzing}
           >
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
@@ -149,16 +219,25 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
         <div className="bg-secondary/50 rounded-lg p-4">
           <h3 className="text-sm font-semibold text-foreground mb-2">✨ AI 3줄 요약</h3>
           <p className="text-sm text-muted-foreground">요약 정보가 없습니다.</p>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="mt-2"
-            onClick={handleReanalyze}
-            disabled={isReanalyzing}
-          >
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-            AI 분석 요청
-          </Button>
+          <div className="flex gap-2 mt-2">
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => handleReanalyze('light')}
+              disabled={isReanalyzing}
+            >
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+              라이트 분석
+            </Button>
+            <Button 
+              variant="default" 
+              size="sm"
+              onClick={() => handleReanalyze('deep')}
+              disabled={isReanalyzing}
+            >
+              딥 분석
+            </Button>
+          </div>
         </div>
       );
     }
@@ -167,15 +246,28 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
       <div className="bg-secondary/50 rounded-lg p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-foreground">✨ AI 3줄 요약</h3>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="h-7 px-2"
-            onClick={handleReanalyze}
-            disabled={isReanalyzing}
-          >
-            <RefreshCw className={`h-3 w-3 ${isReanalyzing ? 'animate-spin' : ''}`} />
-          </Button>
+          <div className="flex gap-1">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7 px-2"
+              onClick={() => handleReanalyze('light')}
+              disabled={isReanalyzing}
+              title="라이트 재분석"
+            >
+              <RefreshCw className={`h-3 w-3 ${isReanalyzing ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="h-7 px-2 text-xs"
+              onClick={() => handleReanalyze('deep')}
+              disabled={isReanalyzing}
+              title="딥 분석"
+            >
+              딥
+            </Button>
+          </div>
         </div>
         <ul className="space-y-2.5">
           {summaryLines.map((line, idx) => (
@@ -186,7 +278,7 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
         </ul>
         {item.ai_confidence !== null && (
           <p className="text-[10px] text-muted-foreground mt-3">
-            AI 분류 신뢰도: {Math.round((item.ai_confidence || 0) * 100)}%
+            {item.analysis_mode === 'deep' ? '딥' : '라이트'} 분석 • 신뢰도: {Math.round((item.ai_confidence || 0) * 100)}%
           </p>
         )}
       </div>
@@ -215,6 +307,7 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
           </div>
           <div><h1 className="text-lg font-bold text-foreground leading-snug mb-1">{item.title}</h1><span className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />{formattedDate}</span></div>
           
+          {renderDebugInfo()}
           {renderSummary()}
           
           {item.tags.length > 0 && (

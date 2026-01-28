@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Platform } from '@/types/pickstack';
 
 export type AiStatus = 'pending' | 'processing' | 'done' | 'error';
+export type AnalysisMode = 'light' | 'deep' | 'none';
 
 export interface DbItem {
   id: string;
@@ -22,7 +23,12 @@ export interface DbItem {
   ai_reason: string | null;
   ai_status: AiStatus;
   ai_error: string | null;
+  ai_started_at: string | null;
+  ai_finished_at: string | null;
+  ai_attempts: number;
   extracted_text: string | null;
+  url_hash: string | null;
+  analysis_mode: AnalysisMode;
   created_at: string;
   updated_at: string;
 }
@@ -49,8 +55,8 @@ export function useDbItems() {
 
       if (error) throw error;
       
-      // Transform data to match DbItem type
-      const transformedData: DbItem[] = (data || []).map(item => ({
+      // Transform data to match DbItem type (cast to any to handle dynamic columns)
+      const transformedData: DbItem[] = (data || []).map((item: any) => ({
         ...item,
         source_type: item.source_type as 'url' | 'text' | 'image',
         platform: item.platform as Platform,
@@ -58,7 +64,12 @@ export function useDbItems() {
         tags: item.tags || [],
         ai_status: (item.ai_status || 'pending') as AiStatus,
         ai_error: item.ai_error || null,
+        ai_started_at: item.ai_started_at || null,
+        ai_finished_at: item.ai_finished_at || null,
+        ai_attempts: item.ai_attempts || 0,
         extracted_text: item.extracted_text || null,
+        url_hash: item.url_hash || null,
+        analysis_mode: (item.analysis_mode || 'light') as AnalysisMode,
       }));
       
       setItems(transformedData);
@@ -104,14 +115,19 @@ export function useDbItems() {
       if (error) throw error;
       
       const newItem: DbItem = {
-        ...data,
+        ...(data as any),
         source_type: data.source_type as 'url' | 'text' | 'image',
         platform: data.platform as Platform,
         summary_3lines: data.summary_3lines || [],
         tags: data.tags || [],
         ai_status: (data.ai_status || 'pending') as AiStatus,
-        ai_error: data.ai_error || null,
-        extracted_text: data.extracted_text || null,
+        ai_error: (data as any).ai_error || null,
+        ai_started_at: (data as any).ai_started_at || null,
+        ai_finished_at: (data as any).ai_finished_at || null,
+        ai_attempts: (data as any).ai_attempts || 0,
+        extracted_text: (data as any).extracted_text || null,
+        url_hash: (data as any).url_hash || null,
+        analysis_mode: ((data as any).analysis_mode || 'light') as AnalysisMode,
       };
       
       setItems(prev => [newItem, ...prev]);
