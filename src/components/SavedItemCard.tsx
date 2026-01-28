@@ -54,10 +54,19 @@ export function SavedItemCard({ item, category, onClick, isMasonry = false }: Sa
                 AI
               </div>
             )}
-            {/* Title overlay for items with thumbnails */}
-            <div className="absolute bottom-0 left-0 right-0 p-1.5 pt-4 bg-gradient-to-t from-black/70 to-transparent">
-              <h3 className="text-[10px] font-medium text-white line-clamp-1 pr-12">{item.title}</h3>
-            </div>
+             {/* Center title overlay for items with thumbnails */}
+             <div className="absolute inset-0 grid place-items-center p-3 pointer-events-none">
+               <div className="max-w-[92%] text-center">
+                 <h3 className="line-clamp-2 text-sm font-extrabold tracking-tight text-primary-foreground drop-shadow-[0_6px_18px_rgba(0,0,0,0.6)]">
+                   {item.title}
+                 </h3>
+                 {keywords?.length ? (
+                   <div className="mt-1 line-clamp-1 text-[10px] font-medium text-primary-foreground/80">
+                     {keywords.slice(0, 4).join(' · ')}
+                   </div>
+                 ) : null}
+               </div>
+             </div>
           </>
         ) : (
           <TextThumbnailCard
