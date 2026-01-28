@@ -1,7 +1,8 @@
+import { useMemo, useState } from 'react';
 import { DbItem } from '@/hooks/useDbItems';
 import { DbCategory } from '@/hooks/useDbCategories';
 import { PlatformIcon } from '@/components/PlatformIcon';
-import { FallbackCover } from '@/components/FallbackCover';
+import { TextThumbnailCard, isForceTextThumb, fallbackKeywords } from '@/components/PickStackThumbs';
 import { cn } from '@/lib/utils';
 import { Loader2, Sparkles } from 'lucide-react';
 
@@ -13,9 +14,20 @@ interface SavedItemCardProps {
 }
 
 export function SavedItemCard({ item, category, onClick, isMasonry = false }: SavedItemCardProps) {
-  const hasThumbnail = !!item.thumbnail_url;
+  const [imgError, setImgError] = useState(false);
   const isAnalyzing = item.ai_status === 'pending' || item.ai_status === 'processing';
   const isAiGenerated = item.thumbnail_url?.includes('/covers/');
+
+  // 인스타/쓰레드는 무조건 텍스트 썸네일 사용
+  const forceTextThumbnail = useMemo(() => {
+    return isForceTextThumb(item.url) || isForceTextThumb(item.thumbnail_url);
+  }, [item.url, item.thumbnail_url]);
+
+  const hasThumbnail = !!item.thumbnail_url && !imgError && !forceTextThumbnail;
+  
+  const keywords = useMemo(() => {
+    return (item.tags?.length ? item.tags : fallbackKeywords(item.title)) as string[];
+  }, [item.tags, item.title]);
 
   return (
     <article
@@ -28,7 +40,13 @@ export function SavedItemCard({ item, category, onClick, isMasonry = false }: Sa
       <div className={cn('relative overflow-hidden', isMasonry ? 'aspect-auto' : 'aspect-square')}>
         {hasThumbnail ? (
           <>
-            <img src={item.thumbnail_url!} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+            <img 
+              src={item.thumbnail_url!} 
+              alt={item.title} 
+              className="w-full h-full object-cover" 
+              loading="lazy"
+              onError={() => setImgError(true)}
+            />
             {/* AI Generated badge */}
             {isAiGenerated && (
               <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 bg-gradient-to-r from-purple-500/90 to-pink-500/90 text-white text-[7px] font-bold px-1.5 py-0.5 rounded-full shadow-md">
@@ -36,17 +54,16 @@ export function SavedItemCard({ item, category, onClick, isMasonry = false }: Sa
                 AI
               </div>
             )}
+            {/* Title overlay for items with thumbnails */}
+            <div className="absolute bottom-0 left-0 right-0 p-1.5 pt-4 bg-gradient-to-t from-black/70 to-transparent">
+              <h3 className="text-[10px] font-medium text-white line-clamp-1 pr-12">{item.title}</h3>
+            </div>
           </>
         ) : (
-          <FallbackCover
-            platform={item.platform}
+          <TextThumbnailCard
             title={item.title}
-            summary={item.summary_3lines?.[0]}
-            tags={item.tags}
-            categoryName={category?.name}
-            categoryColor={category?.color}
-            categoryIcon={category?.icon || undefined}
-            size="sm"
+            keywords={keywords}
+            category={category?.name}
           />
         )}
         <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/50 pointer-events-none" />
@@ -70,13 +87,6 @@ export function SavedItemCard({ item, category, onClick, isMasonry = false }: Sa
           {category?.icon && <span>{category.icon}</span>}
           {category?.name || '기타'}
         </span>
-        
-        {/* Title overlay for items with thumbnails */}
-        {hasThumbnail && (
-          <div className="absolute bottom-0 left-0 right-0 p-1.5 pt-4 bg-gradient-to-t from-black/70 to-transparent">
-            <h3 className="text-[10px] font-medium text-white line-clamp-1 pr-12">{item.title}</h3>
-          </div>
-        )}
       </div>
     </article>
   );
