@@ -27,6 +27,10 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errors, setErrors] = useState<{ email?: string; password?: string; confirmPassword?: string }>({});
 
+  // Debug mode - show Supabase config
+  const searchParams = new URLSearchParams(window.location.search);
+  const isDebug = searchParams.get('debug') === '1';
+
   // Redirect if already logged in
   useEffect(() => {
     if (user && !authLoading) {
@@ -343,6 +347,15 @@ const Auth = () => {
           </Tabs>
         </CardContent>
       </Card>
+
+      {/* Debug Info */}
+      {isDebug && (
+        <div className="mt-4 p-4 bg-muted/50 rounded-lg text-xs font-mono text-muted-foreground max-w-md">
+          <p className="font-bold mb-2">🔍 Debug Info:</p>
+          <p>SUPABASE_URL: {import.meta.env.VITE_SUPABASE_URL}</p>
+          <p className="mt-1 break-all">PROJECT_ID: {import.meta.env.VITE_SUPABASE_PROJECT_ID}</p>
+        </div>
+      )}
 
       {/* Footer */}
       <div className="mt-8 text-center text-xs text-muted-foreground">
