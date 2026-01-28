@@ -1,8 +1,9 @@
 import { DbItem } from '@/hooks/useDbItems';
 import { DbCategory } from '@/hooks/useDbCategories';
 import { PlatformIcon } from '@/components/PlatformIcon';
+import { FallbackCover } from '@/components/FallbackCover';
 import { cn } from '@/lib/utils';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Sparkles } from 'lucide-react';
 
 interface SavedItemCardProps {
   item: DbItem;
@@ -14,6 +15,7 @@ interface SavedItemCardProps {
 export function SavedItemCard({ item, category, onClick, isMasonry = false }: SavedItemCardProps) {
   const hasThumbnail = !!item.thumbnail_url;
   const isAnalyzing = item.ai_status === 'pending' || item.ai_status === 'processing';
+  const isAiGenerated = item.thumbnail_url?.includes('/covers/');
 
   return (
     <article
@@ -25,14 +27,31 @@ export function SavedItemCard({ item, category, onClick, isMasonry = false }: Sa
     >
       <div className={cn('relative overflow-hidden', isMasonry ? 'aspect-auto' : 'aspect-square')}>
         {hasThumbnail ? (
-          <img src={item.thumbnail_url!} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+          <>
+            <img src={item.thumbnail_url!} alt={item.title} className="w-full h-full object-cover" loading="lazy" />
+            {/* AI Generated badge */}
+            {isAiGenerated && (
+              <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 bg-gradient-to-r from-purple-500/90 to-pink-500/90 text-white text-[7px] font-bold px-1.5 py-0.5 rounded-full shadow-md">
+                <Sparkles className="h-2 w-2" />
+                AI
+              </div>
+            )}
+          </>
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center p-2" style={{ backgroundColor: category?.color || '#6b7280' }}>
-            <PlatformIcon platform={item.platform} size="lg" className="mb-1" />
-            <span className="text-[9px] text-white/80 text-center line-clamp-2">{item.title}</span>
-          </div>
+          <FallbackCover
+            platform={item.platform}
+            title={item.title}
+            summary={item.summary_3lines?.[0]}
+            tags={item.tags}
+            categoryName={category?.name}
+            categoryColor={category?.color}
+            categoryIcon={category?.icon || undefined}
+            size="sm"
+          />
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/50" />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/50 pointer-events-none" />
+        
+        {/* Platform icon & analyzing status */}
         <div className="absolute top-1.5 left-1.5 flex items-center gap-1">
           <PlatformIcon platform={item.platform} size="sm" />
           {isAnalyzing && (
@@ -42,10 +61,17 @@ export function SavedItemCard({ item, category, onClick, isMasonry = false }: Sa
             </span>
           )}
         </div>
-        <span className="absolute bottom-1.5 right-1.5 text-[8px] font-medium text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5" style={{ backgroundColor: category?.color || '#6b7280' }}>
+        
+        {/* Category badge */}
+        <span 
+          className="absolute bottom-1.5 right-1.5 text-[8px] font-medium text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5" 
+          style={{ backgroundColor: category?.color || '#6b7280' }}
+        >
           {category?.icon && <span>{category.icon}</span>}
           {category?.name || '기타'}
         </span>
+        
+        {/* Title overlay for items with thumbnails */}
         {hasThumbnail && (
           <div className="absolute bottom-0 left-0 right-0 p-1.5 pt-4 bg-gradient-to-t from-black/70 to-transparent">
             <h3 className="text-[10px] font-medium text-white line-clamp-1 pr-12">{item.title}</h3>
