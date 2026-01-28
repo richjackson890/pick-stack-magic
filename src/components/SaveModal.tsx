@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Platform } from '@/types/pickstack';
 import { DbCategory } from '@/hooks/useDbCategories';
 import { CategoryChip } from '@/components/CategoryBadge';
@@ -15,6 +15,8 @@ import {
 import { Check, Loader2, Sparkles, Link, FileText, Image, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { classifyItem } from '@/utils/classifier';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 interface SaveModalProps {
   isOpen: boolean;
@@ -38,6 +40,7 @@ interface SaveModalProps {
 }
 
 export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onSave, initialUrl }: SaveModalProps) {
+  const { toast } = useToast();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [url, setUrl] = useState(initialUrl || '');
@@ -46,11 +49,13 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [thumbnail, setThumbnail] = useState('');
   const [summary, setSummary] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]);
   const [note, setNote] = useState('');
   const [sourceType, setSourceType] = useState<'url' | 'text' | 'image'>('url');
   const [showCategorySelector, setShowCategorySelector] = useState(false);
   const [aiConfidence, setAiConfidence] = useState(0);
   const [top3Categories, setTop3Categories] = useState<{ category_id: string; score: number }[]>([]);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   // Initialize default category
   useEffect(() => {
@@ -59,75 +64,135 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
     }
   }, [categories, selectedCategoryId, getDefaultCategory]);
 
-  // Simulate AI analysis when URL changes
+  // Debounced AI analysis when URL changes
   useEffect(() => {
-    if (url && isOpen) {
+    if (!url || !isOpen) return;
+    
+    const timeoutId = setTimeout(() => {
       analyzeContent(url);
-    }
+    }, 800); // Debounce 800ms
+
+    return () => clearTimeout(timeoutId);
   }, [url, isOpen]);
+
+  // Platform detection from URL - INCLUDES threads.com AND threads.net
+  const detectPlatform = useCallback((inputUrl: string): Platform => {
+    const urlLower = inputUrl.toLowerCase();
+    if (urlLower.includes('instagram.com')) return 'Instagram';
+    if (urlLower.includes('youtube.com') || urlLower.includes('youtu.be')) return 'YouTube';
+    if (urlLower.includes('tiktok.com')) return 'TikTok';
+    if (urlLower.includes('threads.net') || urlLower.includes('threads.com')) return 'Threads';
+    if (urlLower.includes('twitter.com') || urlLower.includes('x.com')) return 'X';
+    if (urlLower.includes('facebook.com') || urlLower.includes('fb.com')) return 'Facebook';
+    if (urlLower.includes('pinterest.com') || urlLower.includes('pin.it')) return 'Pinterest';
+    if (urlLower.includes('reddit.com')) return 'Reddit';
+    if (urlLower.includes('linkedin.com')) return 'LinkedIn';
+    if (urlLower.includes('medium.com')) return 'Medium';
+    if (urlLower.includes('naver.com') || urlLower.includes('blog.naver')) return 'Naver';
+    if (urlLower.includes('brunch.co.kr')) return 'Brunch';
+    return 'Web';
+  }, []);
 
   const analyzeContent = async (inputUrl: string) => {
     setIsAnalyzing(true);
+    setAnalysisError(null);
     
-    // Simulate AI analysis delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-
-    // Detect platform from URL
+    // Detect platform immediately for UI feedback
     const detectedPlatform = detectPlatform(inputUrl);
     setPlatform(detectedPlatform);
 
-    // Simulate AI-generated data
-    const generatedTitle = '분석된 콘텐츠 제목이 여기에 표시됩니다';
-    setTitle(generatedTitle);
-    
-    // Run classifier with adapted categories
-    const adaptedCategories = categories.map(c => ({
-      id: c.id,
-      name: c.name,
-      color: c.color,
-      icon: c.icon || undefined,
-      keywords: c.keywords || undefined,
-      sort_order: c.sort_order,
-      created_at: c.created_at,
-      is_default: c.is_default,
-    }));
-    
-    const classification = classifyItem(
-      {
-        platform: detectedPlatform,
-        url: inputUrl,
-        title: generatedTitle,
-      },
-      adaptedCategories
-    );
+    try {
+      // Call the preview-analyze Edge Function for real AI analysis
+      const categoryData = categories.map(c => ({
+        id: c.id,
+        name: c.name,
+        keywords: c.keywords || '',
+      }));
 
-    setSelectedCategoryId(classification.category_id);
-    setAiConfidence(classification.confidence);
-    setTop3Categories(classification.top3_candidates);
-    
-    // Show category selector if confidence is low
-    setShowCategorySelector(classification.confidence < 0.6);
+      const { data, error } = await supabase.functions.invoke('preview-analyze', {
+        body: { 
+          url: inputUrl,
+          categories: categoryData,
+        },
+      });
 
-    setSummary([
-      '첫 번째 요약 문장입니다.',
-      '두 번째 요약 문장입니다.',
-      '세 번째 요약 문장입니다.',
-    ]);
-    setThumbnail('https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&h=300&fit=crop');
-    
-    setIsAnalyzing(false);
-  };
+      if (error) {
+        console.error('[SaveModal] Preview analyze error:', error);
+        throw new Error(error.message);
+      }
 
-  const detectPlatform = (url: string): Platform => {
-    if (url.includes('instagram.com')) return 'Instagram';
-    if (url.includes('youtube.com') || url.includes('youtu.be')) return 'YouTube';
-    if (url.includes('tiktok.com')) return 'TikTok';
-    if (url.includes('twitter.com') || url.includes('x.com')) return 'X';
-    if (url.includes('facebook.com')) return 'Facebook';
-    if (url.includes('pinterest.com')) return 'Pinterest';
-    if (url.includes('naver.com')) return 'Naver';
-    if (url.includes('brunch.co.kr')) return 'Brunch';
-    return 'Web';
+      if (data?.success) {
+        // Use AI-analyzed data
+        setTitle(data.title || `${detectedPlatform} 콘텐츠`);
+        setPlatform(data.platform || detectedPlatform);
+        setThumbnail(data.thumbnail_url || '');
+        setSummary(data.summary_3 || []);
+        setTags(data.tags || []);
+        setAiConfidence(data.confidence || 0.5);
+
+        // Find matching category by name
+        const matchedCategory = categories.find(
+          c => c.name.toLowerCase() === (data.final_category || '').toLowerCase()
+        );
+        
+        if (matchedCategory) {
+          setSelectedCategoryId(matchedCategory.id);
+        } else {
+          // Fallback to classifier
+          const adaptedCategories = categories.map(c => ({
+            id: c.id,
+            name: c.name,
+            color: c.color,
+            icon: c.icon || undefined,
+            keywords: c.keywords || undefined,
+            sort_order: c.sort_order,
+            created_at: c.created_at,
+            is_default: c.is_default,
+          }));
+          
+          const classification = classifyItem(
+            { platform: detectedPlatform, url: inputUrl, title: data.title },
+            adaptedCategories
+          );
+          setSelectedCategoryId(classification.category_id);
+          setTop3Categories(classification.top3_candidates);
+        }
+
+        // Show category selector if confidence is low
+        setShowCategorySelector((data.confidence || 0) < 0.6);
+      } else {
+        throw new Error(data?.error || 'Analysis failed');
+      }
+    } catch (err: any) {
+      console.error('[SaveModal] Analysis error:', err);
+      setAnalysisError(err.message);
+      
+      // Fallback to local classification
+      const adaptedCategories = categories.map(c => ({
+        id: c.id,
+        name: c.name,
+        color: c.color,
+        icon: c.icon || undefined,
+        keywords: c.keywords || undefined,
+        sort_order: c.sort_order,
+        created_at: c.created_at,
+        is_default: c.is_default,
+      }));
+      
+      const classification = classifyItem(
+        { platform: detectedPlatform, url: inputUrl },
+        adaptedCategories
+      );
+      
+      setTitle(`${detectedPlatform} 콘텐츠`);
+      setSelectedCategoryId(classification.category_id);
+      setAiConfidence(classification.confidence);
+      setTop3Categories(classification.top3_candidates);
+      setSummary(['분석 중 오류 발생', '저장 후 다시 분석됩니다', '']);
+      setShowCategorySelector(true);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleSave = () => {
@@ -139,8 +204,8 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
       title,
       platform,
       thumbnail_url: thumbnail,
-      summary_3lines: summary,
-      tags: ['태그1', '태그2', '태그3'],
+      summary_3lines: summary.length > 0 ? summary : ['저장됨', '', ''],
+      tags: tags.length > 0 ? tags : ['저장됨'],
       category_id: selectedCategoryId,
       user_note: note || undefined,
       ai_confidence: aiConfidence,
@@ -154,7 +219,11 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
       setUrl('');
       setTitle('');
       setNote('');
+      setTags([]);
+      setSummary([]);
+      setThumbnail('');
       setShowCategorySelector(false);
+      setAnalysisError(null);
     }, 800);
   };
 
