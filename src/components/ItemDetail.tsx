@@ -1,13 +1,12 @@
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from 'framer-motion';
 import { DbItem, AiStatus } from '@/hooks/useDbItems';
 import { DbCategory } from '@/hooks/useDbCategories';
-import { CategoryChip } from '@/components/CategoryBadge';
 import { PlatformIcon } from '@/components/PlatformIcon';
-import { Button } from '@/components/ui/button';
+import { GlassChip } from '@/components/GlassChip';
+import { LiquidSpinner, AnalysisSteps } from '@/components/LiquidSpinner';
 import { Textarea } from '@/components/ui/textarea';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Skeleton } from '@/components/ui/skeleton';
-import { ExternalLink, Calendar, Trash2, RefreshCw, AlertCircle, Loader2, Bug } from 'lucide-react';
+import { ExternalLink, Calendar, Trash2, RefreshCw, AlertCircle, Bug, X } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -21,6 +20,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface ItemDetailProps {
   item: DbItem | null;
@@ -32,24 +32,13 @@ interface ItemDetailProps {
   onRefetch?: () => void;
 }
 
-// Check if processing is stuck (> 5 minutes)
 function isProcessingStuck(item: DbItem): boolean {
   if (item.ai_status !== 'processing') return false;
   if (!item.ai_started_at) return false;
-  
   const startedAt = new Date(item.ai_started_at).getTime();
   const now = Date.now();
   const fiveMinutes = 5 * 60 * 1000;
-  
   return (now - startedAt) > fiveMinutes;
-}
-
-interface DebugRequestInfo {
-  url: string;
-  hasAuth: boolean;
-  status: number | null;
-  body: string | null;
-  timestamp: string;
 }
 
 export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDelete, onRefetch }: ItemDetailProps) {
@@ -57,16 +46,33 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
   const [note, setNote] = useState(item?.user_note || '');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
+  const [analysisStep, setAnalysisStep] = useState(0);
   const [showDebug, setShowDebug] = useState(false);
-  const [debugRequest, setDebugRequest] = useState<DebugRequestInfo | null>(null);
 
-  // Check for debug mode in URL
+  const y = useMotionValue(0);
+  const opacity = useTransform(y, [0, 200], [1, 0.5]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     setShowDebug(params.get('debug') === '1');
   }, []);
 
-  useEffect(() => { if (item) setNote(item.user_note || ''); }, [item]);
+  useEffect(() => { 
+    if (item) setNote(item.user_note || ''); 
+  }, [item]);
+
+  // Simulate analysis steps
+  useEffect(() => {
+    if (isReanalyzing) {
+      setAnalysisStep(0);
+      const timer1 = setTimeout(() => setAnalysisStep(1), 2000);
+      const timer2 = setTimeout(() => setAnalysisStep(2), 5000);
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+      };
+    }
+  }, [isReanalyzing]);
 
   if (!item) return null;
 
@@ -89,276 +95,153 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
     onClose();
   };
 
+  const handleDragEnd = (_: any, info: PanInfo) => {
+    if (info.offset.y > 100 || info.velocity.y > 500) {
+      onClose();
+    }
+  };
+
   const handleReanalyze = async (mode: 'light' | 'deep' = 'light') => {
     setIsReanalyzing(true);
-    setDebugRequest(null);
-    
-    // Build the endpoint URL for debug display
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const endpointUrl = `${supabaseUrl}/functions/v1/analyze-content`;
-    
     try {
-      console.log('[ItemDetail] Reanalyzing item:', item.id, 'mode:', mode);
-      
-      // Reset status first
       onUpdate?.(item.id, { ai_status: 'pending', ai_error: null });
-      
-      // Get session to check auth header
-      const { data: sessionData } = await supabase.auth.getSession();
-      const hasAuth = !!sessionData?.session?.access_token;
-      
       const { data, error } = await supabase.functions.invoke('analyze-content', {
         body: { item_id: item.id, mode },
       });
-
-      // Update debug info
-      if (showDebug) {
-        setDebugRequest({
-          url: endpointUrl,
-          hasAuth,
-          status: error ? (error as any).status || 500 : 200,
-          body: JSON.stringify(error || data, null, 2),
-          timestamp: new Date().toLocaleString('ko-KR'),
-        });
-      }
-
       if (error) {
-        console.error('[ItemDetail] Reanalysis error:', error);
-        toast({
-          title: '재분석 실패',
-          description: error.message || '다시 시도해주세요.',
-          variant: 'destructive',
-        });
-      } else if (data?.cached) {
-        toast({
-          title: '기존 분석 결과 사용',
-          description: '동일 URL의 기존 분석이 적용되었습니다.',
-        });
-        onRefetch?.();
+        toast({ title: '재분석 실패', description: error.message || '다시 시도해주세요.', variant: 'destructive' });
       } else {
-        toast({
-          title: mode === 'deep' ? 'AI 딥 분석 완료' : 'AI 분석 완료',
-          description: '콘텐츠가 분석되었습니다.',
-        });
+        toast({ title: mode === 'deep' ? 'AI 딥 분석 완료' : 'AI 분석 완료', description: '콘텐츠가 분석되었습니다.' });
         onRefetch?.();
       }
     } catch (e: any) {
-      console.error('[ItemDetail] Reanalysis failed:', e);
-      
-      if (showDebug) {
-        setDebugRequest({
-          url: endpointUrl,
-          hasAuth: false,
-          status: null,
-          body: e.message || String(e),
-          timestamp: new Date().toLocaleString('ko-KR'),
-        });
-      }
-      
-      toast({
-        title: '재분석 실패',
-        description: e.message || '다시 시도해주세요.',
-        variant: 'destructive',
-      });
+      toast({ title: '재분석 실패', description: e.message || '다시 시도해주세요.', variant: 'destructive' });
     } finally {
       setIsReanalyzing(false);
     }
   };
 
-  const renderDebugInfo = () => {
-    if (!showDebug) return null;
-    
-    return (
-      <div className="bg-muted/50 rounded-lg p-3 text-xs font-mono space-y-1">
-        <div className="flex items-center gap-1 font-semibold text-muted-foreground mb-2">
-          <Bug className="h-3 w-3" />
-          Debug Info
-        </div>
-        <p><span className="text-muted-foreground">ai_status:</span> <span className={item.ai_status === 'error' ? 'text-destructive' : item.ai_status === 'done' ? 'text-green-600' : 'text-yellow-600'}>{item.ai_status}</span></p>
-        <p><span className="text-muted-foreground">ai_attempts:</span> {item.ai_attempts || 0}</p>
-        <p><span className="text-muted-foreground">ai_started_at:</span> {item.ai_started_at ? new Date(item.ai_started_at).toLocaleString('ko-KR') : 'null'}</p>
-        <p><span className="text-muted-foreground">ai_finished_at:</span> {item.ai_finished_at ? new Date(item.ai_finished_at).toLocaleString('ko-KR') : 'null'}</p>
-        <p><span className="text-muted-foreground">analysis_mode:</span> {item.analysis_mode || 'light'}</p>
-        <p><span className="text-muted-foreground">url_hash:</span> {item.url_hash || 'null'}</p>
-        {item.ai_error && <p className="text-destructive"><span className="text-muted-foreground">ai_error:</span> {item.ai_error}</p>}
-        {isStuck && <p className="text-orange-600 font-semibold">⚠️ Processing 5분 초과 (stuck)</p>}
-        
-        {/* Edge Function Request Debug */}
-        {debugRequest && (
-          <div className="mt-3 pt-3 border-t border-muted-foreground/20 space-y-1">
-            <div className="font-semibold text-primary mb-1">🔗 Last Edge Function Call</div>
-            <p><span className="text-muted-foreground">timestamp:</span> {debugRequest.timestamp}</p>
-            <p className="break-all"><span className="text-muted-foreground">url:</span> {debugRequest.url}</p>
-            <p><span className="text-muted-foreground">Authorization:</span> {debugRequest.hasAuth ? <span className="text-green-600">✓ Present</span> : <span className="text-destructive">✗ Missing</span>}</p>
-            <p><span className="text-muted-foreground">status:</span> <span className={debugRequest.status === 200 ? 'text-green-600' : 'text-destructive'}>{debugRequest.status ?? 'N/A'}</span></p>
-            <div>
-              <span className="text-muted-foreground">response:</span>
-              <pre className="mt-1 p-2 bg-background rounded text-[10px] overflow-x-auto max-h-40 overflow-y-auto whitespace-pre-wrap break-all">
-                {debugRequest.body}
-              </pre>
-            </div>
-          </div>
-        )}
-      </div>
-    );
-  };
-
   const renderSummary = () => {
     const status = item.ai_status || 'pending';
     
-    // Check for stuck processing
     if (isStuck) {
       return (
-        <div className="bg-orange-500/10 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-orange-600 mb-2 flex items-center gap-2">
+        <div className="glass-card p-4 border-orange-500/30">
+          <h3 className="text-sm font-semibold text-orange-500 mb-2 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             분석 시간 초과
           </h3>
-          <p className="text-xs text-muted-foreground mb-3">
-            5분 이상 처리 중입니다. 재시도해주세요.
-          </p>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <p className="text-xs text-muted-foreground mb-3">5분 이상 처리 중입니다. 재시도해주세요.</p>
+          <motion.button
+            whileTap={{ scale: 0.95 }}
             onClick={() => handleReanalyze('light')}
             disabled={isReanalyzing}
+            className="glass-button px-4 py-2 text-sm font-medium flex items-center gap-2"
           >
-            <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${isReanalyzing ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${isReanalyzing ? 'animate-spin' : ''}`} />
             다시 시도
-          </Button>
+          </motion.button>
         </div>
       );
     }
     
-    // PENDING: Show "waiting" with "Analyze Now" button
     if (status === 'pending' && !isReanalyzing) {
       return (
-        <div className="bg-muted/50 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
-            ⏳ 분석 대기중
-          </h3>
-          <p className="text-xs text-muted-foreground mb-3">
-            AI 분석이 아직 시작되지 않았습니다.
-          </p>
-          <Button 
-            variant="default" 
-            size="sm" 
+        <div className="glass-card p-4">
+          <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">⏳ 분석 대기중</h3>
+          <p className="text-xs text-muted-foreground mb-3">AI 분석이 아직 시작되지 않았습니다.</p>
+          <motion.button
+            whileTap={{ scale: 0.95 }}
             onClick={() => handleReanalyze('light')}
+            className="gradient-primary px-4 py-2 rounded-xl text-sm font-medium text-white flex items-center gap-2"
           >
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            <RefreshCw className="h-3.5 w-3.5" />
             지금 분석하기
-          </Button>
+          </motion.button>
         </div>
       );
     }
     
-    // PROCESSING: Show loading spinner
     if (status === 'processing' || isReanalyzing) {
       return (
-        <div className="bg-secondary/50 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            AI 분석 중...
-          </h3>
-          <div className="space-y-2.5">
-            <Skeleton className="h-4 w-full" />
-            <Skeleton className="h-4 w-5/6" />
-            <Skeleton className="h-4 w-4/6" />
+        <div className="glass-card p-4">
+          <div className="flex items-center gap-3 mb-4">
+            <LiquidSpinner size="sm" />
+            <h3 className="text-sm font-semibold text-foreground">AI 분석 중...</h3>
           </div>
+          <AnalysisSteps currentStep={analysisStep} />
         </div>
       );
     }
     
     if (status === 'error') {
       return (
-        <div className="bg-destructive/10 rounded-lg p-4">
+        <div className="glass-card p-4 border-destructive/30">
           <h3 className="text-sm font-semibold text-destructive mb-2 flex items-center gap-2">
             <AlertCircle className="h-4 w-4" />
             분석 실패
           </h3>
-          <p className="text-xs text-muted-foreground mb-3">
-            {item.ai_error || '콘텐츠를 분석하는 중 오류가 발생했습니다.'}
-          </p>
-          <Button 
-            variant="outline" 
-            size="sm" 
+          <p className="text-xs text-muted-foreground mb-3">{item.ai_error || '콘텐츠를 분석하는 중 오류가 발생했습니다.'}</p>
+          <motion.button
+            whileTap={{ scale: 0.95 }}
             onClick={() => handleReanalyze('light')}
             disabled={isReanalyzing}
+            className="glass-button px-4 py-2 text-sm font-medium flex items-center gap-2"
           >
-            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+            <RefreshCw className={`h-3.5 w-3.5 ${isReanalyzing ? 'animate-spin' : ''}`} />
             다시 시도
-          </Button>
+          </motion.button>
         </div>
       );
     }
     
-    // status === 'done'
     const summaryLines = item.summary_3lines.filter(Boolean);
     
-    if (summaryLines.length === 0) {
-      return (
-        <div className="bg-secondary/50 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-foreground mb-2">✨ AI 3줄 요약</h3>
-          <p className="text-sm text-muted-foreground">요약 정보가 없습니다.</p>
-          <div className="flex gap-2 mt-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => handleReanalyze('light')}
-              disabled={isReanalyzing}
-            >
-              <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
-              라이트 분석
-            </Button>
-            <Button 
-              variant="default" 
-              size="sm"
-              onClick={() => handleReanalyze('deep')}
-              disabled={isReanalyzing}
-            >
-              딥 분석
-            </Button>
-          </div>
-        </div>
-      );
-    }
-    
     return (
-      <div className="bg-secondary/50 rounded-lg p-4">
+      <div className="glass-card p-4">
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold text-foreground">✨ AI 3줄 요약</h3>
           <div className="flex gap-1">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="h-7 px-2"
+            <motion.button
+              whileTap={{ scale: 0.9 }}
               onClick={() => handleReanalyze('light')}
               disabled={isReanalyzing}
-              title="라이트 재분석"
+              className="glass-button w-7 h-7 flex items-center justify-center"
             >
               <RefreshCw className={`h-3 w-3 ${isReanalyzing ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              className="h-7 px-2 text-xs"
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
               onClick={() => handleReanalyze('deep')}
               disabled={isReanalyzing}
-              title="딥 분석"
+              className="glass-button px-2 h-7 text-2xs font-medium"
             >
               딥
-            </Button>
+            </motion.button>
           </div>
         </div>
-        <ul className="space-y-2.5">
-          {summaryLines.map((line, idx) => (
-            <li key={idx} className="flex items-start gap-2.5 text-sm leading-relaxed text-foreground/90">
-              <span className="text-primary font-semibold shrink-0">{idx + 1}.</span>{line}
-            </li>
-          ))}
-        </ul>
+        {summaryLines.length > 0 ? (
+          <ul className="space-y-2.5">
+            {summaryLines.map((line, idx) => (
+              <motion.li 
+                key={idx} 
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: idx * 0.1 }}
+                className="flex items-start gap-2.5 text-sm leading-relaxed text-foreground/90"
+              >
+                <span className="w-5 h-5 rounded-full gradient-primary flex items-center justify-center text-2xs font-bold text-white shrink-0">
+                  {idx + 1}
+                </span>
+                {line}
+              </motion.li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-muted-foreground">요약 정보가 없습니다.</p>
+        )}
         {item.ai_confidence !== null && (
-          <p className="text-[10px] text-muted-foreground mt-3">
+          <p className="text-2xs text-muted-foreground mt-3">
             {item.analysis_mode === 'deep' ? '딥' : '라이트'} 분석 • 신뢰도: {Math.round((item.ai_confidence || 0) * 100)}%
           </p>
         )}
@@ -367,86 +250,195 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
   };
 
   return (
-    <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
-        <SheetHeader className="sr-only"><SheetTitle>{item.title}</SheetTitle></SheetHeader>
-        <div className="max-w-2xl mx-auto space-y-4 pb-6">
-          <div className="relative -mx-6 -mt-6 mb-4">
-            {item.thumbnail_url ? (
-              <img src={item.thumbnail_url} alt={item.title} className="w-full aspect-video object-cover" />
-            ) : (
-              <div className="w-full aspect-video flex items-center justify-center" style={{ backgroundColor: currentCategory?.color || '#6b7280' }}>
-                <PlatformIcon platform={item.platform} size="lg" />
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
+            onClick={onClose}
+          />
+          <motion.div
+            initial={{ y: '100%' }}
+            animate={{ y: 0 }}
+            exit={{ y: '100%' }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            drag="y"
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0.1, bottom: 0.5 }}
+            onDragEnd={handleDragEnd}
+            style={{ y, opacity }}
+            className="fixed bottom-0 left-0 right-0 z-50 max-h-[90vh] overflow-hidden"
+          >
+            <div className="glass-sheet rounded-t-3xl overflow-y-auto max-h-[90vh] scrollbar-glass">
+              {/* Drag Handle */}
+              <div className="flex justify-center pt-3 pb-2 sticky top-0 z-10">
+                <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
               </div>
-            )}
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
-            <div className="absolute top-3 left-3 flex gap-2">
-              <PlatformIcon platform={item.platform} size="md" />
-              {currentCategory && <span className="text-xs font-medium text-white px-2 py-1 rounded-full flex items-center gap-1" style={{ backgroundColor: currentCategory.color }}>{currentCategory.icon} {currentCategory.name}</span>}
-            </div>
-            {item.url && <Button size="sm" className="absolute top-3 right-3" onClick={() => window.open(item.url!, '_blank')}><ExternalLink className="h-3.5 w-3.5 mr-1.5" />원본</Button>}
-          </div>
-          <div><h1 className="text-lg font-bold text-foreground leading-snug mb-1">{item.title}</h1><span className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="h-3 w-3" />{formattedDate}</span></div>
-          
-          {renderDebugInfo()}
-          {renderSummary()}
-          
-          {item.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {item.tags.map((tag) => <span key={tag} className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">#{tag}</span>)}
-            </div>
-          )}
-          
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <h3 className="text-xs font-medium text-muted-foreground">카테고리</h3>
-              <button onClick={() => setShowCategoryPicker(!showCategoryPicker)} className="text-xs text-primary hover:underline">{showCategoryPicker ? '닫기' : '변경'}</button>
-            </div>
-            {showCategoryPicker ? (
-              <div className="flex flex-wrap gap-1.5">
-                {categories.sort((a, b) => a.sort_order - b.sort_order).map((cat) => (
-                  <CategoryChip key={cat.id} category={cat} selected={item.category_id === cat.id} onClick={() => handleCategoryChange(cat.id)} />
-                ))}
+
+              <div className="max-w-2xl mx-auto px-4 pb-8 space-y-4">
+                {/* Hero Image */}
+                <div className="relative -mx-4 rounded-2xl overflow-hidden">
+                  {item.thumbnail_url ? (
+                    <img src={item.thumbnail_url} alt={item.title} className="w-full aspect-video object-cover" />
+                  ) : (
+                    <div className="w-full aspect-video flex items-center justify-center" style={{ backgroundColor: currentCategory?.color || '#6b7280' }}>
+                      <PlatformIcon platform={item.platform} size="lg" />
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
+                  
+                  {/* Close Button */}
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={onClose}
+                    className="absolute top-3 right-3 glass-button w-8 h-8 flex items-center justify-center"
+                  >
+                    <X className="h-4 w-4" />
+                  </motion.button>
+                  
+                  {/* Badges */}
+                  <div className="absolute top-3 left-3 flex gap-2">
+                    <div className="glass-chip p-1">
+                      <PlatformIcon platform={item.platform} size="sm" />
+                    </div>
+                    {currentCategory && (
+                      <span className="glass-chip text-2xs font-semibold px-2 py-1 flex items-center gap-1" style={{ backgroundColor: `${currentCategory.color}cc`, color: 'white' }}>
+                        {currentCategory.icon} {currentCategory.name}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* External Link Button */}
+                  {item.url && (
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => window.open(item.url!, '_blank')}
+                      className="absolute bottom-3 right-3 gradient-primary px-3 py-1.5 rounded-xl text-xs font-semibold text-white flex items-center gap-1.5"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      원본
+                    </motion.button>
+                  )}
+                </div>
+
+                {/* Title & Date */}
+                <div>
+                  <h1 className="text-lg font-bold text-foreground leading-snug mb-1">{item.title}</h1>
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />{formattedDate}
+                  </span>
+                </div>
+
+                {renderSummary()}
+
+                {/* Tags */}
+                {item.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {item.tags.map((tag) => (
+                      <span key={tag} className="glass-chip text-xs text-muted-foreground px-2 py-0.5">#{tag}</span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Category Picker */}
+                <div className="glass-card p-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xs font-medium text-muted-foreground">카테고리</h3>
+                    <button onClick={() => setShowCategoryPicker(!showCategoryPicker)} className="text-xs text-primary font-medium">
+                      {showCategoryPicker ? '닫기' : '변경'}
+                    </button>
+                  </div>
+                  <AnimatePresence mode="wait">
+                    {showCategoryPicker ? (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="flex flex-wrap gap-2"
+                      >
+                        {categories.sort((a, b) => a.sort_order - b.sort_order).map((cat) => (
+                          <GlassChip
+                            key={cat.id}
+                            selected={item.category_id === cat.id}
+                            color={cat.color}
+                            icon={cat.icon ? <span>{cat.icon}</span> : undefined}
+                            onClick={() => handleCategoryChange(cat.id)}
+                            size="sm"
+                          >
+                            {cat.name}
+                          </GlassChip>
+                        ))}
+                      </motion.div>
+                    ) : currentCategory && (
+                      <motion.button
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        onClick={() => setShowCategoryPicker(true)}
+                        className="glass-chip text-xs font-medium px-3 py-1.5 flex items-center gap-1"
+                        style={{ backgroundColor: `${currentCategory.color}cc`, color: 'white' }}
+                      >
+                        {currentCategory.icon} {currentCategory.name}
+                      </motion.button>
+                    )}
+                  </AnimatePresence>
+                </div>
+
+                {/* Note */}
+                <div className="glass-card p-3 space-y-2">
+                  <h3 className="text-xs font-medium text-muted-foreground">나의 메모</h3>
+                  <Textarea 
+                    value={note} 
+                    onChange={(e) => handleNoteChange(e.target.value)} 
+                    placeholder="메모를 입력하세요..." 
+                    className="min-h-[80px] text-sm bg-transparent border-border/50 focus:border-primary/50" 
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                {item.url && (
+                  <motion.button
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => window.open(item.url!, '_blank')}
+                    className="glass-button w-full py-3 font-medium flex items-center justify-center gap-2"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    원본 열기
+                  </motion.button>
+                )}
+
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <motion.button
+                      whileTap={{ scale: 0.98 }}
+                      className="glass-button w-full py-3 font-medium text-destructive flex items-center justify-center gap-2"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      삭제하기
+                    </motion.button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent className="glass-sheet">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>항목 삭제</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        이 항목을 정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel className="glass-button">취소</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        삭제
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
-            ) : currentCategory && (
-              <button onClick={() => setShowCategoryPicker(true)} className="text-xs font-medium text-white px-2.5 py-1 rounded-full flex items-center gap-1" style={{ backgroundColor: currentCategory.color }}>
-                {currentCategory.icon} {currentCategory.name}
-              </button>
-            )}
-          </div>
-          
-          <div className="space-y-2">
-            <h3 className="text-xs font-medium text-muted-foreground">나의 메모</h3>
-            <Textarea value={note} onChange={(e) => handleNoteChange(e.target.value)} placeholder="메모를 입력하세요..." className="min-h-[80px] text-sm" />
-          </div>
-          
-          {item.url && <Button variant="outline" className="w-full" onClick={() => window.open(item.url!, '_blank')}><ExternalLink className="h-4 w-4 mr-2" />원본 열기</Button>}
-          
-          {/* Delete Button */}
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button variant="outline" className="w-full text-destructive hover:text-destructive">
-                <Trash2 className="h-4 w-4 mr-2" />
-                삭제하기
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>항목 삭제</AlertDialogTitle>
-                <AlertDialogDescription>
-                  이 항목을 정말 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>취소</AlertDialogCancel>
-                <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-                  삭제
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      </SheetContent>
-    </Sheet>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }

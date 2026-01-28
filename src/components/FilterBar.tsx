@@ -1,12 +1,11 @@
 import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Platform, PLATFORMS } from '@/types/pickstack';
 import { DbCategory } from '@/hooks/useDbCategories';
-import { CategoryChip } from '@/components/CategoryBadge';
 import { PlatformIcon } from '@/components/PlatformIcon';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { GlassChip, GlassChipGroup } from '@/components/GlassChip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Search, SlidersHorizontal, Grid3X3, List, LayoutGrid, Plus, Activity } from 'lucide-react';
+import { Search, SlidersHorizontal, Grid3X3, List, LayoutGrid, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FilterBarProps {
@@ -22,44 +21,163 @@ interface FilterBarProps {
   onAddCategory?: () => void;
 }
 
-export function FilterBar({ categories, selectedCategoryId, selectedPlatform, searchQuery, viewMode, onCategoryChange, onPlatformChange, onSearchChange, onViewModeChange, onAddCategory }: FilterBarProps) {
+export function FilterBar({ 
+  categories, 
+  selectedCategoryId, 
+  selectedPlatform, 
+  searchQuery, 
+  viewMode, 
+  onCategoryChange, 
+  onPlatformChange, 
+  onSearchChange, 
+  onViewModeChange, 
+  onAddCategory 
+}: FilterBarProps) {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const sortedCategories = [...categories].sort((a, b) => a.sort_order - b.sort_order);
 
   return (
-    <div className="sticky top-12 z-20 bg-background/95 backdrop-blur border-b">
-      <div className="container px-2 py-2 space-y-2">
+    <div className="sticky top-12 z-20 glass-dock border-t-0 border-b border-border/30">
+      <div className="container px-3 py-2.5 space-y-2.5">
+        {/* Search Row */}
         <div className="flex items-center gap-2">
-          <div className={cn('flex-1 flex items-center gap-2 bg-secondary/60 rounded-lg px-2.5 py-1.5 transition-all', isSearchFocused && 'ring-2 ring-primary/30')}>
-            <Search className="h-3.5 w-3.5 text-muted-foreground" />
-            <Input type="text" placeholder="검색..." value={searchQuery} onChange={(e) => onSearchChange(e.target.value)} onFocus={() => setIsSearchFocused(true)} onBlur={() => setIsSearchFocused(false)} className="border-0 bg-transparent h-6 px-0 text-sm focus-visible:ring-0" />
-          </div>
+          <motion.div 
+            className={cn(
+              'flex-1 flex items-center gap-2 glass-chip px-3 py-2 transition-all',
+              isSearchFocused && 'ring-1 ring-primary/40 neon-glow'
+            )}
+            animate={{
+              boxShadow: isSearchFocused 
+                ? '0 0 20px hsl(var(--neon-purple) / 0.2)' 
+                : 'none'
+            }}
+          >
+            <Search className="h-4 w-4 text-muted-foreground shrink-0" />
+            <input
+              type="text"
+              placeholder="검색..."
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              onFocus={() => setIsSearchFocused(true)}
+              onBlur={() => setIsSearchFocused(false)}
+              className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+            />
+            <AnimatePresence>
+              {searchQuery && (
+                <motion.button
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.8 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={() => onSearchChange('')}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </motion.button>
+              )}
+            </AnimatePresence>
+          </motion.div>
           
+          {/* Platform Filter */}
           <Popover>
-            <PopoverTrigger asChild><Button variant={selectedPlatform ? 'secondary' : 'ghost'} size="icon" className="h-8 w-8">{selectedPlatform ? <PlatformIcon platform={selectedPlatform} size="sm" /> : <SlidersHorizontal className="h-3.5 w-3.5" />}</Button></PopoverTrigger>
-            <PopoverContent className="w-72 p-3" align="end">
-              <p className="text-xs font-medium text-muted-foreground mb-2">플랫폼 필터</p>
-              <div className="flex flex-wrap gap-1.5">
-                <Button variant={selectedPlatform === null ? 'default' : 'outline'} size="sm" onClick={() => onPlatformChange(null)} className="h-7 text-xs">전체</Button>
+            <PopoverTrigger asChild>
+              <motion.button
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                className={cn(
+                  'glass-button w-9 h-9 flex items-center justify-center',
+                  selectedPlatform && 'ring-1 ring-primary/50'
+                )}
+              >
+                {selectedPlatform ? (
+                  <PlatformIcon platform={selectedPlatform} size="sm" />
+                ) : (
+                  <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+                )}
+              </motion.button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80 p-4 glass-sheet border-border/30" align="end">
+              <p className="text-xs font-semibold text-muted-foreground mb-3">플랫폼 필터</p>
+              <div className="flex flex-wrap gap-2">
+                <GlassChip
+                  selected={selectedPlatform === null}
+                  onClick={() => onPlatformChange(null)}
+                  size="sm"
+                >
+                  전체
+                </GlassChip>
                 {PLATFORMS.filter(p => p !== 'Unknown').map((platform) => (
-                  <button key={platform} onClick={() => onPlatformChange(platform)} className={cn('flex items-center gap-1.5 px-2 py-1 rounded-full text-xs transition-all', selectedPlatform === platform ? 'bg-primary text-primary-foreground' : 'bg-secondary hover:bg-secondary/80')}>
-                    <PlatformIcon platform={platform} size="sm" />{platform}
-                  </button>
+                  <GlassChip
+                    key={platform}
+                    selected={selectedPlatform === platform}
+                    onClick={() => onPlatformChange(platform)}
+                    size="sm"
+                    icon={<PlatformIcon platform={platform} size="sm" className="w-4 h-4" />}
+                  >
+                    {platform}
+                  </GlassChip>
                 ))}
               </div>
             </PopoverContent>
           </Popover>
-          <div className="flex items-center bg-secondary/60 rounded-lg p-0.5">
-            <Button variant={viewMode === 'grid' ? 'secondary' : 'ghost'} size="icon" onClick={() => onViewModeChange('grid')} className="h-7 w-7"><Grid3X3 className="h-3.5 w-3.5" /></Button>
-            <Button variant={viewMode === 'masonry' ? 'secondary' : 'ghost'} size="icon" onClick={() => onViewModeChange('masonry')} className="h-7 w-7"><LayoutGrid className="h-3.5 w-3.5" /></Button>
-            <Button variant={viewMode === 'list' ? 'secondary' : 'ghost'} size="icon" onClick={() => onViewModeChange('list')} className="h-7 w-7"><List className="h-3.5 w-3.5" /></Button>
+          
+          {/* View Mode Toggle */}
+          <div className="flex items-center glass-chip p-1 gap-0.5">
+            {[
+              { mode: 'grid' as const, icon: Grid3X3 },
+              { mode: 'masonry' as const, icon: LayoutGrid },
+              { mode: 'list' as const, icon: List },
+            ].map(({ mode, icon: Icon }) => (
+              <motion.button
+                key={mode}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => onViewModeChange(mode)}
+                className={cn(
+                  'w-7 h-7 rounded-lg flex items-center justify-center transition-all',
+                  viewMode === mode 
+                    ? 'bg-primary text-primary-foreground' 
+                    : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+              </motion.button>
+            ))}
           </div>
         </div>
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
-          <button onClick={() => onCategoryChange(null)} className={cn('flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap', selectedCategoryId === null ? 'bg-foreground text-background' : 'bg-secondary/60 text-secondary-foreground hover:bg-secondary')}>전체</button>
-          {sortedCategories.map((category) => <CategoryChip key={category.id} category={category} selected={selectedCategoryId === category.id} onClick={() => onCategoryChange(category.id)} />)}
-          {onAddCategory && <button onClick={onAddCategory} className="flex-shrink-0 flex items-center justify-center w-7 h-7 rounded-full bg-secondary/60 hover:bg-secondary text-muted-foreground"><Plus className="h-3.5 w-3.5" /></button>}
-        </div>
+        
+        {/* Category Chips */}
+        <GlassChipGroup>
+          <GlassChip
+            selected={selectedCategoryId === null}
+            onClick={() => onCategoryChange(null)}
+          >
+            전체
+          </GlassChip>
+          
+          {sortedCategories.map((category) => (
+            <GlassChip
+              key={category.id}
+              selected={selectedCategoryId === category.id}
+              onClick={() => onCategoryChange(category.id)}
+              color={category.color}
+              icon={category.icon ? <span>{category.icon}</span> : undefined}
+            >
+              {category.name}
+            </GlassChip>
+          ))}
+          
+          {onAddCategory && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onAddCategory}
+              className="glass-chip w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground"
+            >
+              <Plus className="h-4 w-4" />
+            </motion.button>
+          )}
+        </GlassChipGroup>
       </div>
     </div>
   );

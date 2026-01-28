@@ -1,5 +1,5 @@
+import { motion } from 'framer-motion';
 import { Settings, LogOut, Bookmark } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -19,25 +19,50 @@ export function Header({ onSettingsClick }: HeaderProps) {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
+    <header className="sticky top-0 z-40 glass-dock border-b-0">
       <div className="container flex items-center justify-between h-12 px-3">
-        <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-            <Bookmark className="w-4 h-4 text-primary-foreground" />
-          </div>
-          <h1 className="text-lg font-bold bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-            PickStack
+        <motion.div 
+          className="flex items-center gap-2"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <motion.div 
+            className="w-8 h-8 rounded-xl gradient-primary flex items-center justify-center neon-glow-orange"
+            whileHover={{ scale: 1.05, rotate: 5 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            <Bookmark className="w-4 h-4 text-white" />
+          </motion.div>
+          <h1 className="text-lg font-bold">
+            <span className="bg-gradient-to-r from-foreground via-foreground to-muted-foreground bg-clip-text text-transparent">
+              Pick
+            </span>
+            <span className="bg-gradient-to-r from-primary to-neon-pink bg-clip-text text-transparent">
+              Stack
+            </span>
           </h1>
-        </div>
+        </motion.div>
+        
         <div className="flex items-center gap-1">
           {onSettingsClick && (
-            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onSettingsClick}>
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onSettingsClick}
+              className="glass-button w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+            >
               <Settings className="h-4 w-4" />
-            </Button>
+            </motion.button>
           )}
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={handleLogout}>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleLogout}
+            className="glass-button w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+          >
             <LogOut className="h-4 w-4" />
-          </Button>
+          </motion.button>
         </div>
       </div>
     </header>
