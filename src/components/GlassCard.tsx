@@ -39,8 +39,10 @@ export function GlassCard({
     return (item.tags?.length ? item.tags : fallbackKeywords(item.title)) as string[];
   }, [item.tags, item.title]);
 
-  // YouTube는 썸네일이 “콘텐츠의 핵심”이라 기존처럼 이미지 중심, 그 외는 제목 가독성 우선
-  const shouldCenterTitleOverlay = item.platform !== 'YouTube';
+  // 인스타, 쓰레드, 웹만 중앙 제목 오버레이 사용 (썸네일이 불안정하거나 없는 플랫폼)
+  // 나머지 플랫폼(YouTube, Pinterest, TikTok 등)은 이미지 중심으로 표시
+  const platformsWithCenterOverlay = ['Instagram', 'Threads', 'Web'];
+  const shouldCenterTitleOverlay = platformsWithCenterOverlay.includes(item.platform);
   
   const [isPressed, setIsPressed] = useState(false);
   const [showActions, setShowActions] = useState<'left' | 'right' | null>(null);
