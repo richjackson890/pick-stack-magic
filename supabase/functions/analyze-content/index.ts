@@ -168,6 +168,98 @@ function extractMentions(text: string): string[] {
   return [...new Set(matches)].slice(0, 5);
 }
 
+// Fetch Instagram-specific metadata (optimized for Reels)
+async function fetchInstagramMetadata(url: string): Promise<{
+  title?: string;
+  description?: string;
+  image?: string;
+  author?: string;
+  caption?: string;
+}> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    
+    const response = await fetch(url, {
+      headers: { 
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    
+    if (!response.ok) return {};
+    
+    const html = await response.text();
+    console.log(`[analyze-content] Instagram HTML length: ${html.length}`);
+    
+    // Instagram-specific meta tags
+    const ogTitle = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)?.[1];
+    const ogDescription = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)?.[1];
+    const ogImage = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)?.[1];
+    
+    // Try alternative meta tags (Instagram sometimes uses different formats)
+    const altTitle = html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:title["']/i)?.[1];
+    const altDescription = html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:description["']/i)?.[1];
+    
+    // Extract Instagram caption from og:description (format: "X likes, X comments - username on Instagram: "caption"")
+    let caption = "";
+    const descriptionText = ogDescription || altDescription || "";
+    
+    // Pattern 1: "좋아요 N개, 댓글 N개 - username의 Instagram 게시물: "caption""
+    const captionMatch1 = descriptionText.match(/게시물:\s*[""]([^""]+)[""]/i);
+    // Pattern 2: "N likes, N comments - username on Instagram: "caption""
+    const captionMatch2 = descriptionText.match(/Instagram:\s*[""]([^""]+)[""]/i);
+    // Pattern 3: Just extract quoted content
+    const captionMatch3 = descriptionText.match(/[""]([^""]{10,})[""]$/);
+    
+    if (captionMatch1) {
+      caption = captionMatch1[1];
+    } else if (captionMatch2) {
+      caption = captionMatch2[1];
+    } else if (captionMatch3) {
+      caption = captionMatch3[1];
+    } else if (descriptionText.length > 50) {
+      // Use the whole description if it's long enough
+      caption = descriptionText;
+    }
+    
+    // Extract author/username from description
+    let author = "";
+    const authorMatch = descriptionText.match(/[-–]\s*(@?\w+)(?:'s|의|님의|\s+on\s+Instagram)/i);
+    if (authorMatch) {
+      author = authorMatch[1].startsWith('@') ? authorMatch[1] : `@${authorMatch[1]}`;
+    }
+    
+    // Also try to extract from URL path
+    if (!author) {
+      const urlMatch = url.match(/instagram\.com\/(?:p|reel|reels)\/\w+/i);
+      if (!urlMatch) {
+        const usernameMatch = url.match(/instagram\.com\/([^\/\?]+)/);
+        if (usernameMatch && !['p', 'reel', 'reels', 'stories', 'tv'].includes(usernameMatch[1])) {
+          author = `@${usernameMatch[1]}`;
+        }
+      }
+    }
+    
+    console.log(`[analyze-content] Instagram caption: ${caption?.slice(0, 100)}`);
+    console.log(`[analyze-content] Instagram author: ${author}`);
+    
+    return {
+      title: decodeHtmlEntities(ogTitle || altTitle || ""),
+      description: decodeHtmlEntities(descriptionText),
+      image: ogImage || "",
+      author,
+      caption: decodeHtmlEntities(caption),
+    };
+  } catch (error) {
+    console.error("[analyze-content] Instagram metadata fetch error:", error);
+    return {};
+  }
+}
+
 // Fetch generic Open Graph metadata with comprehensive text extraction
 async function fetchOpenGraphData(url: string): Promise<{ 
   title?: string; 
@@ -410,6 +502,44 @@ serve(async (req) => {
       if (videoId) {
         thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
       }
+    } else if (platform === "Instagram" && item.url) {
+      // Special handling for Instagram (Reels, Posts, Stories)
+      console.log("[analyze-content] Fetching Instagram metadata...");
+      const instaData = await fetchInstagramMetadata(item.url);
+      
+      // Use caption as primary content for analysis
+      if (instaData.caption && instaData.caption.length > 10) {
+        extractedText = instaData.caption;
+        console.log(`[analyze-content] Instagram caption extracted: ${extractedText.length} chars`);
+      }
+      
+      // Build better title from caption
+      if (instaData.caption && instaData.caption.length > 5) {
+        // Use first line or first 50 chars of caption as title
+        const firstLine = instaData.caption.split('\n')[0];
+        title = firstLine.slice(0, 50) + (firstLine.length > 50 ? '...' : '');
+      } else if (instaData.title && instaData.title !== 'Instagram') {
+        title = instaData.title;
+      }
+      
+      // Include author in description
+      if (instaData.author) {
+        description = `Instagram ${item.url.includes('/reel') ? '릴스' : '게시물'} by ${instaData.author}`;
+        if (instaData.caption) {
+          description += `\n\n${instaData.caption.slice(0, 500)}`;
+        }
+      } else {
+        description = instaData.description || "";
+      }
+      
+      // Extract hashtags from caption
+      if (instaData.caption) {
+        const captionHashtags = extractHashtags(instaData.caption);
+        console.log(`[analyze-content] Instagram hashtags: ${captionHashtags.join(', ')}`);
+      }
+      
+      console.log(`[analyze-content] Instagram title: ${title}`);
+      console.log(`[analyze-content] Instagram author: ${instaData.author || 'unknown'}`);
     } else if (item.url) {
       console.log("[analyze-content] Fetching Open Graph data...");
       const ogData = await fetchOpenGraphData(item.url);

@@ -60,6 +60,93 @@ async function fetchYouTubeOEmbed(url: string): Promise<{ title: string; thumbna
   }
 }
 
+// Decode HTML entities
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ');
+}
+
+// Fetch Instagram-specific metadata (optimized for Reels)
+async function fetchInstagramMetadata(url: string): Promise<{
+  title?: string;
+  description?: string;
+  author?: string;
+  caption?: string;
+}> {
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    
+    const response = await fetch(url, {
+      headers: { 
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    
+    if (!response.ok) return {};
+    
+    const html = await response.text();
+    console.log(`[preview-analyze] Instagram HTML length: ${html.length}`);
+    
+    // Instagram-specific meta tags
+    const ogTitle = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)?.[1];
+    const ogDescription = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)?.[1];
+    
+    // Try alternative meta tag formats
+    const altDescription = html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*property=["']og:description["']/i)?.[1];
+    
+    // Extract Instagram caption from og:description
+    let caption = "";
+    const descriptionText = ogDescription || altDescription || "";
+    
+    // Pattern 1: Korean format "게시물: "caption""
+    const captionMatch1 = descriptionText.match(/게시물:\s*[""]([^""]+)[""]/i);
+    // Pattern 2: English format "Instagram: "caption""
+    const captionMatch2 = descriptionText.match(/Instagram:\s*[""]([^""]+)[""]/i);
+    // Pattern 3: Just extract quoted content at end
+    const captionMatch3 = descriptionText.match(/[""]([^""]{10,})[""]$/);
+    
+    if (captionMatch1) {
+      caption = captionMatch1[1];
+    } else if (captionMatch2) {
+      caption = captionMatch2[1];
+    } else if (captionMatch3) {
+      caption = captionMatch3[1];
+    } else if (descriptionText.length > 50) {
+      caption = descriptionText;
+    }
+    
+    // Extract author/username
+    let author = "";
+    const authorMatch = descriptionText.match(/[-–]\s*(@?\w+)(?:'s|의|님의|\s+on\s+Instagram)/i);
+    if (authorMatch) {
+      author = authorMatch[1].startsWith('@') ? authorMatch[1] : `@${authorMatch[1]}`;
+    }
+    
+    console.log(`[preview-analyze] Instagram caption: ${caption?.slice(0, 80)}`);
+    console.log(`[preview-analyze] Instagram author: ${author}`);
+    
+    return {
+      title: decodeHtmlEntities(ogTitle || ""),
+      description: decodeHtmlEntities(descriptionText),
+      author,
+      caption: decodeHtmlEntities(caption),
+    };
+  } catch (error) {
+    console.error("[preview-analyze] Instagram metadata error:", error);
+    return {};
+  }
+}
+
 // Fetch Open Graph metadata
 async function fetchOpenGraphData(url: string): Promise<{ title?: string; description?: string; image?: string }> {
   try {
@@ -127,6 +214,31 @@ serve(async (req) => {
       if (videoId) {
         thumbnailUrl = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
       }
+    } else if (platform === "Instagram") {
+      // Special handling for Instagram (Reels, Posts, Stories)
+      console.log("[preview-analyze] Fetching Instagram metadata...");
+      const instaData = await fetchInstagramMetadata(url);
+      
+      // Use caption as primary content
+      if (instaData.caption && instaData.caption.length > 10) {
+        // Build better title from caption
+        const firstLine = instaData.caption.split('\n')[0];
+        title = firstLine.slice(0, 50) + (firstLine.length > 50 ? '...' : '');
+        
+        // Include full caption in description for AI analysis
+        description = instaData.caption;
+      } else if (instaData.title && instaData.title !== 'Instagram') {
+        title = instaData.title;
+      }
+      
+      // Include author info
+      if (instaData.author) {
+        const contentType = url.includes('/reel') ? '릴스' : '게시물';
+        description = `Instagram ${contentType} by ${instaData.author}\n\n${instaData.caption || instaData.description || ""}`;
+      }
+      
+      console.log(`[preview-analyze] Instagram title: ${title}`);
+      console.log(`[preview-analyze] Instagram description: ${description?.slice(0, 100)}`);
     } else {
       const ogData = await fetchOpenGraphData(url);
       title = ogData.title || "";

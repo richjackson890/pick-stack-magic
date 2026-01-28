@@ -94,9 +94,10 @@ export default function Share() {
         // Trigger AI analysis in background
         triggerAutoAnalysis(newItem.id).catch(console.error);
         
-        // Redirect to detail page after short delay
+        // Redirect to home page after short delay
+        // Use replace: true to prevent back button from re-triggering save
         setTimeout(() => {
-          navigate(`/?item=${newItem.id}`);
+          navigate(`/?item=${newItem.id}`, { replace: true });
         }, 1500);
       } else {
         throw new Error('저장에 실패했습니다');
