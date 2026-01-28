@@ -13,12 +13,10 @@ import { ListViewItem } from '@/components/ListViewItem';
 import { ItemDetail } from '@/components/ItemDetail';
 import { SaveModal } from '@/components/SaveModal';
 import { BottomNav } from '@/components/BottomNav';
-import { HealthReport } from '@/components/HealthReport';
+import { AIReport } from '@/components/AIReport';
 import { CategoryManagement } from '@/components/CategoryManagement';
 import { EmptyState } from '@/components/EmptyState';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Loader2, Zap, Play } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
@@ -37,7 +35,7 @@ const Index = () => {
   const [selectedItem, setSelectedItem] = useState<DbItem | null>(null);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isCategoryManagementOpen, setIsCategoryManagementOpen] = useState(false);
-  const [currentTab, setCurrentTab] = useState<'home' | 'health'>('home');
+  const [currentTab, setCurrentTab] = useState<'home' | 'report'>('home');
 
   // Filter items
   const filteredItems = useMemo(() => {
@@ -57,17 +55,19 @@ const Index = () => {
   }, [items, selectedCategoryId, selectedPlatform, searchQuery]);
 
   // Count pending items for batch analyze
-  const pendingItems = useMemo(() => items.filter(i => i.ai_status === 'pending'), [items]);
-
-  // Check if health category is selected
-  const healthCategory = categories.find((c) => c.name === '건강');
-  const isHealthSelected = selectedCategoryId === healthCategory?.id;
+  const pendingItems = useMemo(() => items.filter(i => i.ai_status === 'pending' || i.ai_status === 'error'), [items]);
 
   // Handle batch analyze
   const handleBatchAnalyze = async () => {
     const ids = pendingItems.map(i => i.id);
     await analyzePending(ids);
     refetch();
+  };
+
+  // Handle single retry
+  const handleRetryAnalysis = async (itemId: string) => {
+    await triggerAutoAnalysis(itemId);
+    setTimeout(() => refetch(), 1500);
   };
 
   const handleSave = async (newItem: {
@@ -107,14 +107,9 @@ const Index = () => {
     
     // Trigger content analysis in background if auto_analyze is enabled
     if (savedItem?.id && settings.auto_analyze) {
-      console.log('[Index] Auto-analyze enabled, triggering analysis...');
-      triggerAutoAnalysis(savedItem.id).then((result) => {
-        console.log('[Index] Auto-analysis result:', result);
-        // Refetch after a short delay to get updated data
+      triggerAutoAnalysis(savedItem.id).then(() => {
         setTimeout(() => refetch(), 1500);
       });
-    } else if (savedItem?.id) {
-      console.log('[Index] Auto-analyze disabled, item saved as pending');
     }
   };
 
@@ -123,10 +118,6 @@ const Index = () => {
     if (selectedItem?.id === id) {
       setSelectedItem((prev) => (prev ? { ...prev, ...updates } : null));
     }
-  };
-
-  const handleHealthSummary = () => {
-    setCurrentTab('health');
   };
 
   // Loading state
@@ -141,10 +132,17 @@ const Index = () => {
     );
   }
 
-  if (currentTab === 'health') {
+  if (currentTab === 'report') {
     return (
       <>
-        <HealthReport onClose={() => setCurrentTab('home')} />
+        <AIReport 
+          items={items}
+          categories={categories}
+          onClose={() => setCurrentTab('home')}
+          onRetryAnalysis={handleRetryAnalysis}
+          onBatchAnalyze={handleBatchAnalyze}
+          isProcessing={isProcessing}
+        />
         <BottomNav
           currentTab={currentTab}
           onTabChange={setCurrentTab}
@@ -168,7 +166,6 @@ const Index = () => {
         onPlatformChange={setSelectedPlatform}
         onSearchChange={setSearchQuery}
         onViewModeChange={setViewMode}
-        onHealthSummary={isHealthSelected ? handleHealthSummary : undefined}
         onAddCategory={() => setIsCategoryManagementOpen(true)}
       />
 

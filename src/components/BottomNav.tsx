@@ -1,9 +1,9 @@
-import { Home, Plus, Activity } from 'lucide-react';
+import { Home, Plus, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface BottomNavProps {
-  currentTab: 'home' | 'health';
-  onTabChange: (tab: 'home' | 'health') => void;
+  currentTab: 'home' | 'report';
+  onTabChange: (tab: 'home' | 'report') => void;
   onAdd: () => void;
 }
 
@@ -31,16 +31,16 @@ export function BottomNav({ currentTab, onTabChange, onAdd }: BottomNavProps) {
           <Plus className="h-5 w-5 text-white" />
         </button>
 
-        {/* Health Report */}
+        {/* AI Report */}
         <button
-          onClick={() => onTabChange('health')}
+          onClick={() => onTabChange('report')}
           className={cn(
             'flex flex-col items-center gap-0.5 px-5 py-1.5 rounded-lg transition-colors',
-            currentTab === 'health' ? 'text-primary' : 'text-muted-foreground'
+            currentTab === 'report' ? 'text-primary' : 'text-muted-foreground'
           )}
         >
-          <Activity className="h-4 w-4" />
-          <span className="text-[10px] font-medium">건강</span>
+          <Sparkles className="h-4 w-4" />
+          <span className="text-[10px] font-medium">AI 리포트</span>
         </button>
       </div>
     </nav>
