@@ -1,8 +1,9 @@
 import { motion, useMotionValue, useSpring, useTransform, PanInfo } from 'framer-motion';
-import { useState, useRef } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { DbItem } from '@/hooks/useDbItems';
 import { DbCategory } from '@/hooks/useDbCategories';
 import { PlatformIcon } from '@/components/PlatformIcon';
+import { TextThumbnailCard as PickTextThumbnailCard, fallbackKeywords, isForceTextThumb } from '@/components/PickStackThumbs';
 import { cn } from '@/lib/utils';
 import { Loader2, Trash2, Share2, Pin } from 'lucide-react';
 
@@ -25,8 +26,21 @@ export function GlassCard({
   onPin,
   isMasonry = false 
 }: GlassCardProps) {
-  const hasThumbnail = !!item.thumbnail_url;
+  const [imgError, setImgError] = useState(false);
+
+  const forceTextThumbnail = useMemo(() => {
+    return isForceTextThumb(item.url) || isForceTextThumb(item.thumbnail_url);
+  }, [item.url, item.thumbnail_url]);
+
+  const hasThumbnail = !!item.thumbnail_url && !imgError && !forceTextThumbnail;
   const isAnalyzing = item.ai_status === 'pending' || item.ai_status === 'processing';
+
+  const keywords = useMemo(() => {
+    return (item.tags?.length ? item.tags : fallbackKeywords(item.title)) as string[];
+  }, [item.tags, item.title]);
+
+  // YouTube는 썸네일이 “콘텐츠의 핵심”이라 기존처럼 이미지 중심, 그 외는 제목 가독성 우선
+  const shouldCenterTitleOverlay = item.platform !== 'YouTube';
   
   const [isPressed, setIsPressed] = useState(false);
   const [showActions, setShowActions] = useState<'left' | 'right' | null>(null);
@@ -152,19 +166,14 @@ export function GlassCard({
               initial={{ opacity: 0, scale: 1.1 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.4 }}
+              onError={() => setImgError(true)}
             />
           ) : (
-            <div 
-              className="w-full h-full flex flex-col items-center justify-center p-3 min-h-[120px]"
-              style={{ 
-                background: `linear-gradient(135deg, ${category?.color || '#6b7280'}, ${category?.color || '#6b7280'}dd)` 
-              }}
-            >
-              <PlatformIcon platform={item.platform} size="lg" className="mb-2 opacity-90" />
-              <span className="text-[10px] text-white/90 text-center line-clamp-2 font-medium">
-                {item.title}
-              </span>
-            </div>
+            <PickTextThumbnailCard
+              title={item.title}
+              keywords={keywords}
+              category={category?.name}
+            />
           )}
           
           {/* Gradient Overlay */}
@@ -207,11 +216,26 @@ export function GlassCard({
           
           {/* Title Overlay */}
           {hasThumbnail && (
-            <div className="absolute bottom-0 left-0 right-0 p-2 pt-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
-              <h3 className="text-xs font-semibold text-white line-clamp-1 pr-16 drop-shadow-md">
-                {item.title}
-              </h3>
-            </div>
+            shouldCenterTitleOverlay ? (
+              <div className="absolute inset-0 grid place-items-center p-3 pointer-events-none">
+                <div className="max-w-[92%] text-center">
+                  <h3 className="line-clamp-2 text-sm font-extrabold tracking-tight text-primary-foreground drop-shadow-[0_6px_18px_rgba(0,0,0,0.6)]">
+                    {item.title}
+                  </h3>
+                  {keywords?.length ? (
+                    <div className="mt-1 line-clamp-1 text-[10px] font-medium text-primary-foreground/80">
+                      {keywords.slice(0, 4).join(' · ')}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : (
+              <div className="absolute bottom-0 left-0 right-0 p-2 pt-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+                <h3 className="text-xs font-semibold text-white line-clamp-1 pr-16 drop-shadow-md">
+                  {item.title}
+                </h3>
+              </div>
+            )
           )}
         </div>
       </motion.article>
