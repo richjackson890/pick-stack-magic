@@ -214,24 +214,40 @@ export function GlassCard({
             {category?.name || '기타'}
           </motion.span>
           
-          {/* Title Overlay */}
+          {/* Title Overlay - High contrast white text with strong shadow */}
           {hasThumbnail && (
             shouldCenterTitleOverlay ? (
               <div className="absolute inset-0 grid place-items-center p-3 pointer-events-none">
-                <div className="max-w-[92%] text-center">
-                  <h3 className="line-clamp-2 text-sm font-extrabold tracking-tight text-primary-foreground drop-shadow-[0_6px_18px_rgba(0,0,0,0.6)]">
+                {/* Semi-transparent dark backdrop for text readability */}
+                <div className="max-w-[95%] text-center px-3 py-2 rounded-xl bg-black/50 backdrop-blur-sm">
+                  <h3 
+                    className="line-clamp-2 text-sm font-black tracking-tight text-white"
+                    style={{
+                      textShadow: '0 2px 4px rgba(0,0,0,0.8), 0 4px 8px rgba(0,0,0,0.6), 0 0 20px rgba(0,0,0,0.4)'
+                    }}
+                  >
                     {item.title}
                   </h3>
                   {keywords?.length ? (
-                    <div className="mt-1 line-clamp-1 text-[10px] font-medium text-primary-foreground/80">
+                    <div 
+                      className="mt-1.5 line-clamp-1 text-[10px] font-semibold text-white/90"
+                      style={{
+                        textShadow: '0 1px 3px rgba(0,0,0,0.8)'
+                      }}
+                    >
                       {keywords.slice(0, 4).join(' · ')}
                     </div>
                   ) : null}
                 </div>
               </div>
             ) : (
-              <div className="absolute bottom-0 left-0 right-0 p-2 pt-6 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
-                <h3 className="text-xs font-semibold text-white line-clamp-1 pr-16 drop-shadow-md">
+              <div className="absolute bottom-0 left-0 right-0 p-2 pt-6 bg-gradient-to-t from-black/90 via-black/50 to-transparent">
+                <h3 
+                  className="text-xs font-bold text-white line-clamp-1 pr-16"
+                  style={{
+                    textShadow: '0 2px 4px rgba(0,0,0,0.9), 0 0 10px rgba(0,0,0,0.5)'
+                  }}
+                >
                   {item.title}
                 </h3>
               </div>

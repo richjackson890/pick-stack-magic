@@ -211,27 +211,39 @@ export function TextThumbnailCard({
         className="absolute inset-0" 
         style={{ background: bgGradient }}
       />
-      <div className="absolute inset-0 bg-background/30 backdrop-blur-[2px]" />
+      {/* 더 진한 오버레이로 텍스트 대비 향상 */}
+      <div className="absolute inset-0 bg-black/40" />
       
-      {/* 중앙 텍스트 - 제목 강조 */}
-      <div className="relative flex h-full w-full flex-col items-center justify-center p-5 text-center">
+      {/* 중앙 텍스트 - 제목 강조 (강한 그림자 추가) */}
+      <div className="relative flex h-full w-full flex-col items-center justify-center p-4 text-center">
         {category ? (
-          <div className="mb-3 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur-sm">
+          <div 
+            className="mb-2 rounded-full border border-white/30 bg-black/40 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm"
+            style={{ textShadow: '0 1px 3px rgba(0,0,0,0.8)' }}
+          >
             {category}
           </div>
         ) : null}
-        <div className="line-clamp-3 text-xl font-black leading-snug tracking-tight text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
+        <div 
+          className="line-clamp-3 text-base font-black leading-snug tracking-tight text-white"
+          style={{
+            textShadow: '0 2px 4px rgba(0,0,0,0.9), 0 4px 8px rgba(0,0,0,0.7), 0 0 20px rgba(0,0,0,0.5)'
+          }}
+        >
           {t}
         </div>
         {k?.length ? (
-          <div className="mt-3 line-clamp-1 max-w-[92%] text-xs font-medium text-white/75">
+          <div 
+            className="mt-2 line-clamp-1 max-w-[95%] text-[10px] font-semibold text-white"
+            style={{ textShadow: '0 1px 3px rgba(0,0,0,0.9)' }}
+          >
             {k.slice(0, 6).join(" · ")}
           </div>
         ) : null}
       </div>
       
       {/* 유리 하이라이트 */}
-      <div className="pointer-events-none absolute inset-0 opacity-60 [mask-image:radial-gradient(circle_at_30%_20%,black,transparent_60%)] bg-white/15" />
+      <div className="pointer-events-none absolute inset-0 opacity-40 [mask-image:radial-gradient(circle_at_30%_20%,black,transparent_60%)] bg-white/20" />
     </div>
   );
 }
