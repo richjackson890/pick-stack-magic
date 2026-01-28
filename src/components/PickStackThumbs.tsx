@@ -33,6 +33,35 @@ export function fallbackKeywords(title?: string) {
 }
 
 /**
+ * 제목 기반으로 일관된 랜덤 배경 그라디언트 생성
+ */
+const gradientPresets = [
+  // Warm tones
+  "radial-gradient(circle_at_20%_20%,hsl(25,90%,55%,0.4),transparent_55%),radial-gradient(circle_at_80%_30%,hsl(340,80%,50%,0.35),transparent_55%),radial-gradient(circle_at_50%_90%,hsl(45,85%,60%,0.3),transparent_60%)",
+  // Cool blues
+  "radial-gradient(circle_at_30%_20%,hsl(210,85%,55%,0.4),transparent_55%),radial-gradient(circle_at_70%_80%,hsl(190,80%,50%,0.35),transparent_55%),radial-gradient(circle_at_90%_40%,hsl(240,70%,60%,0.3),transparent_60%)",
+  // Purple vibes
+  "radial-gradient(circle_at_10%_80%,hsl(280,75%,55%,0.4),transparent_55%),radial-gradient(circle_at_80%_20%,hsl(320,70%,50%,0.35),transparent_55%),radial-gradient(circle_at_50%_50%,hsl(260,80%,60%,0.3),transparent_60%)",
+  // Green nature
+  "radial-gradient(circle_at_20%_70%,hsl(140,70%,45%,0.4),transparent_55%),radial-gradient(circle_at_80%_30%,hsl(170,65%,50%,0.35),transparent_55%),radial-gradient(circle_at_40%_10%,hsl(100,60%,55%,0.3),transparent_60%)",
+  // Sunset orange
+  "radial-gradient(circle_at_80%_80%,hsl(15,90%,55%,0.4),transparent_55%),radial-gradient(circle_at_20%_30%,hsl(45,85%,55%,0.35),transparent_55%),radial-gradient(circle_at_60%_10%,hsl(350,75%,50%,0.3),transparent_60%)",
+  // Ocean teal
+  "radial-gradient(circle_at_30%_90%,hsl(180,70%,45%,0.4),transparent_55%),radial-gradient(circle_at_70%_20%,hsl(200,80%,55%,0.35),transparent_55%),radial-gradient(circle_at_10%_40%,hsl(160,65%,50%,0.3),transparent_60%)",
+  // Pink dreams
+  "radial-gradient(circle_at_50%_20%,hsl(330,80%,60%,0.4),transparent_55%),radial-gradient(circle_at_20%_80%,hsl(300,70%,55%,0.35),transparent_55%),radial-gradient(circle_at_90%_60%,hsl(350,75%,50%,0.3),transparent_60%)",
+  // Golden hour
+  "radial-gradient(circle_at_80%_20%,hsl(40,90%,55%,0.4),transparent_55%),radial-gradient(circle_at_20%_70%,hsl(25,85%,50%,0.35),transparent_55%),radial-gradient(circle_at_50%_40%,hsl(55,80%,60%,0.3),transparent_60%)",
+];
+
+function getTitleBasedGradient(title?: string): string {
+  if (!title) return gradientPresets[0];
+  // 제목 기반으로 일관된 인덱스 생성 (같은 제목은 항상 같은 배경)
+  const hash = title.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  return gradientPresets[hash % gradientPresets.length];
+}
+
+/**
  * ✅ 카드(그리드/리스트)용: 인스타/쓰레드면 무조건 텍스트 썸네일 + 중앙 타이틀
  */
 export function ItemCard({ item }: { item: any }) {
@@ -171,32 +200,38 @@ export function TextThumbnailCard({
 }) {
   const t = (title || "제목 없음").trim();
   const k = keywords?.length ? keywords : fallbackKeywords(t);
+  
+  // 제목 기반 랜덤 배경 그라디언트
+  const bgGradient = useMemo(() => getTitleBasedGradient(title), [title]);
 
   return (
-    <div className={cn("relative h-full w-full", className)}>
-      {/* 배경: 리퀴드/글라스 */}
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,hsl(var(--primary)/0.35),transparent_55%),radial-gradient(circle_at_80%_30%,hsl(var(--accent)/0.35),transparent_55%),radial-gradient(circle_at_50%_90%,hsl(var(--secondary)/0.25),transparent_60%)]" />
-      <div className="absolute inset-0 bg-background/25" />
+    <div className={cn("relative h-full w-full overflow-hidden", className)}>
+      {/* 배경: 제목 기반 랜덤 그라디언트 */}
+      <div 
+        className="absolute inset-0" 
+        style={{ background: bgGradient }}
+      />
+      <div className="absolute inset-0 bg-background/30 backdrop-blur-[2px]" />
       
-      {/* 중앙 텍스트 */}
+      {/* 중앙 텍스트 - 제목 강조 */}
       <div className="relative flex h-full w-full flex-col items-center justify-center p-5 text-center">
         {category ? (
-          <div className="mb-3 rounded-full border border-border/15 bg-muted/10 px-3 py-1 text-xs font-semibold text-foreground/85">
+          <div className="mb-3 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur-sm">
             {category}
           </div>
         ) : null}
-        <div className="line-clamp-3 text-xl font-black leading-snug tracking-tight text-foreground drop-shadow-[0_10px_24px_hsl(var(--background)/0.7)]">
+        <div className="line-clamp-3 text-xl font-black leading-snug tracking-tight text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]">
           {t}
         </div>
         {k?.length ? (
-          <div className="mt-3 line-clamp-1 max-w-[92%] text-xs font-medium text-muted-foreground">
+          <div className="mt-3 line-clamp-1 max-w-[92%] text-xs font-medium text-white/75">
             {k.slice(0, 6).join(" · ")}
           </div>
         ) : null}
       </div>
       
       {/* 유리 하이라이트 */}
-      <div className="pointer-events-none absolute inset-0 opacity-80 [mask-image:radial-gradient(circle_at_30%_20%,black,transparent_60%)] bg-primary/10" />
+      <div className="pointer-events-none absolute inset-0 opacity-60 [mask-image:radial-gradient(circle_at_30%_20%,black,transparent_60%)] bg-white/15" />
     </div>
   );
 }
