@@ -33,13 +33,11 @@ function detectPlatform(url: string): Platform {
   }
 }
 
-// Check if URL is Instagram Reel
-function isInstagramReel(url: string): boolean {
+// Check if URL is from Instagram (all content types)
+function isInstagramUrl(url: string): boolean {
   try {
-    const urlObj = new URL(url);
-    const host = urlObj.hostname.toLowerCase();
-    const path = urlObj.pathname.toLowerCase();
-    return host.includes('instagram') && (path.includes('/reel') || path.includes('/reels'));
+    const host = new URL(url).hostname.toLowerCase();
+    return host.includes('instagram');
   } catch {
     return false;
   }
@@ -183,8 +181,8 @@ export default function Share() {
     const urlToProcess = sharedUrl || extractUrlFromText(sharedText);
     
     if (urlToProcess) {
-      // Check if it's an Instagram Reel - require manual save
-      if (isInstagramReel(urlToProcess)) {
+      // Check if it's Instagram content - require manual save due to platform restrictions
+      if (isInstagramUrl(urlToProcess)) {
         setManualUrl(urlToProcess);
         const titleCandidate = sharedTitle || extractTitleFromText(sharedText) || '';
         setManualTitle(titleCandidate);
@@ -332,28 +330,28 @@ export default function Share() {
           </div>
         )}
 
-        {/* Instagram Reels Manual Input */}
+        {/* Instagram Manual Input */}
         {status === 'instagram-manual' && (
           <div className="space-y-6">
             <div className="text-center space-y-2">
               <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 flex items-center justify-center mx-auto">
                 <span className="text-2xl">📷</span>
               </div>
-              <h2 className="text-lg font-semibold">Instagram Reels 저장</h2>
+              <h2 className="text-lg font-semibold">Instagram 콘텐츠 저장</h2>
               <div className="bg-muted/50 rounded-lg p-3 text-left">
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  <span className="font-medium text-foreground">ℹ️ 안내:</span> Instagram 정책에 따라 Reels 콘텐츠는 자동 메타데이터 추출이 제한됩니다. 
-                  제목을 직접 입력하시면 더 정확하게 저장됩니다.
+                  <span className="font-medium text-foreground">ℹ️ 안내:</span> Instagram은 외부 앱에서 콘텐츠 정보를 자동으로 가져오는 것을 제한하고 있습니다. 
+                  정확한 저장을 위해 제목을 직접 입력해주세요.
                 </p>
               </div>
             </div>
 
             <form onSubmit={(e) => { e.preventDefault(); if (manualUrl.trim()) saveUrl(manualUrl.trim(), manualTitle.trim() || undefined); }} className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-muted-foreground">URL</label>
-                <Input
-                  type="url"
-                  placeholder="https://www.instagram.com/reel/..."
+              <label className="text-sm font-medium text-muted-foreground">URL</label>
+              <Input
+                type="url"
+                placeholder="https://www.instagram.com/..."
                   value={manualUrl}
                   onChange={(e) => setManualUrl(e.target.value)}
                   className="w-full bg-muted/30"
