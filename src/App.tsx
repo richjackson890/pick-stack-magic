@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Share from "./pages/Share";
+import ManualSaveTest from "./pages/ManualSaveTest";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -77,6 +78,11 @@ function AppRoutes() {
       <Route path="/share" element={
         <ProtectedRoute>
           <Share />
+        </ProtectedRoute>
+      } />
+      <Route path="/manual-save" element={
+        <ProtectedRoute>
+          <ManualSaveTest />
         </ProtectedRoute>
       } />
       <Route path="/" element={
