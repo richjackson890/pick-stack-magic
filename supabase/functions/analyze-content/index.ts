@@ -103,6 +103,79 @@ function decodeHtmlEntities(text: string): string {
     .replace(/&#x([0-9a-f]+);/gi, (_, hex) => String.fromCharCode(parseInt(hex, 16)));
 }
 
+function isBadTitleForDisplay(title: string, url?: string | null): boolean {
+  const t = (title || '').trim();
+  if (!t) return true;
+
+  const lower = t.toLowerCase();
+  if (lower.startsWith('http://') || lower.startsWith('https://')) return true;
+  if (lower.includes('instagram.com/reel') || lower.includes('instagram.com/p/')) return true;
+
+  // Common generic fallbacks
+  const generic = [
+    'instagram',
+    '인스타그램',
+    '인스타그램 저장 콘텐츠',
+    '인스타그램 릴스 콘텐츠 분석',
+    '릴스 콘텐츠 분석',
+  ];
+  if (generic.includes(t)) return true;
+
+  // If it is literally the shared url
+  if (url && t === url) return true;
+
+  return t.length < 2;
+}
+
+async function ocrTitleFromImage(imageUrl: string, lovableApiKey: string): Promise<string> {
+  try {
+    const prompt = `이미지에 보이는 큰 글자/제목을 최대 1줄로 추출해줘.\n\n- 브랜드 워터마크/로고만 있으면 빈 문자열\n- 추출 텍스트가 여러 줄이면 가장 제목처럼 보이는 1줄만\n- 반드시 JSON만 응답: {"title":"..."}`;
+
+    const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${lovableApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: '너는 OCR/요약 전문가다. 반드시 JSON만 응답한다.' },
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: prompt },
+              { type: 'image_url', image_url: { url: imageUrl } },
+            ],
+          },
+        ],
+        temperature: 0.0,
+        max_tokens: 120,
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      console.error('[analyze-content] OCR AI call failed:', res.status, body.slice(0, 500));
+      return '';
+    }
+
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      const title = (parsed?.title || '').toString().trim();
+      return title.slice(0, 80);
+    }
+
+    return '';
+  } catch (e) {
+    console.error('[analyze-content] OCR error:', e);
+    return '';
+  }
+}
+
 // Extract main text content from HTML (more comprehensive extraction)
 function extractTextContent(html: string): string {
   // Remove script, style, nav, footer, header, aside tags
@@ -513,13 +586,30 @@ serve(async (req) => {
         console.log(`[analyze-content] Instagram caption extracted: ${extractedText.length} chars`);
       }
       
+      // Respect existing title if it already looks good (e.g., passed from share sheet)
+      const shouldReplaceTitle = isBadTitleForDisplay(title, item.url);
+
       // Build better title from caption
-      if (instaData.caption && instaData.caption.length > 5) {
+      if (shouldReplaceTitle && instaData.caption && instaData.caption.length > 5) {
         // Use first line or first 50 chars of caption as title
         const firstLine = instaData.caption.split('\n')[0];
         title = firstLine.slice(0, 50) + (firstLine.length > 50 ? '...' : '');
-      } else if (instaData.title && instaData.title !== 'Instagram') {
+      } else if (shouldReplaceTitle && instaData.title && instaData.title !== 'Instagram') {
         title = instaData.title;
+      }
+
+      // If we still don't have a good title, try OCR from Instagram og:image (cover frame)
+      if (
+        isBadTitleForDisplay(title, item.url) &&
+        instaData.image &&
+        lovableApiKey
+      ) {
+        console.log('[analyze-content] Instagram title missing -> trying OCR from og:image');
+        const ocrTitle = await ocrTitleFromImage(instaData.image, lovableApiKey);
+        if (ocrTitle && ocrTitle.length >= 3) {
+          title = ocrTitle;
+          console.log(`[analyze-content] OCR title: ${title}`);
+        }
       }
       
       // Include author in description
