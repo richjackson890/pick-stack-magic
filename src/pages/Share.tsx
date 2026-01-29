@@ -48,6 +48,43 @@ export default function Share() {
     return matches ? matches[0] : null;
   };
 
+  // Derive a human title from shared text (best-effort)
+  const extractTitleFromText = (text: string): string | null => {
+    if (!text) return null;
+
+    // Remove URLs and normalize whitespace
+    const cleaned = text
+      .replace(/https?:\/\/[^\s]+/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    if (!cleaned) return null;
+
+    // Prefer original line-based structure if available
+    const lines = text
+      .split(/\r?\n/)
+      .map((l) => l.trim())
+      .filter(Boolean)
+      .filter((l) => !/^https?:\/\//i.test(l));
+
+    const candidates = lines.length ? lines : [cleaned];
+
+    const bad = (s: string) => {
+      const lower = s.toLowerCase();
+      if (!s || s.length < 2) return true;
+      if (lower.includes('instagram.com') || lower.includes('threads.net')) return true;
+      if (lower === 'instagram' || lower === 'threads') return true;
+      // Common share boilerplate
+      if (lower.includes('check out') || lower.includes('reel') || lower.includes('on instagram')) return true;
+      if (lower.includes('공유') || lower.includes('링크') || lower.includes('instagram 릴스')) return true;
+      return false;
+    };
+
+    const best = candidates.find((c) => !bad(c)) || null;
+    if (!best) return null;
+    return best.slice(0, 80);
+  };
+
   // Get shared data from URL params
   const sharedUrl = searchParams.get('url') || '';
   const sharedText = searchParams.get('text') || '';
@@ -127,11 +164,13 @@ export default function Share() {
 
     // Priority: url > extract from text > manual input
     if (sharedUrl) {
-      saveUrl(sharedUrl, sharedTitle || undefined);
+      const titleCandidate = sharedTitle || extractTitleFromText(sharedText) || undefined;
+      saveUrl(sharedUrl, titleCandidate);
     } else if (sharedText) {
       const extractedUrl = extractUrlFromText(sharedText);
       if (extractedUrl) {
-        saveUrl(extractedUrl, sharedTitle || undefined);
+        const titleCandidate = sharedTitle || extractTitleFromText(sharedText) || undefined;
+        saveUrl(extractedUrl, titleCandidate);
       } else {
         setErrorMessage('링크를 찾지 못했어요');
         setStatus('manual');
