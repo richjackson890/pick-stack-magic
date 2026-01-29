@@ -8,25 +8,41 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Platform } from '@/types/pickstack';
 
-type ShareStatus = 'loading' | 'saving' | 'success' | 'error' | 'manual';
+type ShareStatus = 'loading' | 'saving' | 'success' | 'error' | 'manual' | 'instagram-manual';
 
 // Detect platform from URL
 function detectPlatform(url: string): Platform {
-  const host = new URL(url).hostname.toLowerCase();
-  if (host.includes('instagram')) return 'Instagram';
-  if (host.includes('threads.net')) return 'Threads';
-  if (host.includes('youtube') || host.includes('youtu.be')) return 'YouTube';
-  if (host.includes('tiktok')) return 'TikTok';
-  if (host.includes('facebook') || host.includes('fb.')) return 'Facebook';
-  if (host.includes('twitter') || host.includes('x.com')) return 'X';
-  if (host.includes('pinterest')) return 'Pinterest';
-  if (host.includes('reddit')) return 'Reddit';
-  if (host.includes('linkedin')) return 'LinkedIn';
-  if (host.includes('medium.com')) return 'Medium';
-  if (host.includes('naver')) return 'Naver';
-  if (host.includes('kakao')) return 'Kakao';
-  if (host.includes('brunch')) return 'Brunch';
-  return 'Web';
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (host.includes('instagram')) return 'Instagram';
+    if (host.includes('threads.net')) return 'Threads';
+    if (host.includes('youtube') || host.includes('youtu.be')) return 'YouTube';
+    if (host.includes('tiktok')) return 'TikTok';
+    if (host.includes('facebook') || host.includes('fb.')) return 'Facebook';
+    if (host.includes('twitter') || host.includes('x.com')) return 'X';
+    if (host.includes('pinterest')) return 'Pinterest';
+    if (host.includes('reddit')) return 'Reddit';
+    if (host.includes('linkedin')) return 'LinkedIn';
+    if (host.includes('medium.com')) return 'Medium';
+    if (host.includes('naver')) return 'Naver';
+    if (host.includes('kakao')) return 'Kakao';
+    if (host.includes('brunch')) return 'Brunch';
+    return 'Web';
+  } catch {
+    return 'Web';
+  }
+}
+
+// Check if URL is Instagram Reel
+function isInstagramReel(url: string): boolean {
+  try {
+    const urlObj = new URL(url);
+    const host = urlObj.hostname.toLowerCase();
+    const path = urlObj.pathname.toLowerCase();
+    return host.includes('instagram') && (path.includes('/reel') || path.includes('/reels'));
+  } catch {
+    return false;
+  }
 }
 
 export default function Share() {
@@ -39,6 +55,7 @@ export default function Share() {
   const [status, setStatus] = useState<ShareStatus>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [manualUrl, setManualUrl] = useState('');
+  const [manualTitle, setManualTitle] = useState('');
   const [savedItemId, setSavedItemId] = useState<string | null>(null);
 
   // Extract URL from text (common pattern: "Title\nURL" or just URL in text)
@@ -163,18 +180,23 @@ export default function Share() {
     }
 
     // Priority: url > extract from text > manual input
-    if (sharedUrl) {
-      const titleCandidate = sharedTitle || extractTitleFromText(sharedText) || undefined;
-      saveUrl(sharedUrl, titleCandidate);
-    } else if (sharedText) {
-      const extractedUrl = extractUrlFromText(sharedText);
-      if (extractedUrl) {
-        const titleCandidate = sharedTitle || extractTitleFromText(sharedText) || undefined;
-        saveUrl(extractedUrl, titleCandidate);
-      } else {
-        setErrorMessage('링크를 찾지 못했어요');
-        setStatus('manual');
+    const urlToProcess = sharedUrl || extractUrlFromText(sharedText);
+    
+    if (urlToProcess) {
+      // Check if it's an Instagram Reel - require manual save
+      if (isInstagramReel(urlToProcess)) {
+        setManualUrl(urlToProcess);
+        const titleCandidate = sharedTitle || extractTitleFromText(sharedText) || '';
+        setManualTitle(titleCandidate);
+        setStatus('instagram-manual');
+        return;
       }
+      
+      const titleCandidate = sharedTitle || extractTitleFromText(sharedText) || undefined;
+      saveUrl(urlToProcess, titleCandidate);
+    } else if (sharedText && !urlToProcess) {
+      setErrorMessage('링크를 찾지 못했어요');
+      setStatus('manual');
     } else {
       // No data shared, show manual input
       setStatus('manual');
@@ -294,6 +316,63 @@ export default function Share() {
               <Button 
                 type="submit" 
                 className="w-full"
+                disabled={!manualUrl.trim()}
+              >
+                저장하기
+              </Button>
+            </form>
+
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate('/')}
+              className="w-full"
+            >
+              취소
+            </Button>
+          </div>
+        )}
+
+        {/* Instagram Reels Manual Input */}
+        {status === 'instagram-manual' && (
+          <div className="space-y-6">
+            <div className="text-center space-y-2">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 flex items-center justify-center mx-auto">
+                <span className="text-2xl">📷</span>
+              </div>
+              <h2 className="text-lg font-semibold">Instagram Reels 저장</h2>
+              <div className="bg-muted/50 rounded-lg p-3 text-left">
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  <span className="font-medium text-foreground">ℹ️ 안내:</span> Instagram 정책에 따라 Reels 콘텐츠는 자동 메타데이터 추출이 제한됩니다. 
+                  제목을 직접 입력하시면 더 정확하게 저장됩니다.
+                </p>
+              </div>
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); if (manualUrl.trim()) saveUrl(manualUrl.trim(), manualTitle.trim() || undefined); }} className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">URL</label>
+                <Input
+                  type="url"
+                  placeholder="https://www.instagram.com/reel/..."
+                  value={manualUrl}
+                  onChange={(e) => setManualUrl(e.target.value)}
+                  className="w-full bg-muted/30"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-muted-foreground">제목 (선택)</label>
+                <Input
+                  type="text"
+                  placeholder="릴스 내용을 간단히 입력해주세요"
+                  value={manualTitle}
+                  onChange={(e) => setManualTitle(e.target.value)}
+                  className="w-full"
+                  autoFocus
+                />
+              </div>
+              <Button 
+                type="submit" 
+                className="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700"
                 disabled={!manualUrl.trim()}
               >
                 저장하기
