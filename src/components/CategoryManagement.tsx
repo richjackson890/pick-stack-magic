@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { DbCategory } from '@/hooks/useDbCategories';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,6 +21,9 @@ import { cn } from '@/lib/utils';
 import { IconPicker, IconDisplay } from '@/components/IconPicker';
 import { CategoryTemplates } from '@/components/CategoryTemplates';
 import { CategoryTemplate, migrateIconKey } from '@/lib/iconRegistry';
+
+const CATEGORY_SHEET_MODAL_ID = 'category-sheet';
+const CATEGORY_EDIT_MODAL_ID = 'category-edit';
 
 interface CategoryManagementProps {
   isOpen: boolean;
@@ -51,8 +54,72 @@ export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdat
   const [formColor, setFormColor] = useState(PRESET_COLORS[0]);
   const [formIcon, setFormIcon] = useState('emoji:📁');
   const [formKeywords, setFormKeywords] = useState('');
+  
+  // Refs for history management
+  const sheetOpenRef = useRef(false);
+  const dialogOpenRef = useRef(false);
 
   const sortedCategories = [...categories].sort((a, b) => a.sort_order - b.sort_order);
+  
+  // Handle browser back button
+  useEffect(() => {
+    const handlePopState = () => {
+      // Close dialogs in order: edit/add dialog first, then sheet
+      if (dialogOpenRef.current) {
+        dialogOpenRef.current = false;
+        setIsAddDialogOpen(false);
+        setEditingCategory(null);
+        resetForm();
+        return;
+      }
+      if (sheetOpenRef.current) {
+        sheetOpenRef.current = false;
+        onClose();
+        return;
+      }
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [onClose]);
+  
+  // Push history when sheet opens
+  useEffect(() => {
+    if (isOpen && !sheetOpenRef.current) {
+      sheetOpenRef.current = true;
+      window.history.pushState({ modal: CATEGORY_SHEET_MODAL_ID }, '');
+    }
+  }, [isOpen]);
+  
+  // Handle sheet close via UI
+  const handleSheetClose = useCallback(() => {
+    if (sheetOpenRef.current) {
+      sheetOpenRef.current = false;
+      window.history.back();
+    }
+    onClose();
+  }, [onClose]);
+  
+  // Handle dialog open
+  const handleDialogOpen = useCallback(() => {
+    if (!dialogOpenRef.current) {
+      dialogOpenRef.current = true;
+      window.history.pushState({ modal: CATEGORY_EDIT_MODAL_ID }, '');
+    }
+  }, []);
+  
+  // Handle dialog close via UI
+  const handleDialogClose = useCallback(() => {
+    if (dialogOpenRef.current) {
+      dialogOpenRef.current = false;
+      window.history.back();
+    }
+    setIsAddDialogOpen(false);
+    setEditingCategory(null);
+    resetForm();
+  }, []);
 
   const resetForm = () => {
     setFormName('');
@@ -63,6 +130,7 @@ export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdat
 
   const openAddDialog = () => {
     resetForm();
+    handleDialogOpen();
     setIsAddDialogOpen(true);
   };
 
@@ -71,6 +139,7 @@ export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdat
     setFormColor(category.color);
     setFormIcon(migrateIconKey(category.icon));
     setFormKeywords(category.keywords || '');
+    handleDialogOpen();
     setEditingCategory(category);
   };
 
@@ -84,7 +153,6 @@ export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdat
         icon: formIcon,
         keywords: formKeywords.trim(),
       });
-      setEditingCategory(null);
     } else {
       await onAdd({
         name: formName.trim(),
@@ -92,9 +160,8 @@ export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdat
         icon: formIcon,
         keywords: formKeywords.trim(),
       });
-      setIsAddDialogOpen(false);
     }
-    resetForm();
+    handleDialogClose();
   };
 
   const handleDelete = async () => {
@@ -137,7 +204,7 @@ export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdat
 
   return (
     <>
-      <Sheet open={isOpen} onOpenChange={onClose}>
+      <Sheet open={isOpen} onOpenChange={(open) => !open && handleSheetClose()}>
         <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="flex items-center gap-2">
@@ -240,11 +307,7 @@ export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdat
       {/* Add/Edit Dialog */}
       <Dialog 
         open={isAddDialogOpen || !!editingCategory} 
-        onOpenChange={() => {
-          setIsAddDialogOpen(false);
-          setEditingCategory(null);
-          resetForm();
-        }}
+        onOpenChange={(open) => !open && handleDialogClose()}
       >
         <DialogContent className="max-w-sm">
           <DialogHeader>
@@ -334,11 +397,7 @@ export function CategoryManagement({ isOpen, categories, onClose, onAdd, onUpdat
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => {
-                setIsAddDialogOpen(false);
-                setEditingCategory(null);
-                resetForm();
-              }}
+              onClick={handleDialogClose}
             >
               취소
             </Button>
