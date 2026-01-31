@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 import { Platform } from '@/types/pickstack';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDbCategories } from '@/hooks/useDbCategories';
@@ -7,6 +8,7 @@ import { useDbItems, DbItem } from '@/hooks/useDbItems';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import { useBatchAnalyze } from '@/hooks/useBatchAnalyze';
 import { useContentAnalysis } from '@/hooks/useContentAnalysis';
+import { useBackNavigation } from '@/hooks/useBackNavigation';
 import { Header } from '@/components/Header';
 import { EnhancedFilterBar } from '@/components/EnhancedFilterBar';
 import { GlassCard } from '@/components/GlassCard';
@@ -25,11 +27,15 @@ import { useToast } from '@/hooks/use-toast';
 const Index = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const { categories, loading: categoriesLoading, getCategoryById, getDefaultCategory, addCategory, updateCategory, deleteCategory, reorderCategories } = useDbCategories();
   const { items, loading: itemsLoading, addItem, updateItem, deleteItem, refetch } = useDbItems();
   const { settings, updateAutoAnalyze } = useUserSettings();
   const { analyzePending, isProcessing, progress } = useBatchAnalyze();
   const { triggerAutoAnalysis } = useContentAnalysis();
+  
+  // Back navigation hook for PWA
+  useBackNavigation();
   
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedPlatform, setSelectedPlatform] = useState<Platform | null>(null);
