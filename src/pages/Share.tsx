@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Platform } from '@/types/pickstack';
 
-type ShareStatus = 'loading' | 'saving' | 'success' | 'error' | 'manual' | 'instagram-manual';
+type ShareStatus = 'loading' | 'saving' | 'success' | 'error' | 'manual' | 'meta-manual';
 
 // Detect platform from URL
 function detectPlatform(url: string): Platform {
@@ -33,13 +33,19 @@ function detectPlatform(url: string): Platform {
   }
 }
 
-// Check if URL is from Instagram (all content types)
-function isInstagramUrl(url: string): boolean {
+// Check if URL is from Instagram or Threads (Meta platforms)
+function isMetaPlatformUrl(url: string): { isMeta: boolean; platform: 'Instagram' | 'Threads' | null } {
   try {
     const host = new URL(url).hostname.toLowerCase();
-    return host.includes('instagram');
+    if (host.includes('instagram')) {
+      return { isMeta: true, platform: 'Instagram' };
+    }
+    if (host.includes('threads.net') || host.includes('threads.com')) {
+      return { isMeta: true, platform: 'Threads' };
+    }
+    return { isMeta: false, platform: null };
   } catch {
-    return false;
+    return { isMeta: false, platform: null };
   }
 }
 
@@ -55,6 +61,7 @@ export default function Share() {
   const [manualUrl, setManualUrl] = useState('');
   const [manualTitle, setManualTitle] = useState('');
   const [savedItemId, setSavedItemId] = useState<string | null>(null);
+  const [metaPlatform, setMetaPlatform] = useState<'Instagram' | 'Threads' | null>(null);
 
   // Extract URL from text (common pattern: "Title\nURL" or just URL in text)
   const extractUrlFromText = (text: string): string | null => {
@@ -181,12 +188,14 @@ export default function Share() {
     const urlToProcess = sharedUrl || extractUrlFromText(sharedText);
     
     if (urlToProcess) {
-      // Check if it's Instagram content - require manual save due to platform restrictions
-      if (isInstagramUrl(urlToProcess)) {
+      // Check if it's Meta platform content - require manual save due to platform restrictions
+      const metaCheck = isMetaPlatformUrl(urlToProcess);
+      if (metaCheck.isMeta) {
         setManualUrl(urlToProcess);
         const titleCandidate = sharedTitle || extractTitleFromText(sharedText) || '';
         setManualTitle(titleCandidate);
-        setStatus('instagram-manual');
+        setMetaPlatform(metaCheck.platform);
+        setStatus('meta-manual');
         return;
       }
       
@@ -330,17 +339,17 @@ export default function Share() {
           </div>
         )}
 
-        {/* Instagram Manual Input */}
-        {status === 'instagram-manual' && (
+        {/* Meta Platform Manual Input (Instagram/Threads) */}
+        {status === 'meta-manual' && (
           <div className="space-y-6">
             <div className="text-center space-y-2">
               <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 flex items-center justify-center mx-auto">
-                <span className="text-2xl">📷</span>
+                <span className="text-2xl">{metaPlatform === 'Threads' ? '🧵' : '📷'}</span>
               </div>
-              <h2 className="text-lg font-semibold">Instagram 콘텐츠 저장</h2>
+              <h2 className="text-lg font-semibold">{metaPlatform} 콘텐츠 저장</h2>
               <div className="bg-muted/50 rounded-lg p-3 text-left">
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  <span className="font-medium text-foreground">ℹ️ 안내:</span> Instagram은 외부 앱에서 콘텐츠 정보를 자동으로 가져오는 것을 제한하고 있습니다. 
+                  <span className="font-medium text-foreground">ℹ️ 안내:</span> Meta 정책에 따라 {metaPlatform} 콘텐츠는 외부 앱에서 정보를 자동으로 가져오는 것이 제한됩니다. 
                   정확한 저장을 위해 제목을 직접 입력해주세요.
                 </p>
               </div>
@@ -351,7 +360,7 @@ export default function Share() {
               <label className="text-sm font-medium text-muted-foreground">URL</label>
               <Input
                 type="url"
-                placeholder="https://www.instagram.com/..."
+                placeholder={metaPlatform === 'Threads' ? "https://www.threads.net/..." : "https://www.instagram.com/..."}
                   value={manualUrl}
                   onChange={(e) => setManualUrl(e.target.value)}
                   className="w-full bg-muted/30"
@@ -361,7 +370,7 @@ export default function Share() {
                 <label className="text-sm font-medium text-muted-foreground">제목 (선택)</label>
                 <Input
                   type="text"
-                  placeholder="릴스 내용을 간단히 입력해주세요"
+                  placeholder="콘텐츠 내용을 간단히 입력해주세요"
                   value={manualTitle}
                   onChange={(e) => setManualTitle(e.target.value)}
                   className="w-full"
