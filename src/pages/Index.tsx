@@ -21,7 +21,8 @@ import { CategoryManagement } from '@/components/CategoryManagement';
 import { EmptyState } from '@/components/EmptyState';
 import { LiquidSpinner } from '@/components/LiquidSpinner';
 import { GlassToast } from '@/components/GlassToast';
-import { RefreshCw } from 'lucide-react';
+import { ShareCollectionModal } from '@/components/ShareCollectionModal';
+import { RefreshCw, Share2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const Index = () => {
@@ -45,6 +46,7 @@ const Index = () => {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isCategoryManagementOpen, setIsCategoryManagementOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState<'home' | 'report'>('home');
+  const [isShareCollectionOpen, setIsShareCollectionOpen] = useState(false);
   
   // Pull to refresh state
   const [isPulling, setIsPulling] = useState(false);
@@ -354,12 +356,35 @@ const Index = () => {
         onReorder={reorderCategories}
       />
 
+      {/* Share Collection Modal */}
+      <ShareCollectionModal
+        isOpen={isShareCollectionOpen}
+        onClose={() => setIsShareCollectionOpen(false)}
+        category={selectedCategoryId ? getCategoryById(selectedCategoryId) : undefined}
+        items={filteredItems}
+      />
+
       <GlassToast
         show={toastState.show}
         type={toastState.type}
         message={toastState.message}
         onClose={() => setToastState(prev => ({ ...prev, show: false }))}
       />
+
+      {/* Category Share Button - Show when a category is selected */}
+      {selectedCategoryId && filteredItems.length > 0 && (
+        <motion.button
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.9 }}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => setIsShareCollectionOpen(true)}
+          className="fixed bottom-28 left-4 glass-button w-12 h-12 rounded-full flex items-center justify-center neon-glow"
+        >
+          <Share2 className="h-5 w-5 text-muted-foreground" />
+        </motion.button>
+      )}
     </div>
   );
 };

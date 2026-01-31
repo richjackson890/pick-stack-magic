@@ -11,6 +11,7 @@ import Auth from "./pages/Auth";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Share from "./pages/Share";
+import PublicView from "./pages/PublicView";
 import ManualSaveTest from "./pages/ManualSaveTest";
 import NotFound from "./pages/NotFound";
 
@@ -75,6 +76,7 @@ function AppRoutes() {
       } />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
+      <Route path="/p/:code" element={<PublicView />} />
       <Route path="/share" element={
         <ProtectedRoute>
           <Share />
