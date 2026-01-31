@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,6 +18,8 @@ import {
   IconItem,
 } from '@/lib/iconRegistry';
 import { useIsMobile } from '@/hooks/use-mobile';
+
+const ICON_PICKER_MODAL_ID = 'icon-picker';
 
 interface IconPickerProps {
   value: string;
@@ -97,12 +99,47 @@ export function IconPicker({ value, onChange, color = '#6b7280', trigger }: Icon
   const [recentIcons, setRecentIcons] = useState<string[]>([]);
   const [favoriteIcons, setFavoriteIcons] = useState<string[]>([]);
   const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  const isOpenRef = useRef(false);
   
   // Load recent and favorites on mount
   useEffect(() => {
     setRecentIcons(getRecentIcons());
     setFavoriteIcons(getFavoriteIcons());
   }, [isOpen]);
+  
+  // Handle browser back button for closing icon picker
+  useEffect(() => {
+    const handlePopState = () => {
+      if (isOpenRef.current) {
+        isOpenRef.current = false;
+        setIsOpen(false);
+        setSearchQuery('');
+      }
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, []);
+  
+  // Manage history state when opening/closing
+  const handleOpenChange = useCallback((open: boolean) => {
+    if (open && !isOpenRef.current) {
+      // Opening: push state
+      isOpenRef.current = true;
+      window.history.pushState({ modal: ICON_PICKER_MODAL_ID }, '');
+      setIsOpen(true);
+    } else if (!open && isOpenRef.current) {
+      // Closing via UI (not back button): go back in history
+      isOpenRef.current = false;
+      setIsOpen(false);
+      setSearchQuery('');
+      window.history.back();
+    } else {
+      setIsOpen(open);
+    }
+  }, []);
   
   // Filter icons based on search and category
   const filteredIcons = useMemo(() => {
@@ -127,9 +164,8 @@ export function IconPicker({ value, onChange, color = '#6b7280', trigger }: Icon
     onChange(key);
     addRecentIcon(key);
     setRecentIcons(getRecentIcons());
-    setIsOpen(false);
-    setSearchQuery('');
-  }, [onChange]);
+    handleOpenChange(false);
+  }, [onChange, handleOpenChange]);
   
   const handleFavoriteToggle = useCallback((key: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -206,7 +242,7 @@ export function IconPicker({ value, onChange, color = '#6b7280', trigger }: Icon
   );
   
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
+    <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
         {triggerButton}
       </PopoverTrigger>
