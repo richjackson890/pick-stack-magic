@@ -7,6 +7,7 @@ import { FallbackCover } from '@/components/FallbackCover';
 import { GlassChip } from '@/components/GlassChip';
 import { LiquidSpinner, AnalysisSteps } from '@/components/LiquidSpinner';
 import { Textarea } from '@/components/ui/textarea';
+import { ShareButton } from '@/components/ShareButton';
 import { useGenerateCover } from '@/hooks/useGenerateCover';
 import { TextThumbnailCard, isForceTextThumb, fallbackKeywords } from '@/components/PickStackThumbs';
 import { ExternalLink, Calendar, Trash2, RefreshCw, AlertCircle, X, Sparkles, ImagePlus } from 'lucide-react';
@@ -472,16 +473,19 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
                 </div>
 
                 {/* Action Buttons */}
-                {item.url && (
-                  <motion.button
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => window.open(item.url!, '_blank')}
-                    className="glass-button w-full py-3 font-medium flex items-center justify-center gap-2"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                    원본 열기
-                  </motion.button>
-                )}
+                <div className="flex gap-2">
+                  {item.url && (
+                    <motion.button
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => window.open(item.url!, '_blank')}
+                      className="flex-1 glass-button py-3 font-medium flex items-center justify-center gap-2"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                      원본 열기
+                    </motion.button>
+                  )}
+                  <ShareButton itemId={item.id} title={item.title} variant="button" className="flex-1" />
+                </div>
 
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
