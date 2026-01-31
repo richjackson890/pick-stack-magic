@@ -113,12 +113,16 @@ export function ShareButton({ itemId, title, variant = 'icon', className }: Shar
               onClick={() => setShowDialog(false)}
             />
             <motion.div
-              initial={{ opacity: 0, scale: 0.9, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.9, y: 20 }}
-              className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-50 w-[90%] max-w-sm"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              onClick={() => setShowDialog(false)}
             >
-              <div className="glass-sheet rounded-2xl p-5">
+              <div 
+                className="glass-sheet rounded-2xl p-5 w-full max-w-sm"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
                     <Link2 className="h-5 w-5 text-primary" />
