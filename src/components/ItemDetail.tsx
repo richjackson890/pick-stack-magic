@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence, PanInfo, useMotionValue, useTransform } from 'framer-motion';
 import { DbItem, AiStatus } from '@/hooks/useDbItems';
 import { DbCategory } from '@/hooks/useDbCategories';
@@ -7,10 +7,12 @@ import { FallbackCover } from '@/components/FallbackCover';
 import { GlassChip } from '@/components/GlassChip';
 import { LiquidSpinner, AnalysisSteps } from '@/components/LiquidSpinner';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { ShareButton } from '@/components/ShareButton';
 import { useGenerateCover } from '@/hooks/useGenerateCover';
+import { useModalHistory, useModalCloseListener } from '@/hooks/useModalHistory';
 import { TextThumbnailCard, isForceTextThumb, fallbackKeywords } from '@/components/PickStackThumbs';
-import { ExternalLink, Calendar, Trash2, RefreshCw, AlertCircle, X, Sparkles, ImagePlus } from 'lucide-react';
+import { ExternalLink, Calendar, Trash2, RefreshCw, AlertCircle, X, Sparkles, ImagePlus, Check, Pencil, ChevronLeft } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,10 +51,15 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
   const { toast } = useToast();
   const { generateCover, isGenerating } = useGenerateCover();
   const [note, setNote] = useState(item?.user_note || '');
+  const [editableTitle, setEditableTitle] = useState(item?.title || '');
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [isReanalyzing, setIsReanalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState(0);
   const [showDebug, setShowDebug] = useState(false);
+  
+  // Modal history for back navigation
+  const { open: pushModalState, close: closeWithHistory, closeWithoutHistory } = useModalHistory('item-detail');
 
   const y = useMotionValue(0);
   const opacity = useTransform(y, [0, 200], [1, 0.5]);
@@ -63,8 +70,26 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
   }, []);
 
   useEffect(() => { 
-    if (item) setNote(item.user_note || ''); 
+    if (item) {
+      setNote(item.user_note || '');
+      setEditableTitle(item.title || '');
+    }
   }, [item]);
+  
+  // Handle modal open/close with history
+  useEffect(() => {
+    if (isOpen) {
+      pushModalState();
+    }
+  }, [isOpen, pushModalState]);
+  
+  // Listen for back button close event
+  const handleBackClose = useCallback(() => {
+    closeWithoutHistory();
+    onClose();
+  }, [closeWithoutHistory, onClose]);
+  
+  useModalCloseListener('item-detail', handleBackClose);
 
   // Simulate analysis steps
   useEffect(() => {
@@ -104,7 +129,21 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
   
   const handleCategoryChange = (categoryId: string) => { 
     onUpdate?.(item.id, { category_id: categoryId }); 
-    setShowCategoryPicker(false); 
+    setShowCategoryPicker(false);
+    toast({ title: '카테고리 변경됨', description: '카테고리가 업데이트되었습니다.' });
+  };
+  
+  const handleTitleSave = () => {
+    if (editableTitle.trim() && editableTitle !== item.title) {
+      onUpdate?.(item.id, { title: editableTitle.trim() });
+      toast({ title: '제목 수정됨', description: '제목이 업데이트되었습니다.' });
+    }
+    setIsEditingTitle(false);
+  };
+  
+  const handleCloseWithHistory = () => {
+    closeWithHistory();
+    onClose();
   };
 
   const handleDelete = () => {
@@ -275,7 +314,7 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm"
-            onClick={onClose}
+            onClick={handleCloseWithHistory}
           />
           <motion.div
             initial={{ y: '100%' }}
@@ -329,25 +368,29 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
                   )}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20 pointer-events-none" />
                   
+                  {/* Back Button */}
+                  <motion.button
+                    whileTap={{ scale: 0.9 }}
+                    onClick={handleCloseWithHistory}
+                    className="absolute top-3 left-3 glass-button w-8 h-8 flex items-center justify-center"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </motion.button>
+                  
                   {/* Close Button */}
                   <motion.button
                     whileTap={{ scale: 0.9 }}
-                    onClick={onClose}
+                    onClick={handleCloseWithHistory}
                     className="absolute top-3 right-3 glass-button w-8 h-8 flex items-center justify-center"
                   >
                     <X className="h-4 w-4" />
                   </motion.button>
                   
-                  {/* Badges */}
-                  <div className="absolute top-3 left-3 flex gap-2">
+                  {/* Platform Badge - moved to bottom left */}
+                  <div className="absolute bottom-3 left-3 flex gap-2">
                     <div className="glass-chip p-1">
                       <PlatformIcon platform={item.platform} size="sm" />
                     </div>
-                    {currentCategory && (
-                      <span className="glass-chip text-2xs font-semibold px-2 py-1 flex items-center gap-1" style={{ backgroundColor: `${currentCategory.color}cc`, color: 'white' }}>
-                        {currentCategory.icon} {currentCategory.name}
-                      </span>
-                    )}
                   </div>
                   
                   {/* External Link Button */}
@@ -399,10 +442,53 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
                   </motion.button>
                 )}
 
-                {/* Title & Date */}
-                <div>
-                  <h1 className="text-lg font-bold text-foreground leading-snug mb-1">{item.title}</h1>
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                {/* Editable Title & Date */}
+                <div className="glass-card p-3">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-xs font-medium text-muted-foreground">제목</h3>
+                    {!isEditingTitle && (
+                      <button 
+                        onClick={() => setIsEditingTitle(true)} 
+                        className="text-xs text-primary font-medium flex items-center gap-1"
+                      >
+                        <Pencil className="h-3 w-3" /> 수정
+                      </button>
+                    )}
+                  </div>
+                  
+                  {isEditingTitle ? (
+                    <div className="flex gap-2 items-center">
+                      <Input
+                        value={editableTitle}
+                        onChange={(e) => setEditableTitle(e.target.value)}
+                        className="flex-1 text-base font-bold bg-transparent border-border/50 focus:border-primary/50"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleTitleSave();
+                          if (e.key === 'Escape') {
+                            setEditableTitle(item.title);
+                            setIsEditingTitle(false);
+                          }
+                        }}
+                      />
+                      <motion.button
+                        whileTap={{ scale: 0.9 }}
+                        onClick={handleTitleSave}
+                        className="glass-button w-8 h-8 flex items-center justify-center text-primary"
+                      >
+                        <Check className="h-4 w-4" />
+                      </motion.button>
+                    </div>
+                  ) : (
+                    <h1 
+                      className="text-lg font-bold text-foreground leading-snug cursor-pointer hover:text-primary transition-colors"
+                      onClick={() => setIsEditingTitle(true)}
+                    >
+                      {item.title}
+                    </h1>
+                  )}
+                  
+                  <span className="text-xs text-muted-foreground flex items-center gap-1 mt-2">
                     <Calendar className="h-3 w-3" />{formattedDate}
                   </span>
                 </div>
@@ -418,47 +504,23 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
                   </div>
                 )}
 
-                {/* Category Picker */}
+                {/* Category Picker - Always Visible */}
                 <div className="glass-card p-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-xs font-medium text-muted-foreground">카테고리</h3>
-                    <button onClick={() => setShowCategoryPicker(!showCategoryPicker)} className="text-xs text-primary font-medium">
-                      {showCategoryPicker ? '닫기' : '변경'}
-                    </button>
+                  <h3 className="text-xs font-medium text-muted-foreground mb-2">카테고리</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {categories.sort((a, b) => a.sort_order - b.sort_order).map((cat) => (
+                      <GlassChip
+                        key={cat.id}
+                        selected={item.category_id === cat.id}
+                        color={cat.color}
+                        icon={cat.icon ? <span>{cat.icon}</span> : undefined}
+                        onClick={() => handleCategoryChange(cat.id)}
+                        size="sm"
+                      >
+                        {cat.name}
+                      </GlassChip>
+                    ))}
                   </div>
-                  <AnimatePresence mode="wait">
-                    {showCategoryPicker ? (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="flex flex-wrap gap-2"
-                      >
-                        {categories.sort((a, b) => a.sort_order - b.sort_order).map((cat) => (
-                          <GlassChip
-                            key={cat.id}
-                            selected={item.category_id === cat.id}
-                            color={cat.color}
-                            icon={cat.icon ? <span>{cat.icon}</span> : undefined}
-                            onClick={() => handleCategoryChange(cat.id)}
-                            size="sm"
-                          >
-                            {cat.name}
-                          </GlassChip>
-                        ))}
-                      </motion.div>
-                    ) : currentCategory && (
-                      <motion.button
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        onClick={() => setShowCategoryPicker(true)}
-                        className="glass-chip text-xs font-medium px-3 py-1.5 flex items-center gap-1"
-                        style={{ backgroundColor: `${currentCategory.color}cc`, color: 'white' }}
-                      >
-                        {currentCategory.icon} {currentCategory.name}
-                      </motion.button>
-                    )}
-                  </AnimatePresence>
                 </div>
 
                 {/* Note */}
