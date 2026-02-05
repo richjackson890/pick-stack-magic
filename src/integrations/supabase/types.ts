@@ -159,34 +159,46 @@ export type Database = {
       }
       profiles: {
         Row: {
+          ai_analysis_count: number
           auto_analyze: boolean
           avatar_url: string | null
           created_at: string
           display_name: string | null
           email: string | null
           id: string
+          is_premium: boolean
+          items_count: number
+          monthly_reset_at: string
           onboarding_completed: boolean | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          ai_analysis_count?: number
           auto_analyze?: boolean
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
           email?: string | null
           id?: string
+          is_premium?: boolean
+          items_count?: number
+          monthly_reset_at?: string
           onboarding_completed?: boolean | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          ai_analysis_count?: number
           auto_analyze?: boolean
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
           email?: string | null
           id?: string
+          is_premium?: boolean
+          items_count?: number
+          monthly_reset_at?: string
           onboarding_completed?: boolean | null
           updated_at?: string
           user_id?: string
@@ -283,6 +295,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      reset_monthly_usage: { Args: never; Returns: undefined }
       search_items: {
         Args: {
           p_categories?: string[]
