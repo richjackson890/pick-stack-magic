@@ -2,6 +2,8 @@ import { motion } from 'framer-motion';
 import { Settings, LogOut, Bookmark } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { UsageBadge } from '@/components/UsageBadge';
+import { useUsageLimits } from '@/hooks/useUsageLimits';
 
 interface HeaderProps {
   onSettingsClick?: () => void;
@@ -10,6 +12,7 @@ interface HeaderProps {
 export function Header({ onSettingsClick }: HeaderProps) {
   const { signOut } = useAuth();
   const { toast } = useToast();
+  const { usageData } = useUsageLimits();
 
   const handleLogout = async () => {
     await signOut();
@@ -44,7 +47,15 @@ export function Header({ onSettingsClick }: HeaderProps) {
           </h1>
         </motion.div>
         
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
+          {/* Usage Badge */}
+          <UsageBadge
+            itemsCount={usageData.itemsCount}
+            aiAnalysisCount={usageData.aiAnalysisCount}
+            isPremium={usageData.isPremium}
+            compact
+          />
+          
           {onSettingsClick && (
             <motion.button
               whileHover={{ scale: 1.05 }}

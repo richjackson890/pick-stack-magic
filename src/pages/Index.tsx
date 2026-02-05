@@ -9,6 +9,7 @@ import { useUserSettings } from '@/hooks/useUserSettings';
 import { useBatchAnalyze } from '@/hooks/useBatchAnalyze';
 import { useContentAnalysis } from '@/hooks/useContentAnalysis';
 import { useBackNavigation } from '@/hooks/useBackNavigation';
+import { useUsageLimits } from '@/hooks/useUsageLimits';
 import { Header } from '@/components/Header';
 import { EnhancedFilterBar } from '@/components/EnhancedFilterBar';
 import { GlassCard } from '@/components/GlassCard';
@@ -22,6 +23,8 @@ import { EmptyState } from '@/components/EmptyState';
 import { LiquidSpinner } from '@/components/LiquidSpinner';
 import { GlassToast } from '@/components/GlassToast';
 import { ShareCollectionModal } from '@/components/ShareCollectionModal';
+import { AdBanner } from '@/components/AdBanner';
+import { UpgradeModal } from '@/components/UpgradeModal';
 import { RefreshCw, Share2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -34,6 +37,7 @@ const Index = () => {
   const { settings, updateAutoAnalyze } = useUserSettings();
   const { analyzePending, isProcessing, progress } = useBatchAnalyze();
   const { triggerAutoAnalysis } = useContentAnalysis();
+  const { canSaveItem, canUseAiAnalysis, usageData, refetch: refetchUsage } = useUsageLimits();
   
   // Back navigation hook for PWA
   useBackNavigation();
@@ -47,6 +51,8 @@ const Index = () => {
   const [isCategoryManagementOpen, setIsCategoryManagementOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState<'home' | 'report'>('home');
   const [isShareCollectionOpen, setIsShareCollectionOpen] = useState(false);
+  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
+  const [upgradeReason, setUpgradeReason] = useState<'items' | 'ai' | 'general'>('general');
   
   // Pull to refresh state
   const [isPulling, setIsPulling] = useState(false);
@@ -111,6 +117,16 @@ const Index = () => {
     }, 800);
   }, [refetch]);
 
+  // Handle add button click with limit check
+  const handleAddClick = useCallback(() => {
+    if (!canSaveItem) {
+      setUpgradeReason('items');
+      setIsUpgradeModalOpen(true);
+      return;
+    }
+    setIsSaveModalOpen(true);
+  }, [canSaveItem]);
+
   const handleSave = async (newItem: {
     source_type: 'url' | 'text' | 'image';
     url?: string;
@@ -146,10 +162,16 @@ const Index = () => {
       analysis_mode: 'light',
     } as any);
     
-    // Trigger content analysis in background if auto_analyze is enabled
-    if (savedItem?.id && settings.auto_analyze) {
+    // Refresh usage after save
+    refetchUsage();
+    
+    // Trigger content analysis in background if auto_analyze is enabled and has quota
+    if (savedItem?.id && settings.auto_analyze && canUseAiAnalysis) {
       triggerAutoAnalysis(savedItem.id).then(() => {
-        setTimeout(() => refetch(), 1500);
+        setTimeout(() => {
+          refetch();
+          refetchUsage();
+        }, 1500);
       });
     }
   };
@@ -199,7 +221,7 @@ const Index = () => {
         <GlassDock
           currentTab={currentTab}
           onTabChange={setCurrentTab}
-          onAdd={() => setIsSaveModalOpen(true)}
+          onAdd={handleAddClick}
         />
       </>
     );
@@ -208,6 +230,13 @@ const Index = () => {
   return (
     <div ref={containerRef} className="min-h-screen pb-24">
       <Header onSettingsClick={() => setIsCategoryManagementOpen(true)} />
+
+      {/* Top Ad Banner - Only for non-premium users */}
+      {!usageData.isPremium && (
+        <div className="container px-2 pt-2">
+          <AdBanner slot="top" isPremium={usageData.isPremium} />
+        </div>
+      )}
       
       <EnhancedFilterBar
         categories={categories}
@@ -239,7 +268,7 @@ const Index = () => {
 
       <main className="container py-3 px-2">
         {items.length === 0 ? (
-          <EmptyState onAddClick={() => setIsSaveModalOpen(true)} />
+          <EmptyState onAddClick={handleAddClick} />
         ) : filteredItems.length === 0 ? (
           <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
@@ -292,20 +321,28 @@ const Index = () => {
         ) : (
           <div className="compact-grid">
             {filteredItems.map((item, index) => (
-              <motion.div
-                key={item.id}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: index * 0.03 }}
-              >
-                <GlassCard
-                  item={item}
-                  category={getCategoryById(item.category_id || '')}
-                  onClick={() => setSelectedItem(item)}
-                  onDelete={() => handleDeleteItem(item.id)}
-                  isMasonry={false}
-                />
-              </motion.div>
+              <>
+                <motion.div
+                  key={item.id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.03 }}
+                >
+                  <GlassCard
+                    item={item}
+                    category={getCategoryById(item.category_id || '')}
+                    onClick={() => setSelectedItem(item)}
+                    onDelete={() => handleDeleteItem(item.id)}
+                    isMasonry={false}
+                  />
+                </motion.div>
+                {/* Insert ad every 6 items for non-premium users */}
+                {!usageData.isPremium && (index + 1) % 6 === 0 && index < filteredItems.length - 1 && (
+                  <div key={`ad-${index}`} className="col-span-full">
+                    <AdBanner slot="feed" isPremium={usageData.isPremium} className="my-2" />
+                  </div>
+                )}
+              </>
             ))}
           </div>
         )}
@@ -325,7 +362,7 @@ const Index = () => {
       <GlassDock
         currentTab={currentTab}
         onTabChange={setCurrentTab}
-        onAdd={() => setIsSaveModalOpen(true)}
+        onAdd={handleAddClick}
       />
 
       <ItemDetail
@@ -369,6 +406,13 @@ const Index = () => {
         type={toastState.type}
         message={toastState.message}
         onClose={() => setToastState(prev => ({ ...prev, show: false }))}
+      />
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        isOpen={isUpgradeModalOpen}
+        onClose={() => setIsUpgradeModalOpen(false)}
+        reason={upgradeReason}
       />
 
       {/* Category Share Button - Show when a category is selected */}
