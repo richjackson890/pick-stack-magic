@@ -108,6 +108,14 @@ export function useDbItems() {
           user_note: item.user_note,
           ai_confidence: item.ai_confidence,
           ai_reason: item.ai_reason,
+          ai_status: item.ai_status,
+          ai_error: item.ai_error,
+          ai_started_at: item.ai_started_at,
+          ai_finished_at: item.ai_finished_at,
+          ai_attempts: item.ai_attempts,
+          extracted_text: item.extracted_text,
+          url_hash: item.url_hash,
+          analysis_mode: item.analysis_mode,
         })
         .select()
         .single();
