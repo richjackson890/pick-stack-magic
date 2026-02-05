@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { getSafeErrorMessage } from '@/lib/errorUtils';
 
 export interface DbCategory {
   id: string;
@@ -41,7 +42,7 @@ export function useDbCategories() {
       console.error('Error fetching categories:', error);
       toast({
         title: '카테고리 로드 실패',
-        description: error.message,
+        description: getSafeErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -81,7 +82,7 @@ export function useDbCategories() {
       console.error('Error adding category:', error);
       toast({
         title: '카테고리 추가 실패',
-        description: error.message,
+        description: getSafeErrorMessage(error),
         variant: 'destructive',
       });
       return null;
@@ -106,7 +107,7 @@ export function useDbCategories() {
       console.error('Error updating category:', error);
       toast({
         title: '카테고리 수정 실패',
-        description: error.message,
+        description: getSafeErrorMessage(error),
         variant: 'destructive',
       });
       return false;
@@ -143,7 +144,7 @@ export function useDbCategories() {
       console.error('Error deleting category:', error);
       toast({
         title: '카테고리 삭제 실패',
-        description: error.message,
+        description: getSafeErrorMessage(error),
         variant: 'destructive',
       });
       return false;
@@ -179,7 +180,7 @@ export function useDbCategories() {
       console.error('Error reordering categories:', error);
       toast({
         title: '순서 변경 실패',
-        description: error.message,
+        description: getSafeErrorMessage(error),
         variant: 'destructive',
       });
       return false;

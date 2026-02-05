@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { getSafeErrorMessage } from '@/lib/errorUtils';
 
 export interface UserSettings {
   auto_analyze: boolean;
@@ -66,7 +67,7 @@ export function useUserSettings() {
       console.error('Error updating auto_analyze:', error);
       toast({
         title: '설정 변경 실패',
-        description: error.message,
+        description: getSafeErrorMessage(error),
         variant: 'destructive',
       });
       return false;
