@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Platform } from '@/types/pickstack';
+import { getSafeErrorMessage } from '@/lib/errorUtils';
 
 export type AiStatus = 'pending' | 'processing' | 'done' | 'error';
 export type AnalysisMode = 'light' | 'deep' | 'none';
@@ -77,7 +78,7 @@ export function useDbItems() {
       console.error('Error fetching items:', error);
       toast({
         title: '아이템 로드 실패',
-        description: error.message,
+        description: getSafeErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -144,7 +145,7 @@ export function useDbItems() {
       console.error('Error adding item:', error);
       toast({
         title: '저장 실패',
-        description: error.message,
+        description: getSafeErrorMessage(error),
         variant: 'destructive',
       });
       return null;
@@ -169,7 +170,7 @@ export function useDbItems() {
       console.error('Error updating item:', error);
       toast({
         title: '수정 실패',
-        description: error.message,
+        description: getSafeErrorMessage(error),
         variant: 'destructive',
       });
       return false;
@@ -194,7 +195,7 @@ export function useDbItems() {
       console.error('Error deleting item:', error);
       toast({
         title: '삭제 실패',
-        description: error.message,
+        description: getSafeErrorMessage(error),
         variant: 'destructive',
       });
       return false;
