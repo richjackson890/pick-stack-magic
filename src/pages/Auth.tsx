@@ -348,8 +348,8 @@ const Auth = () => {
         </CardContent>
       </Card>
 
-      {/* Debug Info */}
-      {isDebug && (
+      {/* Debug Info - Only shown in development mode */}
+      {import.meta.env.DEV && isDebug && (
         <div className="mt-4 p-4 bg-muted/50 rounded-lg text-xs font-mono text-muted-foreground max-w-md">
           <p className="font-bold mb-2">🔍 Debug Info:</p>
           <p>SUPABASE_URL: {import.meta.env.VITE_SUPABASE_URL}</p>
