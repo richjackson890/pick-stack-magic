@@ -8,6 +8,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LiquidSpinner } from "@/components/LiquidSpinner";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import ResetPassword from "./pages/ResetPassword";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Share from "./pages/Share";
@@ -74,6 +75,7 @@ function AppRoutes() {
           <Auth />
         </PublicRoute>
       } />
+      <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/p/:code" element={<PublicView />} />
