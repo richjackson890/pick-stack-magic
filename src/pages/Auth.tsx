@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Bookmark, Sparkles } from 'lucide-react';
+import { Loader2, Bookmark, Sparkles, ArrowLeft, Mail } from 'lucide-react';
 import { z } from 'zod';
 
 const emailSchema = z.string().email('올바른 이메일 형식을 입력해주세요');
@@ -15,11 +15,13 @@ const passwordSchema = z.string().min(6, '비밀번호는 최소 6자 이상이�
 
 const Auth = () => {
   const navigate = useNavigate();
-  const { user, signIn, signUp, signInWithGoogle, loading: authLoading } = useAuth();
+  const { user, signIn, signUp, signInWithGoogle, resetPassword, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'login' | 'signup'>('login');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
 
   // Form state
   const [email, setEmail] = useState('');
@@ -121,6 +123,43 @@ const Auth = () => {
     }
   };
 
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const emailResult = emailSchema.safeParse(email);
+    if (!emailResult.success) {
+      setErrors({ email: emailResult.error.errors[0].message });
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const { error } = await resetPassword(email);
+      if (error) {
+        toast({
+          title: '이메일 전송 실패',
+          description: error.message,
+          variant: 'destructive',
+        });
+      } else {
+        setResetEmailSent(true);
+        toast({
+          title: '이메일 전송 완료! 📧',
+          description: '비밀번호 재설정 링크를 확인해주세요.',
+        });
+      }
+    } catch (err) {
+      toast({
+        title: '오류 발생',
+        description: '잠시 후 다시 시도해주세요.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -143,6 +182,84 @@ const Auth = () => {
         </p>
       </div>
 
+      {showForgotPassword ? (
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center pb-4">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center mx-auto mb-3">
+              <Mail className="w-6 h-6 text-primary" />
+            </div>
+            <CardTitle className="text-xl">비밀번호 찾기</CardTitle>
+            <CardDescription>
+              {resetEmailSent 
+                ? '이메일을 확인해주세요' 
+                : '가입한 이메일 주소를 입력해주세요'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {resetEmailSent ? (
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                  <Mail className="w-8 h-8 text-primary" />
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  <strong>{email}</strong>로 비밀번호 재설정 링크를 보냈습니다.
+                  <br />이메일이 도착하지 않으면 스팸함을 확인해주세요.
+                </p>
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setShowForgotPassword(false);
+                    setResetEmailSent(false);
+                    setEmail('');
+                  }}
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  로그인으로 돌아가기
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={handleForgotPassword} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">이메일</Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={isLoading}
+                  />
+                  {errors.email && (
+                    <p className="text-xs text-destructive">{errors.email}</p>
+                  )}
+                </div>
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      전송 중...
+                    </>
+                  ) : (
+                    '비밀번호 재설정 링크 보내기'
+                  )}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowForgotPassword(false);
+                    setErrors({});
+                  }}
+                  className="w-full text-sm text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-1"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  로그인으로 돌아가기
+                </button>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+      ) : (
       <Card className="w-full max-w-md">
         <CardHeader className="text-center pb-4">
           <CardTitle className="text-xl">
@@ -243,6 +360,13 @@ const Auth = () => {
                     '로그인'
                   )}
                 </Button>
+                <button
+                  type="button"
+                  onClick={() => setShowForgotPassword(true)}
+                  className="w-full text-sm text-muted-foreground hover:text-primary transition-colors mt-2"
+                >
+                  비밀번호를 잊으셨나요?
+                </button>
               </form>
             </TabsContent>
 
@@ -347,6 +471,7 @@ const Auth = () => {
           </Tabs>
         </CardContent>
       </Card>
+      )}
 
       {/* Debug Info - Only shown in development mode */}
       {import.meta.env.DEV && isDebug && (
