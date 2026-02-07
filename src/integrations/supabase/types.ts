@@ -373,6 +373,10 @@ export type Database = {
       }
     }
     Functions: {
+      increment_shared_view_count: {
+        Args: { p_share_code: string; p_table_name: string }
+        Returns: number
+      }
       reset_monthly_usage: { Args: never; Returns: undefined }
       search_items: {
         Args: {
