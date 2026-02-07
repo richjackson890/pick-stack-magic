@@ -59,13 +59,13 @@ export default function PublicView() {
         .maybeSingle();
 
       if (sharedItem) {
-        // Increment view count
-        await supabase
-          .from('shared_items')
-          .update({ view_count: (sharedItem.view_count || 0) + 1 })
-          .eq('id', sharedItem.id);
+        // Increment view count atomically via RPC to prevent race conditions
+        const { data: newCount } = await supabase.rpc('increment_shared_view_count', {
+          p_share_code: shareCode,
+          p_table_name: 'shared_items'
+        });
         
-        setViewCount(sharedItem.view_count + 1);
+        setViewCount(newCount || sharedItem.view_count + 1);
 
         // Fetch the actual item data
         const { data: itemData } = await supabase
@@ -105,13 +105,13 @@ export default function PublicView() {
         .maybeSingle();
 
       if (sharedCollection) {
-        // Increment view count
-        await supabase
-          .from('shared_collections')
-          .update({ view_count: (sharedCollection.view_count || 0) + 1 })
-          .eq('id', sharedCollection.id);
+        // Increment view count atomically via RPC to prevent race conditions
+        const { data: newCount } = await supabase.rpc('increment_shared_view_count', {
+          p_share_code: shareCode,
+          p_table_name: 'shared_collections'
+        });
         
-        setViewCount(sharedCollection.view_count + 1);
+        setViewCount(newCount || sharedCollection.view_count + 1);
         setCollectionTitle(sharedCollection.title);
         setCollectionDescription(sharedCollection.description || '');
 
