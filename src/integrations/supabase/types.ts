@@ -292,7 +292,85 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      public_shared_collections: {
+        Row: {
+          category_id: string | null
+          created_at: string | null
+          description: string | null
+          expires_at: string | null
+          id: string | null
+          item_ids: string[] | null
+          share_code: string | null
+          title: string | null
+          view_count: number | null
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string | null
+          item_ids?: string[] | null
+          share_code?: string | null
+          title?: string | null
+          view_count?: number | null
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: string | null
+          item_ids?: string[] | null
+          share_code?: string | null
+          title?: string | null
+          view_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_collections_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      public_shared_items: {
+        Row: {
+          created_at: string | null
+          expires_at: string | null
+          id: string | null
+          item_id: string | null
+          share_code: string | null
+          view_count: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string | null
+          item_id?: string | null
+          share_code?: string | null
+          view_count?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          expires_at?: string | null
+          id?: string | null
+          item_id?: string | null
+          share_code?: string | null
+          view_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_items_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       reset_monthly_usage: { Args: never; Returns: undefined }
