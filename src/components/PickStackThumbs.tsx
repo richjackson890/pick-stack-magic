@@ -4,10 +4,17 @@ import { cn } from "@/lib/utils";
 /**
  * ✅ 인스타/쓰레드는 "무조건 텍스트 썸네일" 정책
  * - thumbnail_url에 instagram/threads가 포함되면 무조건 true 반환
+ * - 단, Supabase Storage에서 업로드한 스크린샷은 예외 (screenshots/, covers/ 경로 포함)
  */
 export function isForceTextThumb(url?: string | null) {
   if (!url) return false;
   const u = url.trim().toLowerCase();
+  
+  // Supabase Storage 경로는 사용자가 업로드한 스크린샷이므로 텍스트 썸네일 강제 적용 안함
+  if (u.includes('/screenshots/') || u.includes('/covers/')) {
+    return false;
+  }
+  
   return u.includes("instagram") || u.includes("threads");
 }
 
