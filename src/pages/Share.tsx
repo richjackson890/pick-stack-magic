@@ -3,10 +3,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDbItems } from '@/hooks/useDbItems';
 import { useContentAnalysis } from '@/hooks/useContentAnalysis';
+import { useImageUpload } from '@/hooks/useImageUpload';
 import { Loader2, Link2, AlertCircle, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Platform } from '@/types/pickstack';
+import { ScreenshotAttachment } from '@/components/ScreenshotAttachment';
+import { MetaPlatformBanner } from '@/components/MetaPlatformBanner';
 
 type ShareStatus = 'loading' | 'saving' | 'success' | 'error' | 'manual' | 'meta-manual';
 
@@ -55,6 +58,7 @@ export default function Share() {
   const { user, loading: authLoading } = useAuth();
   const { addItem } = useDbItems();
   const { triggerAutoAnalysis } = useContentAnalysis();
+  const { uploadImage, isUploading, progress } = useImageUpload();
   
   const [status, setStatus] = useState<ShareStatus>('loading');
   const [errorMessage, setErrorMessage] = useState('');
@@ -62,6 +66,8 @@ export default function Share() {
   const [manualTitle, setManualTitle] = useState('');
   const [savedItemId, setSavedItemId] = useState<string | null>(null);
   const [metaPlatform, setMetaPlatform] = useState<'Instagram' | 'Threads' | null>(null);
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
 
   // Extract URL from text (common pattern: "Title\nURL" or just URL in text)
   const extractUrlFromText = (text: string): string | null => {
@@ -113,7 +119,8 @@ export default function Share() {
   const sharedTitle = searchParams.get('title') || '';
   const hasError = searchParams.get('error');
 
-  const saveUrl = async (url: string, title?: string) => {
+  // Save URL with optional screenshot
+  const saveUrl = async (url: string, title?: string, thumbnailUrl?: string | null) => {
     if (!user) {
       navigate('/auth', { state: { returnTo: `/share?url=${encodeURIComponent(url)}` } });
       return;
@@ -124,19 +131,23 @@ export default function Share() {
     try {
       const platform = detectPlatform(url);
       
+      // For Meta platforms with user-provided title, skip auto-analysis
+      const isMetaWithUserInput = (platform === 'Instagram' || platform === 'Threads') && title;
+      
       const newItem = await addItem({
         source_type: 'url',
         url: url,
         title: title || url,
         platform: platform,
-        thumbnail_url: null,
+        thumbnail_url: thumbnailUrl || null,
         summary_3lines: [],
         tags: [],
         category_id: null,
         user_note: null,
         ai_confidence: null,
         ai_reason: null,
-        ai_status: 'pending',
+        // If user provided title for Meta platforms, mark as done to prevent overwriting
+        ai_status: isMetaWithUserInput ? 'done' : 'pending',
         ai_error: null,
         ai_started_at: null,
         ai_finished_at: null,
@@ -150,8 +161,10 @@ export default function Share() {
         setSavedItemId(newItem.id);
         setStatus('success');
         
-        // Trigger AI analysis in background
-        triggerAutoAnalysis(newItem.id).catch(console.error);
+        // Trigger AI analysis in background (only for non-Meta platforms)
+        if (!isMetaWithUserInput) {
+          triggerAutoAnalysis(newItem.id).catch(console.error);
+        }
         
         // Redirect to home page after short delay
         // Use replace: true to prevent back button from re-triggering save
@@ -168,10 +181,36 @@ export default function Share() {
     }
   };
 
-  const handleManualSubmit = (e: React.FormEvent) => {
+  // Handle screenshot file selection
+  const handleScreenshotSelect = async (file: File) => {
+    setScreenshotFile(file);
+    
+    if (user) {
+      const result = await uploadImage(file, user.id);
+      if (result) {
+        setUploadedImageUrl(result.url);
+      }
+    }
+  };
+
+  // Handle screenshot removal
+  const handleScreenshotRemove = () => {
+    setScreenshotFile(null);
+    setUploadedImageUrl(null);
+  };
+
+  // Handle manual form submit with screenshot support
+  const handleManualSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (manualUrl.trim()) {
-      saveUrl(manualUrl.trim());
+    if (manualUrl.trim() && !isUploading) {
+      // Check if URL is Meta platform - use different save logic
+      const metaCheck = isMetaPlatformUrl(manualUrl);
+      if (metaCheck.isMeta) {
+        setMetaPlatform(metaCheck.platform);
+        setStatus('meta-manual');
+        return;
+      }
+      saveUrl(manualUrl.trim(), undefined, uploadedImageUrl);
     }
   };
 
@@ -312,6 +351,15 @@ export default function Share() {
             </div>
 
             <form onSubmit={handleManualSubmit} className="space-y-4">
+              {/* Screenshot Attachment for manual input */}
+              <ScreenshotAttachment
+                imageUrl={uploadedImageUrl}
+                isUploading={isUploading}
+                progress={progress}
+                onFileSelect={handleScreenshotSelect}
+                onRemove={handleScreenshotRemove}
+              />
+
               <Input
                 type="url"
                 placeholder="https://..."
@@ -323,9 +371,9 @@ export default function Share() {
               <Button 
                 type="submit" 
                 className="w-full"
-                disabled={!manualUrl.trim()}
+                disabled={!manualUrl.trim() || isUploading}
               >
-                저장하기
+                {isUploading ? '이미지 업로드 중...' : '저장하기'}
               </Button>
             </form>
 
@@ -341,26 +389,40 @@ export default function Share() {
 
         {/* Meta Platform Manual Input (Instagram/Threads) */}
         {status === 'meta-manual' && (
-          <div className="space-y-6">
+          <div className="space-y-5">
             <div className="text-center space-y-2">
-              <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 flex items-center justify-center mx-auto">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-amber-400 via-pink-500 to-violet-600 flex items-center justify-center mx-auto">
                 <span className="text-2xl">{metaPlatform === 'Threads' ? '🧵' : '📷'}</span>
               </div>
               <h2 className="text-lg font-semibold">{metaPlatform} 콘텐츠 저장</h2>
-              <div className="bg-muted/50 rounded-lg p-3 text-left">
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  <span className="font-medium text-foreground">ℹ️ 안내:</span> Meta 정책에 따라 {metaPlatform} 콘텐츠는 외부 앱에서 정보를 자동으로 가져오는 것이 제한됩니다. 
-                  정확한 저장을 위해 제목을 직접 입력해주세요.
-                </p>
-              </div>
             </div>
 
-            <form onSubmit={(e) => { e.preventDefault(); if (manualUrl.trim()) saveUrl(manualUrl.trim(), manualTitle.trim() || undefined); }} className="space-y-4">
+            {/* Meta Platform Banner */}
+            <MetaPlatformBanner platform={metaPlatform} />
+
+            <form 
+              onSubmit={(e) => { 
+                e.preventDefault(); 
+                if (manualUrl.trim() && !isUploading) {
+                  saveUrl(manualUrl.trim(), manualTitle.trim() || undefined, uploadedImageUrl); 
+                }
+              }} 
+              className="space-y-4"
+            >
+              {/* Screenshot Attachment */}
+              <ScreenshotAttachment
+                imageUrl={uploadedImageUrl}
+                isUploading={isUploading}
+                progress={progress}
+                onFileSelect={handleScreenshotSelect}
+                onRemove={handleScreenshotRemove}
+              />
+
               <div className="space-y-2">
-              <label className="text-sm font-medium text-muted-foreground">URL</label>
-              <Input
-                type="url"
-                placeholder={metaPlatform === 'Threads' ? "https://www.threads.net/..." : "https://www.instagram.com/..."}
+                <label className="text-sm font-medium text-muted-foreground">URL</label>
+                <Input
+                  type="url"
+                  placeholder={metaPlatform === 'Threads' ? "https://www.threads.net/..." : "https://www.instagram.com/..."}
                   value={manualUrl}
                   onChange={(e) => setManualUrl(e.target.value)}
                   className="w-full bg-muted/30"
@@ -374,15 +436,14 @@ export default function Share() {
                   value={manualTitle}
                   onChange={(e) => setManualTitle(e.target.value)}
                   className="w-full"
-                  autoFocus
                 />
               </div>
               <Button 
                 type="submit" 
-                className="w-full bg-gradient-to-r from-pink-500 to-purple-600 hover:from-pink-600 hover:to-purple-700"
-                disabled={!manualUrl.trim()}
+                className="w-full gradient-primary text-primary-foreground"
+                disabled={!manualUrl.trim() || isUploading}
               >
-                저장하기
+                {isUploading ? '이미지 업로드 중...' : '저장하기'}
               </Button>
             </form>
 
