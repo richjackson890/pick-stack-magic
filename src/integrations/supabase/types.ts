@@ -373,6 +373,11 @@ export type Database = {
       }
     }
     Functions: {
+      get_shared_collection_public: {
+        Args: { p_share_code: string }
+        Returns: Json
+      }
+      get_shared_item_public: { Args: { p_share_code: string }; Returns: Json }
       increment_shared_view_count: {
         Args: { p_share_code: string; p_table_name: string }
         Returns: number

@@ -51,93 +51,53 @@ export default function PublicView() {
 
   const fetchPublicContent = async (shareCode: string) => {
     try {
-      // First try to find a shared item
-      const { data: sharedItem, error: itemError } = await supabase
-        .from('shared_items')
-        .select('*')
-        .eq('share_code', shareCode)
-        .maybeSingle();
+      // Try shared item via secure RPC (no direct table access)
+      const { data: itemResult } = await supabase.rpc('get_shared_item_public', {
+        p_share_code: shareCode
+      });
 
-      if (sharedItem) {
-        // Increment view count atomically via RPC to prevent race conditions
+      if (itemResult) {
+        const result = itemResult as any;
+        
+        // Increment view count atomically
         const { data: newCount } = await supabase.rpc('increment_shared_view_count', {
           p_share_code: shareCode,
           p_table_name: 'shared_items'
         });
         
-        setViewCount(newCount || sharedItem.view_count + 1);
-
-        // Fetch the actual item data
-        const { data: itemData } = await supabase
-          .from('items')
-          .select('id, title, url, platform, thumbnail_url, summary_3lines, tags, created_at, category_id')
-          .eq('id', sharedItem.item_id)
-          .single();
-
-        if (itemData) {
-          setItem(itemData as PublicItem);
-          
-          // Fetch category if exists
-          if ((itemData as any).category_id) {
-            const { data: catData } = await supabase
-              .from('categories')
-              .select('id, name, color, icon')
-              .eq('id', (itemData as any).category_id)
-              .single();
-            
-            if (catData) {
-              setCategory(catData as PublicCategory);
-            }
-          }
-          
-          setViewType('item');
-        } else {
-          setViewType('not-found');
+        setViewCount(newCount || result.shared.view_count + 1);
+        setItem(result.item as PublicItem);
+        if (result.category) {
+          setCategory(result.category as PublicCategory);
         }
+        setViewType('item');
         return;
       }
 
-      // Try to find a shared collection
-      const { data: sharedCollection } = await supabase
-        .from('shared_collections')
-        .select('*')
-        .eq('share_code', shareCode)
-        .maybeSingle();
+      // Try shared collection via secure RPC
+      const { data: collectionResult } = await supabase.rpc('get_shared_collection_public', {
+        p_share_code: shareCode
+      });
 
-      if (sharedCollection) {
-        // Increment view count atomically via RPC to prevent race conditions
+      if (collectionResult) {
+        const result = collectionResult as any;
+        
+        // Increment view count atomically
         const { data: newCount } = await supabase.rpc('increment_shared_view_count', {
           p_share_code: shareCode,
           p_table_name: 'shared_collections'
         });
         
-        setViewCount(newCount || sharedCollection.view_count + 1);
-        setCollectionTitle(sharedCollection.title);
-        setCollectionDescription(sharedCollection.description || '');
-
-        // Fetch category if exists
-        if (sharedCollection.category_id) {
-          const { data: catData } = await supabase
-            .from('categories')
-            .select('id, name, color, icon')
-            .eq('id', sharedCollection.category_id)
-            .single();
-          
-          if (catData) {
-            setCategory(catData as PublicCategory);
-          }
+        setViewCount(newCount || result.shared.view_count + 1);
+        setCollectionTitle(result.shared.title);
+        setCollectionDescription(result.shared.description || '');
+        
+        if (result.category) {
+          setCategory(result.category as PublicCategory);
         }
-
-        // Fetch items in collection
-        if (sharedCollection.item_ids && sharedCollection.item_ids.length > 0) {
-          const { data: itemsData } = await supabase
-            .from('items')
-            .select('id, title, url, platform, thumbnail_url, summary_3lines, tags, created_at')
-            .in('id', sharedCollection.item_ids);
-
-          if (itemsData) {
-            setItems(itemsData as PublicItem[]);
-          }
+        
+        if (result.items) {
+          setItems(result.items as PublicItem[]);
         }
 
         setViewType('collection');
