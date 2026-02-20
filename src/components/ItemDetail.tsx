@@ -105,10 +105,19 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
   }, [isReanalyzing]);
 
   // 인스타/쓰레드는 무조건 텍스트 썸네일 사용 (훅은 조건문 전에 위치해야 함)
+  // 단, 사용자가 직접 업로드한 스크린샷(screenshots/ 또는 covers/ 경로)이 있으면 이미지 우선
+  const hasUserUploadedThumbnail = useMemo(() => {
+    if (!item?.thumbnail_url) return false;
+    const url = item.thumbnail_url.toLowerCase();
+    return url.includes('/screenshots/') || url.includes('/covers/');
+  }, [item?.thumbnail_url]);
+
   const forceTextThumbnail = useMemo(() => {
     if (!item) return false;
+    // 사용자 업로드 이미지가 있으면 텍스트 썸네일 강제 적용 안함
+    if (hasUserUploadedThumbnail) return false;
     return isForceTextThumb(item.url) || isForceTextThumb(item.thumbnail_url);
-  }, [item?.url, item?.thumbnail_url]);
+  }, [item?.url, item?.thumbnail_url, hasUserUploadedThumbnail]);
   
   const keywords = useMemo(() => {
     if (!item) return [];
@@ -179,6 +188,7 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
 
   const renderSummary = () => {
     const status = item.ai_status || 'pending';
+    const isMetaPlatform = item.platform === 'Instagram' || item.platform === 'Threads';
     
     if (isStuck) {
       return (
@@ -231,6 +241,29 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
     }
     
     if (status === 'error') {
+      // Meta 플랫폼(인스타/쓰레드)에서는 플랫폼 제한으로 분석 실패가 일반적
+      if (isMetaPlatform) {
+        return (
+          <div className="glass-card p-4">
+            <h3 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2">
+              ℹ️ {item.platform} 콘텐츠
+            </h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              {item.platform} 플랫폼 정책상 자동 분석이 제한됩니다.
+              스크린샷을 첨부하거나 제목을 직접 수정하면 카테고리를 재분류할 수 있습니다.
+            </p>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => handleReanalyze('light')}
+              disabled={isReanalyzing}
+              className="glass-button px-4 py-2 text-sm font-medium flex items-center gap-2"
+            >
+              <RefreshCw className={`h-3.5 w-3.5 ${isReanalyzing ? 'animate-spin' : ''}`} />
+              재시도
+            </motion.button>
+          </div>
+        );
+      }
       return (
         <div className="glass-card p-4 border-destructive/30">
           <h3 className="text-sm font-semibold text-destructive mb-2 flex items-center gap-2">
@@ -252,6 +285,29 @@ export function ItemDetail({ item, categories, isOpen, onClose, onUpdate, onDele
     }
     
     const summaryLines = item.summary_3lines.filter(Boolean);
+    
+    // Meta 플랫폼이고 요약이 없는 경우 (수동 저장) - 적절한 안내 메시지
+    if (summaryLines.length === 0 && isMetaPlatform) {
+      return (
+        <div className="glass-card p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-foreground">✨ AI 분석</h3>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => handleReanalyze('light')}
+              disabled={isReanalyzing}
+              className="glass-button w-7 h-7 flex items-center justify-center"
+            >
+              <RefreshCw className={`h-3 w-3 ${isReanalyzing ? 'animate-spin' : ''}`} />
+            </motion.button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {item.platform} 콘텐츠는 수동으로 저장되었습니다. 
+            분석을 시도하려면 새로고침 버튼을 눌러주세요.
+          </p>
+        </div>
+      );
+    }
     
     return (
       <div className="glass-card p-4">

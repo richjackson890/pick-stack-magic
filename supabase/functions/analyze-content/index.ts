@@ -560,7 +560,13 @@ serve(async (req) => {
     let extractedText = "";
     const platform = detectPlatform(item.url || "");
 
+    // Check if user has uploaded a screenshot/cover — if so, preserve it (don't overwrite with scraped thumbnail)
+    const hasUserUploadedThumbnail = item.thumbnail_url && (
+      item.thumbnail_url.includes('/screenshots/') || item.thumbnail_url.includes('/covers/')
+    );
+
     console.log(`[analyze-content] Detected platform: ${platform}`);
+    console.log(`[analyze-content] Has user-uploaded thumbnail: ${hasUserUploadedThumbnail}`);
 
     if (platform === "YouTube" && item.url) {
       console.log("[analyze-content] Fetching YouTube oEmbed...");
@@ -630,11 +636,41 @@ serve(async (req) => {
       
       console.log(`[analyze-content] Instagram title: ${title}`);
       console.log(`[analyze-content] Instagram author: ${instaData.author || 'unknown'}`);
+    } else if (platform === "Threads" && item.url) {
+      // Threads: platform restrictions prevent scraping, so we work with what we have
+      console.log("[analyze-content] Threads platform detected — using manual/provided data");
+      
+      // Threads content can't be scraped reliably; use provided title and existing thumbnail
+      // If title is bad/generic, try a basic OG fetch as best effort
+      const shouldReplaceTitle = isBadTitleForDisplay(title, item.url);
+      if (shouldReplaceTitle) {
+        console.log("[analyze-content] Threads: bad title, attempting OG fetch...");
+        try {
+          const ogData = await fetchOpenGraphData(item.url);
+          if (ogData.title && !isBadTitleForDisplay(ogData.title, item.url)) {
+            title = ogData.title;
+          }
+          if (ogData.description) {
+            description = ogData.description;
+            extractedText = ogData.description;
+          }
+        } catch (e) {
+          console.log("[analyze-content] Threads OG fetch failed, using provided data");
+        }
+      } else {
+        // Good title from user or share — use it as extracted text for AI analysis
+        extractedText = title;
+        description = `Threads 게시물`;
+      }
+      
+      console.log(`[analyze-content] Threads title: ${title}`);
     } else if (item.url) {
       console.log("[analyze-content] Fetching Open Graph data...");
       const ogData = await fetchOpenGraphData(item.url);
       title = ogData.title || title;
-      thumbnailUrl = ogData.image || thumbnailUrl;
+      if (!hasUserUploadedThumbnail) {
+        thumbnailUrl = ogData.image || thumbnailUrl;
+      }
       description = ogData.description || "";
       
       // Use comprehensive extracted text
@@ -852,10 +888,13 @@ JSON 응답:
     const smartSnippet = aiResult.summary_3[0] || description?.slice(0, 100) || "";
 
     // Update item with analysis results including new metadata
+    // IMPORTANT: If user uploaded a screenshot or cover, preserve it — don't overwrite with scraped thumbnail
+    const finalThumbnailUrl = hasUserUploadedThumbnail ? item.thumbnail_url : (thumbnailUrl || null);
+
     const updateData = {
       title: aiResult.title,
       platform: platform,
-      thumbnail_url: thumbnailUrl || null,
+      thumbnail_url: finalThumbnailUrl,
       summary_3lines: aiResult.summary_3.filter(Boolean),
       tags: aiResult.tags,
       category_id: categoryId,
