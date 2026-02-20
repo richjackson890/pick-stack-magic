@@ -18,10 +18,18 @@ export function SavedItemCard({ item, category, onClick, isMasonry = false }: Sa
   const isAnalyzing = item.ai_status === 'pending' || item.ai_status === 'processing';
   const isAiGenerated = item.thumbnail_url?.includes('/covers/');
 
-  // 인스타/쓰레드는 무조건 텍스트 썸네일 사용
+  // 사용자가 직접 업로드한 스크린샷/커버가 있으면 이미지 우선 표시
+  const hasUserUploadedThumbnail = useMemo(() => {
+    if (!item.thumbnail_url) return false;
+    const url = item.thumbnail_url.toLowerCase();
+    return url.includes('/screenshots/') || url.includes('/covers/');
+  }, [item.thumbnail_url]);
+
+  // 인스타/쓰레드는 무조건 텍스트 썸네일 사용 (단, 사용자 업로드 이미지 있으면 제외)
   const forceTextThumbnail = useMemo(() => {
+    if (hasUserUploadedThumbnail) return false;
     return isForceTextThumb(item.url) || isForceTextThumb(item.thumbnail_url);
-  }, [item.url, item.thumbnail_url]);
+  }, [item.url, item.thumbnail_url, hasUserUploadedThumbnail]);
 
   const hasThumbnail = !!item.thumbnail_url && !imgError && !forceTextThumbnail;
   
