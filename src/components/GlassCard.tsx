@@ -28,9 +28,17 @@ export function GlassCard({
 }: GlassCardProps) {
   const [imgError, setImgError] = useState(false);
 
+  // 사용자가 직접 업로드한 스크린샷/커버가 있으면 이미지 우선 표시
+  const hasUserUploadedThumbnail = useMemo(() => {
+    if (!item.thumbnail_url) return false;
+    const url = item.thumbnail_url.toLowerCase();
+    return url.includes('/screenshots/') || url.includes('/covers/');
+  }, [item.thumbnail_url]);
+
   const forceTextThumbnail = useMemo(() => {
+    if (hasUserUploadedThumbnail) return false;
     return isForceTextThumb(item.url) || isForceTextThumb(item.thumbnail_url);
-  }, [item.url, item.thumbnail_url]);
+  }, [item.url, item.thumbnail_url, hasUserUploadedThumbnail]);
 
   const hasThumbnail = !!item.thumbnail_url && !imgError && !forceTextThumbnail;
   const isAnalyzing = item.ai_status === 'pending' || item.ai_status === 'processing';
