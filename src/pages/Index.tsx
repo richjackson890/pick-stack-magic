@@ -52,10 +52,17 @@ const Index = () => {
   const [selectedItem, setSelectedItem] = useState<DbItem | null>(null);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isCategoryManagementOpen, setIsCategoryManagementOpen] = useState(false);
-  const [currentTab, setCurrentTab] = useState<'home' | 'report'>('home');
+  const [currentTab, setCurrentTab] = useState<'home' | 'report' | 'dashboard'>('home');
   const [isShareCollectionOpen, setIsShareCollectionOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState<'items' | 'ai' | 'general'>('general');
+  
+  // Bulk selection state
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  
+  // Reminder state
+  const [showReminder, setShowReminder] = useState(true);
   
   // Pull to refresh state
   const [isPulling, setIsPulling] = useState(false);
