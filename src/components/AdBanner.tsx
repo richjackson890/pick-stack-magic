@@ -65,10 +65,13 @@ export function AdBanner({ slot, isPremium = false, className = '', onUpgrade }:
               <span className="text-xs font-medium">광고</span>
               <span className="text-[10px]">Ad Space</span>
             </div>
-            {slot === 'feed' && (
-              <span className="text-[10px] text-amber-500/70 border border-amber-500/30 rounded-full px-2 py-0.5 cursor-pointer hover:bg-amber-500/10 transition-colors">
+            {slot === 'feed' && onUpgrade && (
+              <button
+                onClick={onUpgrade}
+                className="text-[10px] text-amber-500/70 border border-amber-500/30 rounded-full px-2 py-0.5 cursor-pointer hover:bg-amber-500/10 transition-colors"
+              >
                 ✨ 광고 없이 사용하기
-              </span>
+              </button>
             )}
           </div>
 
