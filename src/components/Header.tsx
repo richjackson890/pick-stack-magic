@@ -49,6 +49,9 @@ export function Header({ onSettingsClick }: HeaderProps) {
         </motion.div>
         
         <div className="flex items-center gap-2">
+          {/* Theme Toggle */}
+          <ThemeToggle />
+          
           {/* Usage Badge */}
           <UsageBadge
             itemsCount={usageData.itemsCount}
