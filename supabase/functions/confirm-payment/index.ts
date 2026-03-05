@@ -47,6 +47,7 @@ Deno.serve(async (req) => {
 
     // Confirm payment with TossPayments API
     const tossSecretKey = Deno.env.get('TOSS_SECRET_KEY');
+    console.log('TOSS_SECRET_KEY exists:', !!tossSecretKey, 'length:', tossSecretKey?.length, 'prefix:', tossSecretKey?.substring(0, 8));
     if (!tossSecretKey) {
       return new Response(JSON.stringify({ error: '결제 설정 오류' }), {
         status: 500,
