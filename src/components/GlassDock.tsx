@@ -17,7 +17,7 @@ export function GlassDock({ currentTab, onTabChange, onAdd }: GlassDockProps) {
           onClick={() => onTabChange('home')}
           whileTap={{ scale: 0.95 }}
           className={cn(
-            'relative flex flex-col items-center gap-1 px-6 py-2 rounded-xl transition-colors',
+            'relative flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-colors',
             currentTab === 'home' ? 'text-primary' : 'text-muted-foreground'
           )}
         >
