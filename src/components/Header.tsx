@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { UsageBadge } from '@/components/UsageBadge';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface HeaderProps {
   onSettingsClick?: () => void;
