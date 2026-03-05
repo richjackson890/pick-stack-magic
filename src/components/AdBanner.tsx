@@ -59,9 +59,16 @@ export function AdBanner({ slot, isPremium = false, className = '' }: AdBannerPr
           }}
         >
           {/* Placeholder - Replace with actual ad code */}
-          <div className="flex flex-col items-center justify-center gap-1 text-muted-foreground/60">
-            <span className="text-xs font-medium">광고</span>
-            <span className="text-[10px]">Ad Space</span>
+          <div className="flex items-center justify-center gap-3 text-muted-foreground/60">
+            <div className="flex flex-col items-center gap-0.5">
+              <span className="text-xs font-medium">광고</span>
+              <span className="text-[10px]">Ad Space</span>
+            </div>
+            {slot === 'feed' && (
+              <span className="text-[10px] text-amber-500/70 border border-amber-500/30 rounded-full px-2 py-0.5 cursor-pointer hover:bg-amber-500/10 transition-colors">
+                ✨ 광고 없이 사용하기
+              </span>
+            )}
           </div>
 
           {/* Dismiss button for feed ads */}
