@@ -5,6 +5,7 @@ import { useToast } from '@/hooks/use-toast';
 import { UsageBadge } from '@/components/UsageBadge';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
 import { ThemeToggle } from '@/components/ThemeToggle';
+import { TipButton } from '@/components/TipButton';
 
 interface HeaderProps {
   onSettingsClick?: () => void;
