@@ -65,6 +65,9 @@ const Index = () => {
   // Reminder state
   const [showReminder, setShowReminder] = useState(true);
   
+  // Save nudge state
+  const [showSaveNudge, setShowSaveNudge] = useState(false);
+  
   // Pull to refresh state
   const [isPulling, setIsPulling] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
