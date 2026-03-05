@@ -57,9 +57,9 @@ export function UpgradeModal({ isOpen, onClose, reason = 'general' }: UpgradeMod
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 max-w-md mx-auto"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto"
           >
-            <div className="glass rounded-2xl p-6 relative overflow-hidden">
+            <div className="glass rounded-2xl p-6 relative overflow-hidden w-full max-w-md my-auto">
               <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-yellow-500/10 pointer-events-none" />
               
               <button
