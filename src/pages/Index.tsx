@@ -456,6 +456,16 @@ const Index = () => {
         </motion.button>
       </main>
 
+      {/* Bulk Action Bar */}
+      <BulkActionBar
+        selectedCount={selectedIds.size}
+        categories={categories}
+        onDelete={handleBulkDelete}
+        onMoveCategory={handleBulkMoveCategory}
+        onCancel={() => { setSelectedIds(new Set()); setBulkMode(false); }}
+        onSelectAll={() => setSelectedIds(new Set(filteredItems.map(i => i.id)))}
+      />
+
       <GlassDock
         currentTab={currentTab}
         onTabChange={setCurrentTab}
