@@ -18,6 +18,7 @@ import { ItemDetail } from '@/components/ItemDetail';
 import { SaveModal } from '@/components/SaveModal';
 import { GlassDock } from '@/components/GlassDock';
 import { AIReport } from '@/components/AIReport';
+import { Dashboard } from '@/components/Dashboard';
 import { CategoryManagement } from '@/components/CategoryManagement';
 import { EmptyState } from '@/components/EmptyState';
 import { LiquidSpinner } from '@/components/LiquidSpinner';
@@ -25,6 +26,8 @@ import { GlassToast } from '@/components/GlassToast';
 import { ShareCollectionModal } from '@/components/ShareCollectionModal';
 import { AdBanner } from '@/components/AdBanner';
 import { UpgradeModal } from '@/components/UpgradeModal';
+import { BulkActionBar } from '@/components/BulkActionBar';
+import { ReminderCard } from '@/components/ReminderCard';
 import { RefreshCw, Share2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
