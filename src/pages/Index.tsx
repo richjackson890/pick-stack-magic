@@ -199,6 +199,39 @@ const Index = () => {
     setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 2000);
   };
 
+  // Bulk actions
+  const toggleBulkSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIds];
+    for (const id of ids) {
+      await deleteItem(id);
+    }
+    setSelectedIds(new Set());
+    setBulkMode(false);
+    setToastState({ show: true, type: 'success', message: `${ids.length}개 삭제됨` });
+    setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 2000);
+  };
+
+  const handleBulkMoveCategory = async (categoryId: string) => {
+    const ids = [...selectedIds];
+    for (const id of ids) {
+      await updateItem(id, { category_id: categoryId } as any);
+    }
+    setSelectedIds(new Set());
+    setBulkMode(false);
+    const cat = categories.find(c => c.id === categoryId);
+    setToastState({ show: true, type: 'success', message: `${ids.length}개를 '${cat?.name || '카테고리'}'로 이동` });
+    setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 2000);
+  };
+
   // Loading state
   if (categoriesLoading || itemsLoading) {
     return (
