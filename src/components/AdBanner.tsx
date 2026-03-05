@@ -17,7 +17,7 @@ interface AdBannerProps {
  * 1. Add the AdSense script to index.html
  * 2. Replace the placeholder content with the ad unit code
  */
-export function AdBanner({ slot, isPremium = false, className = '' }: AdBannerProps) {
+export function AdBanner({ slot, isPremium = false, className = '', onUpgrade }: AdBannerProps) {
   const adRef = useRef<HTMLDivElement>(null);
   const [dismissed, setDismissed] = useState(false);
 
