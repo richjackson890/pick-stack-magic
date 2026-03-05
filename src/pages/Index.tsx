@@ -530,6 +530,19 @@ const Index = () => {
         reason={upgradeReason}
       />
 
+      {/* Save Success Nudge */}
+      <SaveSuccessNudge
+        show={showSaveNudge}
+        itemsCount={usageData.itemsCount}
+        isPremium={usageData.isPremium}
+        onUpgrade={() => {
+          setShowSaveNudge(false);
+          setUpgradeReason('items');
+          setIsUpgradeModalOpen(true);
+        }}
+        onDismiss={() => setShowSaveNudge(false)}
+      />
+
       {/* Category Share Button - Show when a category is selected */}
       {selectedCategoryId && filteredItems.length > 0 && (
         <motion.button
