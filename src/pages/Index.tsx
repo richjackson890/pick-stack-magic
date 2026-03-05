@@ -179,6 +179,10 @@ const Index = () => {
     // Refresh usage after save
     refetchUsage();
     
+    // Show save success nudge
+    setShowSaveNudge(true);
+    setTimeout(() => setShowSaveNudge(false), 5000);
+    
     // Trigger content analysis in background if auto_analyze is enabled and has quota
     if (savedItem?.id && settings.auto_analyze && canUseAiAnalysis) {
       triggerAutoAnalysis(savedItem.id).then(() => {
