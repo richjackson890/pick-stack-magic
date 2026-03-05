@@ -18,6 +18,7 @@ import { ItemDetail } from '@/components/ItemDetail';
 import { SaveModal } from '@/components/SaveModal';
 import { GlassDock } from '@/components/GlassDock';
 import { AIReport } from '@/components/AIReport';
+import { Dashboard } from '@/components/Dashboard';
 import { CategoryManagement } from '@/components/CategoryManagement';
 import { EmptyState } from '@/components/EmptyState';
 import { LiquidSpinner } from '@/components/LiquidSpinner';
@@ -25,6 +26,8 @@ import { GlassToast } from '@/components/GlassToast';
 import { ShareCollectionModal } from '@/components/ShareCollectionModal';
 import { AdBanner } from '@/components/AdBanner';
 import { UpgradeModal } from '@/components/UpgradeModal';
+import { BulkActionBar } from '@/components/BulkActionBar';
+import { ReminderCard } from '@/components/ReminderCard';
 import { RefreshCw, Share2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -49,10 +52,17 @@ const Index = () => {
   const [selectedItem, setSelectedItem] = useState<DbItem | null>(null);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isCategoryManagementOpen, setIsCategoryManagementOpen] = useState(false);
-  const [currentTab, setCurrentTab] = useState<'home' | 'report'>('home');
+  const [currentTab, setCurrentTab] = useState<'home' | 'report' | 'dashboard'>('home');
   const [isShareCollectionOpen, setIsShareCollectionOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState<'items' | 'ai' | 'general'>('general');
+  
+  // Bulk selection state
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  
+  // Reminder state
+  const [showReminder, setShowReminder] = useState(true);
   
   // Pull to refresh state
   const [isPulling, setIsPulling] = useState(false);
@@ -189,6 +199,39 @@ const Index = () => {
     setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 2000);
   };
 
+  // Bulk actions
+  const toggleBulkSelect = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    const ids = [...selectedIds];
+    for (const id of ids) {
+      await deleteItem(id);
+    }
+    setSelectedIds(new Set());
+    setBulkMode(false);
+    setToastState({ show: true, type: 'success', message: `${ids.length}개 삭제됨` });
+    setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 2000);
+  };
+
+  const handleBulkMoveCategory = async (categoryId: string) => {
+    const ids = [...selectedIds];
+    for (const id of ids) {
+      await updateItem(id, { category_id: categoryId } as any);
+    }
+    setSelectedIds(new Set());
+    setBulkMode(false);
+    const cat = categories.find(c => c.id === categoryId);
+    setToastState({ show: true, type: 'success', message: `${ids.length}개를 '${cat?.name || '카테고리'}'로 이동` });
+    setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 2000);
+  };
+
   // Loading state
   if (categoriesLoading || itemsLoading) {
     return (
@@ -217,6 +260,23 @@ const Index = () => {
           onRetryAnalysis={handleRetryAnalysis}
           onBatchAnalyze={handleBatchAnalyze}
           isProcessing={isProcessing}
+        />
+        <GlassDock
+          currentTab={currentTab}
+          onTabChange={setCurrentTab}
+          onAdd={handleAddClick}
+        />
+      </>
+    );
+  }
+
+  if (currentTab === 'dashboard') {
+    return (
+      <>
+        <Dashboard
+          items={items}
+          categories={categories}
+          onClose={() => setCurrentTab('home')}
         />
         <GlassDock
           currentTab={currentTab}
@@ -267,6 +327,30 @@ const Index = () => {
       </AnimatePresence>
 
       <main className="container py-3 px-2">
+        {/* Smart Reminder Card */}
+        <ReminderCard
+          items={items}
+          onItemClick={(item) => setSelectedItem(item)}
+          onDismiss={() => setShowReminder(false)}
+          show={showReminder && !bulkMode}
+        />
+
+        {/* Bulk Mode Toggle */}
+        {items.length > 0 && (
+          <div className="flex justify-end mb-2">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setBulkMode(!bulkMode);
+                setSelectedIds(new Set());
+              }}
+              className={`glass-chip px-3 py-1 text-2xs font-medium transition-colors ${bulkMode ? 'text-primary ring-1 ring-primary/50' : 'text-muted-foreground'}`}
+            >
+              {bulkMode ? '선택 취소' : '선택'}
+            </motion.button>
+          </div>
+        )}
+
         {items.length === 0 ? (
           <EmptyState onAddClick={handleAddClick} />
         ) : filteredItems.length === 0 ? (
@@ -288,11 +372,13 @@ const Index = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.03 }}
+                onClick={() => bulkMode ? toggleBulkSelect(item.id) : undefined}
+                className={bulkMode && selectedIds.has(item.id) ? 'ring-2 ring-primary rounded-2xl' : ''}
               >
                 <TextThumbnailCard
                   item={item}
                   category={getCategoryById(item.category_id || '')}
-                  onClick={() => setSelectedItem(item)}
+                  onClick={() => bulkMode ? toggleBulkSelect(item.id) : setSelectedItem(item)}
                   onRetryAnalysis={() => handleRetryAnalysis(item.id)}
                   highlightQuery={searchQuery}
                 />
@@ -307,11 +393,17 @@ const Index = () => {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ delay: index * 0.04 }}
+                className={`relative ${bulkMode && selectedIds.has(item.id) ? 'ring-2 ring-primary rounded-2xl' : ''}`}
               >
+                {bulkMode && (
+                  <div className={`absolute top-2 right-2 z-20 w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedIds.has(item.id) ? 'bg-primary border-primary' : 'border-white/60 bg-black/30'}`}>
+                    {selectedIds.has(item.id) && <span className="text-white text-xs">✓</span>}
+                  </div>
+                )}
                 <GlassCard
                   item={item}
                   category={getCategoryById(item.category_id || '')}
-                  onClick={() => setSelectedItem(item)}
+                  onClick={() => bulkMode ? toggleBulkSelect(item.id) : setSelectedItem(item)}
                   onDelete={() => handleDeleteItem(item.id)}
                   isMasonry={true}
                 />
@@ -327,16 +419,21 @@ const Index = () => {
                   initial={{ opacity: 0, scale: 0.9 }}
                   animate={{ opacity: 1, scale: 1 }}
                   transition={{ delay: index * 0.03 }}
+                  className={`relative ${bulkMode && selectedIds.has(item.id) ? 'ring-2 ring-primary rounded-2xl' : ''}`}
                 >
+                  {bulkMode && (
+                    <div className={`absolute top-2 right-2 z-20 w-5 h-5 rounded-full border-2 flex items-center justify-center ${selectedIds.has(item.id) ? 'bg-primary border-primary' : 'border-white/60 bg-black/30'}`}>
+                      {selectedIds.has(item.id) && <span className="text-white text-xs">✓</span>}
+                    </div>
+                  )}
                   <GlassCard
                     item={item}
                     category={getCategoryById(item.category_id || '')}
-                    onClick={() => setSelectedItem(item)}
+                    onClick={() => bulkMode ? toggleBulkSelect(item.id) : setSelectedItem(item)}
                     onDelete={() => handleDeleteItem(item.id)}
                     isMasonry={false}
                   />
                 </motion.div>
-                {/* Insert ad every 6 items for non-premium users */}
                 {!usageData.isPremium && (index + 1) % 6 === 0 && index < filteredItems.length - 1 && (
                   <div key={`ad-${index}`} className="col-span-full">
                     <AdBanner slot="feed" isPremium={usageData.isPremium} className="my-2" />
@@ -358,6 +455,16 @@ const Index = () => {
           <RefreshCw className={`h-5 w-5 text-muted-foreground ${isRefreshing ? 'animate-spin' : ''}`} />
         </motion.button>
       </main>
+
+      {/* Bulk Action Bar */}
+      <BulkActionBar
+        selectedCount={selectedIds.size}
+        categories={categories}
+        onDelete={handleBulkDelete}
+        onMoveCategory={handleBulkMoveCategory}
+        onCancel={() => { setSelectedIds(new Set()); setBulkMode(false); }}
+        onSelectAll={() => setSelectedIds(new Set(filteredItems.map(i => i.id)))}
+      />
 
       <GlassDock
         currentTab={currentTab}

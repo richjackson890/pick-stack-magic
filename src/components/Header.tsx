@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { UsageBadge } from '@/components/UsageBadge';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface HeaderProps {
   onSettingsClick?: () => void;
@@ -48,6 +49,9 @@ export function Header({ onSettingsClick }: HeaderProps) {
         </motion.div>
         
         <div className="flex items-center gap-2">
+          {/* Theme Toggle */}
+          <ThemeToggle />
+          
           {/* Usage Badge */}
           <UsageBadge
             itemsCount={usageData.itemsCount}
