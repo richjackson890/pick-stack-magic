@@ -6,6 +6,7 @@ interface AdBannerProps {
   slot: 'top' | 'bottom' | 'feed';
   isPremium?: boolean;
   className?: string;
+  onUpgrade?: () => void;
 }
 
 /**
