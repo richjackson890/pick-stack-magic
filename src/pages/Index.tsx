@@ -444,7 +444,7 @@ const Index = () => {
                 </motion.div>
                 {!usageData.isPremium && (index + 1) % 6 === 0 && index < filteredItems.length - 1 && (
                   <div key={`ad-${index}`} className="col-span-full">
-                    <AdBanner slot="feed" isPremium={usageData.isPremium} className="my-2" />
+                    <AdBanner slot="feed" isPremium={usageData.isPremium} className="my-2" onUpgrade={() => { setUpgradeReason('general'); setIsUpgradeModalOpen(true); }} />
                   </div>
                 )}
               </>
