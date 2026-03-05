@@ -302,7 +302,7 @@ const Index = () => {
       {/* Top Ad Banner - Only for non-premium users */}
       {!usageData.isPremium && (
         <div className="container px-2 pt-2">
-          <AdBanner slot="top" isPremium={usageData.isPremium} />
+          <AdBanner slot="top" isPremium={usageData.isPremium} onUpgrade={() => { setUpgradeReason('general'); setIsUpgradeModalOpen(true); }} />
         </div>
       )}
       
