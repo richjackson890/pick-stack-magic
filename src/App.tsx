@@ -95,6 +95,12 @@ function AppRoutes() {
           <Share />
         </ProtectedRoute>
       } />
+      <Route path="/payment/success" element={
+        <ProtectedRoute>
+          <PaymentSuccess />
+        </ProtectedRoute>
+      } />
+      <Route path="/payment/fail" element={<PaymentFail />} />
       <Route path="/manual-save" element={
         <ProtectedRoute>
           <ManualSaveTest />

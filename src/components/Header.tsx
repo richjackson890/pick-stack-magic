@@ -50,6 +50,9 @@ export function Header({ onSettingsClick }: HeaderProps) {
         </motion.div>
         
         <div className="flex items-center gap-2">
+          {/* Tip Button */}
+          <TipButton />
+          
           {/* Theme Toggle */}
           <ThemeToggle />
           
