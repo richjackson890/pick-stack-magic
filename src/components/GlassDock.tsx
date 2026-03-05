@@ -1,10 +1,10 @@
 import { motion } from 'framer-motion';
-import { Home, Plus, Sparkles } from 'lucide-react';
+import { Home, Plus, Sparkles, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface GlassDockProps {
-  currentTab: 'home' | 'report';
-  onTabChange: (tab: 'home' | 'report') => void;
+  currentTab: 'home' | 'report' | 'dashboard';
+  onTabChange: (tab: 'home' | 'report' | 'dashboard') => void;
   onAdd: () => void;
 }
 
