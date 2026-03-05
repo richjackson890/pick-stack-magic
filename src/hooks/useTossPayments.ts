@@ -11,7 +11,7 @@ declare global {
 // TOSS_CLIENT_KEY is stored as a secret but used in frontend via edge function
 // For TossPayments SDK, the client key must be in frontend
 // Users should set this to their actual client key
-const TOSS_CLIENT_KEY = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq'; // Replace with your actual client key
+const TOSS_CLIENT_KEY = 'test_ck_26DIbXAaV06XXMgebOBx8qY50Q9R';
 
 export interface PaymentOptions {
   type: 'subscription' | 'tip';
