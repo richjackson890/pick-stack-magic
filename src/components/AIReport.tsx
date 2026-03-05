@@ -42,6 +42,8 @@ export function AIReport({
 }: AIReportProps) {
   const [dateRange, setDateRange] = useState<DateRange>('week');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const { usageData } = useUsageLimits();
 
   // Filter items by date range
   const filteredItems = useMemo(() => {
