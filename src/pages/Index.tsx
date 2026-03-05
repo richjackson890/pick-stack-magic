@@ -26,6 +26,7 @@ import { GlassToast } from '@/components/GlassToast';
 import { ShareCollectionModal } from '@/components/ShareCollectionModal';
 import { AdBanner } from '@/components/AdBanner';
 import { UpgradeModal } from '@/components/UpgradeModal';
+import { SaveSuccessNudge } from '@/components/SaveSuccessNudge';
 import { BulkActionBar } from '@/components/BulkActionBar';
 import { ReminderCard } from '@/components/ReminderCard';
 import { RefreshCw, Share2 } from 'lucide-react';
@@ -63,6 +64,9 @@ const Index = () => {
   
   // Reminder state
   const [showReminder, setShowReminder] = useState(true);
+  
+  // Save nudge state
+  const [showSaveNudge, setShowSaveNudge] = useState(false);
   
   // Pull to refresh state
   const [isPulling, setIsPulling] = useState(false);
@@ -174,6 +178,10 @@ const Index = () => {
     
     // Refresh usage after save
     refetchUsage();
+    
+    // Show save success nudge
+    setShowSaveNudge(true);
+    setTimeout(() => setShowSaveNudge(false), 5000);
     
     // Trigger content analysis in background if auto_analyze is enabled and has quota
     if (savedItem?.id && settings.auto_analyze && canUseAiAnalysis) {
@@ -520,6 +528,19 @@ const Index = () => {
         isOpen={isUpgradeModalOpen}
         onClose={() => setIsUpgradeModalOpen(false)}
         reason={upgradeReason}
+      />
+
+      {/* Save Success Nudge */}
+      <SaveSuccessNudge
+        show={showSaveNudge}
+        itemsCount={usageData.itemsCount}
+        isPremium={usageData.isPremium}
+        onUpgrade={() => {
+          setShowSaveNudge(false);
+          setUpgradeReason('items');
+          setIsUpgradeModalOpen(true);
+        }}
+        onDismiss={() => setShowSaveNudge(false)}
       />
 
       {/* Category Share Button - Show when a category is selected */}

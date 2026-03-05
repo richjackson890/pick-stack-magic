@@ -1,4 +1,7 @@
 import { useState, useMemo } from 'react';
+import { useUsageLimits } from '@/hooks/useUsageLimits';
+import { PremiumFeatureGate } from '@/components/PremiumFeatureGate';
+import { UpgradeModal } from '@/components/UpgradeModal';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
@@ -40,6 +43,8 @@ export function AIReport({
 }: AIReportProps) {
   const [dateRange, setDateRange] = useState<DateRange>('week');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [showUpgrade, setShowUpgrade] = useState(false);
+  const { usageData } = useUsageLimits();
 
   // Filter items by date range
   const filteredItems = useMemo(() => {
@@ -430,9 +435,28 @@ export function AIReport({
           )}
         </Card>
 
+        {/* Premium Deep Analysis Teaser */}
+        {!usageData.isPremium && (
+          <PremiumFeatureGate
+            feature="딥 AI 인사이트"
+            description="Pro에서 트렌드 분석, 관심사 변화 추적, 맞춤 추천을 받아보세요"
+            onUpgrade={() => setShowUpgrade(true)}
+            isPremium={usageData.isPremium}
+          >
+            <Card className="p-4 space-y-3">
+              <h3 className="font-semibold text-sm">📊 주간 트렌드 리포트</h3>
+              <p className="text-xs text-muted-foreground">이번 주 관심 키워드: #건강 #투자 #AI</p>
+              <div className="h-24 bg-muted/30 rounded-lg" />
+            </Card>
+          </PremiumFeatureGate>
+        )}
+
         <p className="text-xs text-center text-muted-foreground">
           💡 카테고리를 선택하면 맞춤형 인사이트를 볼 수 있어요
         </p>
+
+        {/* Upgrade Modal */}
+        <UpgradeModal isOpen={showUpgrade} onClose={() => setShowUpgrade(false)} reason="ai" />
       </div>
     </div>
   );
