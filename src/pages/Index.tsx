@@ -270,6 +270,23 @@ const Index = () => {
     );
   }
 
+  if (currentTab === 'dashboard') {
+    return (
+      <>
+        <Dashboard
+          items={items}
+          categories={categories}
+          onClose={() => setCurrentTab('home')}
+        />
+        <GlassDock
+          currentTab={currentTab}
+          onTabChange={setCurrentTab}
+          onAdd={handleAddClick}
+        />
+      </>
+    );
+  }
+
   return (
     <div ref={containerRef} className="min-h-screen pb-24">
       <Header onSettingsClick={() => setIsCategoryManagementOpen(true)} />
