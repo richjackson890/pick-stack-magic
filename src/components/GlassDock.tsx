@@ -89,22 +89,47 @@ export function GlassDock({ currentTab, onTabChange, onAdd }: GlassDockProps) {
           onClick={() => onTabChange('report')}
           whileTap={{ scale: 0.95 }}
           className={cn(
-            'relative flex flex-col items-center gap-1 px-6 py-2 rounded-xl transition-colors',
+            'relative flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-colors',
             currentTab === 'report' ? 'text-primary' : 'text-muted-foreground'
           )}
         >
           <motion.div
-            animate={{
-              scale: currentTab === 'report' ? 1.1 : 1,
-            }}
+            animate={{ scale: currentTab === 'report' ? 1.1 : 1 }}
             transition={{ type: 'spring', stiffness: 400, damping: 20 }}
           >
             <Sparkles className="h-5 w-5" />
           </motion.div>
           <span className="text-2xs font-medium">AI 리포트</span>
-          
-          {/* Neon Underline */}
           {currentTab === 'report' && (
+            <motion.div
+              layoutId="dock-indicator"
+              className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full"
+              style={{
+                background: 'linear-gradient(90deg, hsl(var(--neon-purple)), hsl(var(--neon-cyan)))',
+                boxShadow: '0 0 10px hsl(var(--neon-purple) / 0.6)',
+              }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            />
+          )}
+        </motion.button>
+
+        {/* Dashboard Tab */}
+        <motion.button
+          onClick={() => onTabChange('dashboard')}
+          whileTap={{ scale: 0.95 }}
+          className={cn(
+            'relative flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-colors',
+            currentTab === 'dashboard' ? 'text-primary' : 'text-muted-foreground'
+          )}
+        >
+          <motion.div
+            animate={{ scale: currentTab === 'dashboard' ? 1.1 : 1 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+          >
+            <BarChart3 className="h-5 w-5" />
+          </motion.div>
+          <span className="text-2xs font-medium">통계</span>
+          {currentTab === 'dashboard' && (
             <motion.div
               layoutId="dock-indicator"
               className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full"

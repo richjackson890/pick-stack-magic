@@ -21,8 +21,17 @@ const queryClient = new QueryClient();
 // Use system preference or light mode by default
 function useTheme() {
   useEffect(() => {
-    // Remove forced dark mode - use light mode as default for modern clean look
-    document.documentElement.classList.remove('dark');
+    // Respect saved theme preference or system preference
+    const saved = localStorage.getItem('theme');
+    if (saved === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else if (saved === 'light') {
+      document.documentElement.classList.remove('dark');
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   }, []);
 }
 
