@@ -1,4 +1,6 @@
 import { useState, useMemo } from 'react';
+import { useUsageLimits } from '@/hooks/useUsageLimits';
+import { PremiumFeatureGate } from '@/components/PremiumFeatureGate';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
