@@ -26,6 +26,7 @@ import { GlassToast } from '@/components/GlassToast';
 import { ShareCollectionModal } from '@/components/ShareCollectionModal';
 import { AdBanner } from '@/components/AdBanner';
 import { UpgradeModal } from '@/components/UpgradeModal';
+import { SaveSuccessNudge } from '@/components/SaveSuccessNudge';
 import { BulkActionBar } from '@/components/BulkActionBar';
 import { ReminderCard } from '@/components/ReminderCard';
 import { RefreshCw, Share2 } from 'lucide-react';
