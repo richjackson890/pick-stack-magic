@@ -455,15 +455,8 @@ export function AIReport({
           💡 카테고리를 선택하면 맞춤형 인사이트를 볼 수 있어요
         </p>
 
-        {/* Inline Upgrade Modal */}
-        {showUpgrade && (
-          <div className="fixed inset-0 z-50">
-            {(() => { 
-              const UpgradeModal = require('@/components/UpgradeModal').UpgradeModal;
-              return <UpgradeModal isOpen={showUpgrade} onClose={() => setShowUpgrade(false)} reason="ai" />;
-            })()}
-          </div>
-        )}
+        {/* Upgrade Modal */}
+        <UpgradeModal isOpen={showUpgrade} onClose={() => setShowUpgrade(false)} reason="ai" />
       </div>
     </div>
   );
