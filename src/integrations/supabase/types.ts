@@ -50,6 +50,122 @@ export type Database = {
         }
         Relationships: []
       }
+      content_ideas: {
+        Row: {
+          channel_id: string | null
+          content_layers: Json | null
+          created_at: string | null
+          draft_content: string | null
+          estimated_engagement: string | null
+          format: string | null
+          hashtags: string[] | null
+          hook: string | null
+          id: string
+          reference_item_ids: string[] | null
+          scheduled_date: string | null
+          status: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          channel_id?: string | null
+          content_layers?: Json | null
+          created_at?: string | null
+          draft_content?: string | null
+          estimated_engagement?: string | null
+          format?: string | null
+          hashtags?: string[] | null
+          hook?: string | null
+          id?: string
+          reference_item_ids?: string[] | null
+          scheduled_date?: string | null
+          status?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          channel_id?: string | null
+          content_layers?: Json | null
+          created_at?: string | null
+          draft_content?: string | null
+          estimated_engagement?: string | null
+          format?: string | null
+          hashtags?: string[] | null
+          hook?: string | null
+          id?: string
+          reference_item_ids?: string[] | null
+          scheduled_date?: string | null
+          status?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "content_ideas_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "creator_channels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "content_ideas_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      creator_channels: {
+        Row: {
+          color: string | null
+          content_formula: string | null
+          created_at: string | null
+          id: string
+          name: string
+          platform: string
+          posting_schedule: number[] | null
+          target_hashtags: string[] | null
+          tone_keywords: string[] | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          color?: string | null
+          content_formula?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          platform: string
+          posting_schedule?: number[] | null
+          target_hashtags?: string[] | null
+          tone_keywords?: string[] | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          color?: string | null
+          content_formula?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          platform?: string
+          posting_schedule?: number[] | null
+          target_hashtags?: string[] | null
+          tone_keywords?: string[] | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "creator_channels_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       items: {
         Row: {
           ai_attempts: number
