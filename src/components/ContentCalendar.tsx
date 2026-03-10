@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, X, Trash2, CalendarDays, FileEdit, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Trash2, CalendarDays, FileEdit, ChevronDown, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCreatorChannels, CreatorChannel } from '@/hooks/useCreatorChannels';
