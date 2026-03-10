@@ -103,8 +103,10 @@ export function IdeaEngine({ channel, onBack, initialKeywords }: IdeaEngineProps
       const body: any = { channel_id: channel.id };
       if (mode === 'reference') {
         body.item_ids = [...selectedIds];
-      } else {
+      } else if (mode === 'keyword') {
         body.keywords = keywords.trim();
+      } else {
+        body.auto_mode = true;
       }
 
       const { data, error } = await supabase.functions.invoke('generate-ideas', { body });
