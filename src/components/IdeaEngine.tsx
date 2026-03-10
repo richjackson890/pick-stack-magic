@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Check, Lightbulb, Loader2, Trash2, CalendarDays, Save, Sparkles, BookOpen, Key, FileEdit, Eye } from 'lucide-react';
+import { ArrowLeft, Check, Lightbulb, Loader2, Trash2, CalendarDays, Save, Sparkles, BookOpen, Key, FileEdit, Eye, Bot } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDbItems, DbItem } from '@/hooks/useDbItems';
