@@ -26,6 +26,7 @@ interface ContentIdea {
   channel_id: string | null;
   status: string | null;
   scheduled_date: string | null;
+  draft_content: string | null;
 }
 
 interface IdeaEngineProps {
