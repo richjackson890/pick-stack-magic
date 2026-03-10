@@ -71,6 +71,7 @@ export function useUsageLimits(): UsageLimits {
         itemsCount: data?.items_count ?? 0,
         aiAnalysisCount: data?.ai_analysis_count ?? 0,
         ideaGenerationCount: (data as any)?.idea_generation_count ?? 0,
+        draftGenerationCount: (data as any)?.draft_generation_count ?? 0,
         monthlyResetAt: data?.monthly_reset_at ?? null,
       });
     } catch (error) {
