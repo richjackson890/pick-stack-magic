@@ -328,71 +328,24 @@ export function EnhancedFilterBar({
             </AnimatePresence>
           </div>
           
-          {/* Platform Filter */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                className={cn(
-                  'glass-button w-9 h-9 flex items-center justify-center',
-                  selectedPlatform && 'ring-1 ring-primary/50'
-                )}
-              >
-                {selectedPlatform ? (
-                  <PlatformIcon platform={selectedPlatform} size="sm" />
-                ) : (
-                  <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
-                )}
-              </motion.button>
-            </PopoverTrigger>
-            <PopoverContent className="w-80 p-4 glass-sheet border-border/30" align="end">
-              <p className="text-xs font-semibold text-muted-foreground mb-3">플랫폼 필터</p>
-              <div className="flex flex-wrap gap-2">
-                <GlassChip
-                  selected={selectedPlatform === null}
-                  onClick={() => onPlatformChange(null)}
-                  size="sm"
-                >
-                  전체
-                </GlassChip>
-                {platformSuggestions.length > 0 && (
-                  <>
-                    {platformSuggestions.map((platform) => (
-                      <GlassChip
-                        key={platform}
-                        selected={selectedPlatform === platform}
-                        onClick={() => onPlatformChange(platform)}
-                        size="sm"
-                        icon={<PlatformIcon platform={platform} size="sm" className="w-4 h-4" />}
-                      >
-                        {platform}
-                      </GlassChip>
-                    ))}
-                  </>
-                )}
-                <details className="w-full">
-                  <summary className="text-xs text-muted-foreground cursor-pointer mt-2 flex items-center gap-1">
-                    <ChevronDown className="h-3 w-3" />
-                    모든 플랫폼 보기
-                  </summary>
-                  <div className="flex flex-wrap gap-2 mt-2">
-                    {PLATFORMS.filter(p => p !== 'Unknown' && !platformSuggestions.includes(p)).map((platform) => (
-                      <GlassChip
-                        key={platform}
-                        selected={selectedPlatform === platform}
-                        onClick={() => onPlatformChange(platform)}
-                        size="sm"
-                        icon={<PlatformIcon platform={platform} size="sm" className="w-4 h-4" />}
-                      >
-                        {platform}
-                      </GlassChip>
-                    ))}
-                  </div>
-                </details>
-              </div>
-            </PopoverContent>
-          </Popover>
+          {/* Filter Toggle Button (replaces old platform filter popover on mobile) */}
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(
+              'glass-button w-9 h-9 flex items-center justify-center relative',
+              showFilters && 'ring-1 ring-primary/50 bg-primary/10',
+              activeFilterCount > 0 && 'ring-1 ring-primary/50'
+            )}
+          >
+            <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+            {activeFilterCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold flex items-center justify-center">
+                {activeFilterCount}
+              </span>
+            )}
+          </motion.button>
           
           {/* View Mode Toggle */}
           <div className="flex items-center glass-chip p-1 gap-0.5">
