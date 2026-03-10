@@ -76,9 +76,31 @@ export function CreatorMode() {
             </div>
           </div>
         </div>
+
+        {/* Tabs */}
+        <div className="container px-3 flex gap-1 mt-1">
+          <button
+            onClick={() => setActiveTab('channels')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'channels' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted/50'}`}
+          >
+            <LayoutList className="h-3.5 w-3.5" />
+            채널
+          </button>
+          <button
+            onClick={() => setActiveTab('calendar')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'calendar' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted/50'}`}
+          >
+            <CalendarDays className="h-3.5 w-3.5" />
+            캘린더
+          </button>
+        </div>
       </header>
 
       <main className="container px-3 py-4 space-y-3">
+        {activeTab === 'calendar' ? (
+          <ContentCalendar />
+        ) : (
+        <>
         {/* Channel Count & Add Button */}
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
