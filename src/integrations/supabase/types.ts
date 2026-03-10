@@ -267,6 +267,7 @@ export type Database = {
           display_name: string | null
           draft_generation_count: number
           email: string | null
+          feed_generation_date: string | null
           id: string
           idea_generation_count: number
           is_premium: boolean
@@ -284,6 +285,7 @@ export type Database = {
           display_name?: string | null
           draft_generation_count?: number
           email?: string | null
+          feed_generation_date?: string | null
           id?: string
           idea_generation_count?: number
           is_premium?: boolean
@@ -301,6 +303,7 @@ export type Database = {
           display_name?: string | null
           draft_generation_count?: number
           email?: string | null
+          feed_generation_date?: string | null
           id?: string
           idea_generation_count?: number
           is_premium?: boolean
