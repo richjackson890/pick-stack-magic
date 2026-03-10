@@ -19,6 +19,7 @@ import { SaveModal } from '@/components/SaveModal';
 import { GlassDock } from '@/components/GlassDock';
 import { AIReport } from '@/components/AIReport';
 import { Dashboard } from '@/components/Dashboard';
+import { CreatorMode } from '@/components/CreatorMode';
 import { CategoryManagement } from '@/components/CategoryManagement';
 import { EmptyState } from '@/components/EmptyState';
 import { LiquidSpinner } from '@/components/LiquidSpinner';
@@ -53,7 +54,7 @@ const Index = () => {
   const [selectedItem, setSelectedItem] = useState<DbItem | null>(null);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isCategoryManagementOpen, setIsCategoryManagementOpen] = useState(false);
-  const [currentTab, setCurrentTab] = useState<'home' | 'report' | 'dashboard'>('home');
+  const [currentTab, setCurrentTab] = useState<'home' | 'creator' | 'report' | 'dashboard'>('home');
   const [isShareCollectionOpen, setIsShareCollectionOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState<'items' | 'ai' | 'general'>('general');
@@ -255,6 +256,19 @@ const Index = () => {
           </motion.p>
         </div>
       </div>
+    );
+  }
+
+  if (currentTab === 'creator') {
+    return (
+      <>
+        <CreatorMode />
+        <GlassDock
+          currentTab={currentTab}
+          onTabChange={setCurrentTab}
+          onAdd={handleAddClick}
+        />
+      </>
     );
   }
 
