@@ -98,8 +98,9 @@ export function ContentCalendar() {
 
   // Modals
   const [selectedIdea, setSelectedIdea] = useState<ContentIdea | null>(null);
-  const [assignDate, setAssignDate] = useState<string | null>(null); // date string for assigning unscheduled ideas
+  const [assignDate, setAssignDate] = useState<string | null>(null);
   const [unscheduledIdeas, setUnscheduledIdeas] = useState<ContentIdea[]>([]);
+  const [draftModalIdea, setDraftModalIdea] = useState<ContentIdea | null>(null);
 
   // Fetch ideas for the visible range
   const fetchIdeas = useCallback(async () => {
