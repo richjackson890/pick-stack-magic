@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { PenTool, Plus, Sparkles, Lightbulb, CalendarDays, LayoutList, TrendingUp } from 'lucide-react';
+import { PenTool, Plus, Sparkles, Lightbulb, CalendarDays, LayoutList, TrendingUp, Rss } from 'lucide-react';
 import { useCreatorChannels, CreatorChannel } from '@/hooks/useCreatorChannels';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
 import { PlatformIcon } from '@/components/PlatformIcon';
