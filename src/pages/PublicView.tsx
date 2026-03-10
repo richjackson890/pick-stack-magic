@@ -82,9 +82,8 @@ export default function PublicView() {
         const result = collectionResult as any;
         
         // Increment view count atomically
-        const { data: newCount } = await supabase.rpc('increment_shared_view_count', {
-          p_share_code: shareCode,
-          p_table_name: 'shared_collections'
+        const { data: newCount } = await supabase.rpc('increment_shared_collection_views', {
+          p_share_code: shareCode
         });
         
         setViewCount(newCount || result.shared.view_count + 1);
