@@ -32,6 +32,7 @@ interface ContentIdea {
 interface IdeaEngineProps {
   channel: CreatorChannel;
   onBack: () => void;
+  initialKeywords?: string | null;
 }
 
 const FREE_IDEA_LIMIT = 3;
