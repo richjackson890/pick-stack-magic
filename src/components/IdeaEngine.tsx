@@ -160,7 +160,11 @@ export function IdeaEngine({ channel, onBack, initialKeywords }: IdeaEngineProps
 
   // Step 1: Reference Selection
   if (step === 'select') {
-    const canSubmit = mode === 'reference' ? selectedIds.size > 0 && canGenerate : keywords.trim().length >= 2 && canGenerate;
+    const canSubmit = mode === 'reference' 
+      ? selectedIds.size > 0 && canGenerate 
+      : mode === 'keyword' 
+        ? keywords.trim().length >= 2 && canGenerate 
+        : canGenerate;
 
     return (
       <div className="min-h-screen pb-24">
