@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Check, Lightbulb, Loader2, Trash2, CalendarDays, Save, Sparkles, BookOpen, Key, FileEdit, Eye } from 'lucide-react';
+import { ArrowLeft, Check, Lightbulb, Loader2, Trash2, CalendarDays, Save, Sparkles, BookOpen, Key, FileEdit, Eye, Bot } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDbItems, DbItem } from '@/hooks/useDbItems';
@@ -62,7 +62,7 @@ export function IdeaEngine({ channel, onBack, initialKeywords }: IdeaEngineProps
   const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
   const [generatedIdeas, setGeneratedIdeas] = useState<ContentIdea[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [mode, setMode] = useState<'reference' | 'keyword'>(initialKeywords ? 'keyword' : 'reference');
+  const [mode, setMode] = useState<'reference' | 'keyword' | 'auto'>(initialKeywords ? 'keyword' : 'reference');
   const [keywords, setKeywords] = useState(initialKeywords || '');
   const [draftModalIdea, setDraftModalIdea] = useState<ContentIdea | null>(null);
 
@@ -90,6 +90,7 @@ export function IdeaEngine({ channel, onBack, initialKeywords }: IdeaEngineProps
     if (!user) return;
     if (mode === 'reference' && selectedIds.size === 0) return;
     if (mode === 'keyword' && keywords.trim().length < 2) return;
+    // auto mode: no input validation needed
     if (!canGenerate) {
       toast({ title: '월간 아이디어 생성 한도 초과', description: 'Pro로 업그레이드하세요.', variant: 'destructive' });
       return;
@@ -102,8 +103,10 @@ export function IdeaEngine({ channel, onBack, initialKeywords }: IdeaEngineProps
       const body: any = { channel_id: channel.id };
       if (mode === 'reference') {
         body.item_ids = [...selectedIds];
-      } else {
+      } else if (mode === 'keyword') {
         body.keywords = keywords.trim();
+      } else {
+        body.auto_mode = true;
       }
 
       const { data, error } = await supabase.functions.invoke('generate-ideas', { body });
@@ -157,7 +160,11 @@ export function IdeaEngine({ channel, onBack, initialKeywords }: IdeaEngineProps
 
   // Step 1: Reference Selection
   if (step === 'select') {
-    const canSubmit = mode === 'reference' ? selectedIds.size > 0 && canGenerate : keywords.trim().length >= 2 && canGenerate;
+    const canSubmit = mode === 'reference' 
+      ? selectedIds.size > 0 && canGenerate 
+      : mode === 'keyword' 
+        ? keywords.trim().length >= 2 && canGenerate 
+        : canGenerate;
 
     return (
       <div className="min-h-screen pb-24">
@@ -183,21 +190,65 @@ export function IdeaEngine({ channel, onBack, initialKeywords }: IdeaEngineProps
           <div className="flex rounded-xl bg-muted/50 p-1 gap-1">
             <button
               onClick={() => setMode('reference')}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${mode === 'reference' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-semibold transition-all ${mode === 'reference' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              <BookOpen className="h-3.5 w-3.5" />
-              📚 레퍼런스 기반
+              📚 레퍼런스
             </button>
             <button
               onClick={() => setMode('keyword')}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${mode === 'keyword' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-semibold transition-all ${mode === 'keyword' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              <Key className="h-3.5 w-3.5" />
-              🔑 키워드 기반
+              🔑 키워드
+            </button>
+            <button
+              onClick={() => setMode('auto')}
+              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-semibold transition-all ${mode === 'auto' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              🤖 AI 자동
             </button>
           </div>
 
-          {mode === 'keyword' ? (
+          {mode === 'auto' ? (
+            /* Auto mode */
+            <div className="space-y-5">
+              <div className="glass-card p-5 text-center space-y-4">
+                <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center">
+                  <Bot className="h-8 w-8 text-accent" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground mb-1">AI 자동 추천</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    채널 프로필과 최신 트렌드를 기반으로<br />AI가 자동으로 아이디어를 추천합니다
+                  </p>
+                </div>
+
+                {/* Channel tone keywords */}
+                {channel.tone_keywords && channel.tone_keywords.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">관심 분야</p>
+                    <div className="flex flex-wrap justify-center gap-1.5">
+                      {channel.tone_keywords.map((kw, i) => (
+                        <span key={i} className="glass-chip px-2.5 py-1 text-[10px] font-medium text-foreground">
+                          {kw}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleGenerate}
+                  disabled={!canSubmit}
+                  className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold gradient-primary text-primary-foreground disabled:opacity-40 transition-opacity"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  아이디어 자동 생성
+                </motion.button>
+              </div>
+            </div>
+          ) : mode === 'keyword' ? (
             /* Keyword mode */
             <div className="space-y-4">
               <Textarea
@@ -348,7 +399,7 @@ export function IdeaEngine({ channel, onBack, initialKeywords }: IdeaEngineProps
           <div className="text-center">
             <h2 className="text-base font-bold text-foreground mb-1">AI가 아이디어를 만들고 있어요...</h2>
             <p className="text-xs text-muted-foreground">
-              {mode === 'reference' ? `${selectedIds.size}개 레퍼런스를 분석 중` : '키워드를 분석 중'}
+              {mode === 'reference' ? `${selectedIds.size}개 레퍼런스를 분석 중` : mode === 'keyword' ? '키워드를 분석 중' : '채널 프로필을 분석 중'}
             </p>
           </div>
           <Loader2 className="h-5 w-5 text-primary animate-spin" />
