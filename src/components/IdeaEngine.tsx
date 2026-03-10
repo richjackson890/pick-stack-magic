@@ -63,6 +63,7 @@ export function IdeaEngine({ channel, onBack }: IdeaEngineProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [mode, setMode] = useState<'reference' | 'keyword'>('reference');
   const [keywords, setKeywords] = useState('');
+  const [draftModalIdea, setDraftModalIdea] = useState<ContentIdea | null>(null);
 
   const canGenerate = usageData.isPremium || (usageData as any).ideaGenerationCount < FREE_IDEA_LIMIT;
   const ideasRemaining = usageData.isPremium ? Infinity : FREE_IDEA_LIMIT - ((usageData as any).ideaGenerationCount || 0);
