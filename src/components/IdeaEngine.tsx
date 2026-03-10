@@ -83,7 +83,9 @@ export function IdeaEngine({ channel, onBack }: IdeaEngineProps) {
   };
 
   const handleGenerate = async () => {
-    if (!user || selectedIds.size === 0) return;
+    if (!user) return;
+    if (mode === 'reference' && selectedIds.size === 0) return;
+    if (mode === 'keyword' && keywords.trim().length < 2) return;
     if (!canGenerate) {
       toast({ title: '월간 아이디어 생성 한도 초과', description: 'Pro로 업그레이드하세요.', variant: 'destructive' });
       return;
@@ -93,12 +95,14 @@ export function IdeaEngine({ channel, onBack }: IdeaEngineProps) {
     setIsGenerating(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('generate-ideas', {
-        body: {
-          item_ids: [...selectedIds],
-          channel_id: channel.id,
-        },
-      });
+      const body: any = { channel_id: channel.id };
+      if (mode === 'reference') {
+        body.item_ids = [...selectedIds];
+      } else {
+        body.keywords = keywords.trim();
+      }
+
+      const { data, error } = await supabase.functions.invoke('generate-ideas', { body });
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
