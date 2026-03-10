@@ -23,7 +23,7 @@ export function CreatorMode() {
 
   // If idea engine is open, show it
   if (ideaChannel) {
-    return <IdeaEngine channel={ideaChannel} onBack={() => setIdeaChannel(null)} />;
+    return <IdeaEngine channel={ideaChannel} onBack={() => { setIdeaChannel(null); setIdeaKeywords(null); }} initialKeywords={ideaKeywords} />;
   }
 
   const handleOpenAdd = () => {
