@@ -75,8 +75,11 @@ export function EnhancedFilterBar({
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [showFilters, setShowFilters] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const sortedCategories = [...categories].sort((a, b) => a.sort_order - b.sort_order);
+  
+  const activeFilterCount = (selectedPlatform ? 1 : 0) + (selectedCategoryId ? 1 : 0);
 
   // Load search history on focus
   useEffect(() => {
