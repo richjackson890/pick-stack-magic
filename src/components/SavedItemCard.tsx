@@ -98,11 +98,11 @@ export function SavedItemCard({ item, category, onClick, isMasonry = false }: Sa
         
         {/* Category badge */}
         <span 
-          className="absolute bottom-1.5 right-1.5 text-[8px] font-medium text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5" 
+          className="absolute bottom-1 right-1 text-[7px] sm:text-[8px] font-medium text-white px-1 sm:px-1.5 py-0.5 rounded-full flex items-center gap-0.5 max-w-[60%] truncate" 
           style={{ backgroundColor: category?.color || '#6b7280' }}
         >
-          {category?.icon && <span>{category.icon}</span>}
-          {category?.name || '기타'}
+          {category?.icon && <span className="shrink-0">{category.icon}</span>}
+          <span className="truncate">{category?.name || '기타'}</span>
         </span>
       </div>
     </article>

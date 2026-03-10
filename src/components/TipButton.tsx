@@ -27,10 +27,11 @@ export function TipButton() {
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full glass-button text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        className="flex items-center gap-1 px-2 py-1.5 rounded-full glass-button text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        title="개발자 후원"
       >
         <Coffee className="w-3.5 h-3.5" />
-        <span>개발자 후원</span>
+        <span className="hidden sm:inline text-[11px]">후원</span>
       </motion.button>
 
       <AnimatePresence>
