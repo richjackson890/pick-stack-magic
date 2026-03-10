@@ -62,7 +62,7 @@ export function IdeaEngine({ channel, onBack, initialKeywords }: IdeaEngineProps
   const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
   const [generatedIdeas, setGeneratedIdeas] = useState<ContentIdea[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [mode, setMode] = useState<'reference' | 'keyword'>(initialKeywords ? 'keyword' : 'reference');
+  const [mode, setMode] = useState<'reference' | 'keyword' | 'auto'>(initialKeywords ? 'keyword' : 'reference');
   const [keywords, setKeywords] = useState(initialKeywords || '');
   const [draftModalIdea, setDraftModalIdea] = useState<ContentIdea | null>(null);
 
