@@ -82,7 +82,9 @@ serve(async (req) => {
 
     // Fetch items (only for reference mode)
     let referencesText = "";
-    if (!isKeywordMode) {
+    if (isAutoMode) {
+      referencesText = ""; // No references needed
+    } else if (!isKeywordMode) {
       const { data: items, error: itemsError } = await supabase
         .from("items")
         .select("title, summary_3lines, tags, smart_snippet, core_keywords")
