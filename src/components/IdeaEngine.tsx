@@ -399,7 +399,7 @@ export function IdeaEngine({ channel, onBack, initialKeywords }: IdeaEngineProps
           <div className="text-center">
             <h2 className="text-base font-bold text-foreground mb-1">AI가 아이디어를 만들고 있어요...</h2>
             <p className="text-xs text-muted-foreground">
-              {mode === 'reference' ? `${selectedIds.size}개 레퍼런스를 분석 중` : '키워드를 분석 중'}
+              {mode === 'reference' ? `${selectedIds.size}개 레퍼런스를 분석 중` : mode === 'keyword' ? '키워드를 분석 중' : '채널 프로필을 분석 중'}
             </p>
           </div>
           <Loader2 className="h-5 w-5 text-primary animate-spin" />
