@@ -79,18 +79,30 @@ serve(async (req) => {
       });
     }
 
-    // Fetch items
-    const { data: items, error: itemsError } = await supabase
-      .from("items")
-      .select("title, summary_3lines, tags, smart_snippet, core_keywords")
-      .in("id", item_ids)
-      .eq("user_id", userId);
+    // Fetch items (only for reference mode)
+    let referencesText = "";
+    if (!isKeywordMode) {
+      const { data: items, error: itemsError } = await supabase
+        .from("items")
+        .select("title, summary_3lines, tags, smart_snippet, core_keywords")
+        .in("id", item_ids)
+        .eq("user_id", userId);
 
-    if (itemsError || !items?.length) {
-      return new Response(JSON.stringify({ error: "Items not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      if (itemsError || !items?.length) {
+        return new Response(JSON.stringify({ error: "Items not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      referencesText = items.map((item, i) => {
+        const summary = (item.summary_3lines || []).join(" ");
+        const tags = (item.tags || []).join(", ");
+        const kw = (item.core_keywords || []).join(", ");
+        return `[레퍼런스 ${i + 1}]\n제목: ${item.title}\n요약: ${summary || item.smart_snippet || ""}\n태그: ${tags}\n키워드: ${kw}`;
+      }).join("\n\n");
+    } else {
+      referencesText = `사용자 입력 키워드: ${keywords.trim()}`;
     }
 
     // Fetch channel
@@ -108,15 +120,9 @@ serve(async (req) => {
       });
     }
 
-    // Build reference text
-    const referencesText = items.map((item, i) => {
-      const summary = (item.summary_3lines || []).join(" ");
-      const tags = (item.tags || []).join(", ");
-      const keywords = (item.core_keywords || []).join(", ");
-      return `[레퍼런스 ${i + 1}]\n제목: ${item.title}\n요약: ${summary || item.smart_snippet || ""}\n태그: ${tags}\n키워드: ${keywords}`;
-    }).join("\n\n");
+    const referenceLabel = isKeywordMode ? "사용자 입력 키워드" : "레퍼런스 자료";
 
-    const systemPrompt = `너는 SNS 콘텐츠 전략가다. 사용자가 제공한 레퍼런스 자료와 채널 프로필을 분석해서 콘텐츠 아이디어를 3개 제안해라.
+    const systemPrompt = `너는 SNS 콘텐츠 전략가다. 사용자가 제공한 ${referenceLabel}와 채널 프로필을 분석해서 콘텐츠 아이디어를 3개 제안해라.
 
 채널 정보:
 - 이름: ${channel.name}
@@ -125,7 +131,7 @@ serve(async (req) => {
 - 콘텐츠 공식: ${channel.content_formula || "없음"}
 - 타겟 해시태그: ${(channel.target_hashtags || []).join(", ")}
 
-레퍼런스 자료:
+${referenceLabel}:
 ${referencesText}
 
 반드시 아래 JSON 형식으로만 응답해라. 다른 텍스트 없이 JSON만:
