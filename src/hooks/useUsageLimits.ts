@@ -44,6 +44,7 @@ export function useUsageLimits(): UsageLimits {
         isPremium: false,
         itemsCount: 0,
         aiAnalysisCount: 0,
+        ideaGenerationCount: 0,
         monthlyResetAt: null,
       });
       setLoading(false);
