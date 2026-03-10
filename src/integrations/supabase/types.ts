@@ -488,8 +488,12 @@ export type Database = {
         Returns: Json
       }
       get_shared_item_public: { Args: { p_share_code: string }; Returns: Json }
-      increment_shared_view_count: {
-        Args: { p_share_code: string; p_table_name: string }
+      increment_shared_collection_views: {
+        Args: { p_share_code: string }
+        Returns: number
+      }
+      increment_shared_item_views: {
+        Args: { p_share_code: string }
         Returns: number
       }
       reset_monthly_usage: { Args: never; Returns: undefined }
