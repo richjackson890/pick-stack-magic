@@ -54,7 +54,7 @@ export function useUsageLimits(): UsageLimits {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('is_premium, items_count, ai_analysis_count, monthly_reset_at')
+        .select('is_premium, items_count, ai_analysis_count, idea_generation_count, monthly_reset_at')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -64,6 +64,7 @@ export function useUsageLimits(): UsageLimits {
         isPremium: data?.is_premium ?? false,
         itemsCount: data?.items_count ?? 0,
         aiAnalysisCount: data?.ai_analysis_count ?? 0,
+        ideaGenerationCount: (data as any)?.idea_generation_count ?? 0,
         monthlyResetAt: data?.monthly_reset_at ?? null,
       });
     } catch (error) {
