@@ -46,14 +46,16 @@ serve(async (req) => {
     }
     const userId = claims.claims.sub;
 
-    const { item_ids, channel_id } = await req.json();
+    const { item_ids, keywords, channel_id } = await req.json();
 
-    if (!item_ids?.length || !channel_id) {
-      return new Response(JSON.stringify({ error: "item_ids and channel_id are required" }), {
+    if ((!item_ids?.length && !keywords?.trim()) || !channel_id) {
+      return new Response(JSON.stringify({ error: "item_ids or keywords, and channel_id are required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const isKeywordMode = !item_ids?.length && !!keywords?.trim();
 
     // Check usage limits
     const { data: profile } = await supabase
@@ -77,18 +79,30 @@ serve(async (req) => {
       });
     }
 
-    // Fetch items
-    const { data: items, error: itemsError } = await supabase
-      .from("items")
-      .select("title, summary_3lines, tags, smart_snippet, core_keywords")
-      .in("id", item_ids)
-      .eq("user_id", userId);
+    // Fetch items (only for reference mode)
+    let referencesText = "";
+    if (!isKeywordMode) {
+      const { data: items, error: itemsError } = await supabase
+        .from("items")
+        .select("title, summary_3lines, tags, smart_snippet, core_keywords")
+        .in("id", item_ids)
+        .eq("user_id", userId);
 
-    if (itemsError || !items?.length) {
-      return new Response(JSON.stringify({ error: "Items not found" }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      if (itemsError || !items?.length) {
+        return new Response(JSON.stringify({ error: "Items not found" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      referencesText = items.map((item, i) => {
+        const summary = (item.summary_3lines || []).join(" ");
+        const tags = (item.tags || []).join(", ");
+        const kw = (item.core_keywords || []).join(", ");
+        return `[레퍼런스 ${i + 1}]\n제목: ${item.title}\n요약: ${summary || item.smart_snippet || ""}\n태그: ${tags}\n키워드: ${kw}`;
+      }).join("\n\n");
+    } else {
+      referencesText = `사용자 입력 키워드: ${keywords.trim()}`;
     }
 
     // Fetch channel
@@ -106,15 +120,9 @@ serve(async (req) => {
       });
     }
 
-    // Build reference text
-    const referencesText = items.map((item, i) => {
-      const summary = (item.summary_3lines || []).join(" ");
-      const tags = (item.tags || []).join(", ");
-      const keywords = (item.core_keywords || []).join(", ");
-      return `[레퍼런스 ${i + 1}]\n제목: ${item.title}\n요약: ${summary || item.smart_snippet || ""}\n태그: ${tags}\n키워드: ${keywords}`;
-    }).join("\n\n");
+    const referenceLabel = isKeywordMode ? "사용자 입력 키워드" : "레퍼런스 자료";
 
-    const systemPrompt = `너는 SNS 콘텐츠 전략가다. 사용자가 제공한 레퍼런스 자료와 채널 프로필을 분석해서 콘텐츠 아이디어를 3개 제안해라.
+    const systemPrompt = `너는 SNS 콘텐츠 전략가다. 사용자가 제공한 ${referenceLabel}와 채널 프로필을 분석해서 콘텐츠 아이디어를 3개 제안해라.
 
 채널 정보:
 - 이름: ${channel.name}
@@ -123,7 +131,7 @@ serve(async (req) => {
 - 콘텐츠 공식: ${channel.content_formula || "없음"}
 - 타겟 해시태그: ${(channel.target_hashtags || []).join(", ")}
 
-레퍼런스 자료:
+${referenceLabel}:
 ${referencesText}
 
 반드시 아래 JSON 형식으로만 응답해라. 다른 텍스트 없이 JSON만:
@@ -152,7 +160,7 @@ ${referencesText}
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: "위 레퍼런스 자료를 분석하고 채널에 맞는 콘텐츠 아이디어 3개를 JSON으로 제안해줘." },
+          { role: "user", content: isKeywordMode ? "위 키워드를 기반으로 채널에 맞는 콘텐츠 아이디어 3개를 JSON으로 제안해줘." : "위 레퍼런스 자료를 분석하고 채널에 맞는 콘텐츠 아이디어 3개를 JSON으로 제안해줘." },
         ],
         temperature: 0.7,
         max_tokens: 2000,
@@ -216,7 +224,7 @@ ${referencesText}
       content_layers: idea.content_layers || [],
       hashtags: idea.hashtags || [],
       estimated_engagement: idea.estimated_engagement || "mid",
-      reference_item_ids: item_ids,
+      reference_item_ids: isKeywordMode ? [] : item_ids,
       status: "idea",
     }));
 

@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Check, Lightbulb, Loader2, Trash2, CalendarDays, Save, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, Lightbulb, Loader2, Trash2, CalendarDays, Save, Sparkles, BookOpen, Key } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDbItems, DbItem } from '@/hooks/useDbItems';
@@ -11,6 +11,7 @@ import { CreatorChannel } from '@/hooks/useCreatorChannels';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { Platform } from '@/types/pickstack';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ContentIdea {
   id: string;
@@ -58,6 +59,8 @@ export function IdeaEngine({ channel, onBack }: IdeaEngineProps) {
   const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
   const [generatedIdeas, setGeneratedIdeas] = useState<ContentIdea[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [mode, setMode] = useState<'reference' | 'keyword'>('reference');
+  const [keywords, setKeywords] = useState('');
 
   const canGenerate = usageData.isPremium || (usageData as any).ideaGenerationCount < FREE_IDEA_LIMIT;
   const ideasRemaining = usageData.isPremium ? Infinity : FREE_IDEA_LIMIT - ((usageData as any).ideaGenerationCount || 0);
@@ -80,7 +83,9 @@ export function IdeaEngine({ channel, onBack }: IdeaEngineProps) {
   };
 
   const handleGenerate = async () => {
-    if (!user || selectedIds.size === 0) return;
+    if (!user) return;
+    if (mode === 'reference' && selectedIds.size === 0) return;
+    if (mode === 'keyword' && keywords.trim().length < 2) return;
     if (!canGenerate) {
       toast({ title: '월간 아이디어 생성 한도 초과', description: 'Pro로 업그레이드하세요.', variant: 'destructive' });
       return;
@@ -90,12 +95,14 @@ export function IdeaEngine({ channel, onBack }: IdeaEngineProps) {
     setIsGenerating(true);
 
     try {
-      const { data, error } = await supabase.functions.invoke('generate-ideas', {
-        body: {
-          item_ids: [...selectedIds],
-          channel_id: channel.id,
-        },
-      });
+      const body: any = { channel_id: channel.id };
+      if (mode === 'reference') {
+        body.item_ids = [...selectedIds];
+      } else {
+        body.keywords = keywords.trim();
+      }
+
+      const { data, error } = await supabase.functions.invoke('generate-ideas', { body });
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
@@ -145,6 +152,8 @@ export function IdeaEngine({ channel, onBack }: IdeaEngineProps) {
 
   // Step 1: Reference Selection
   if (step === 'select') {
+    const canSubmit = mode === 'reference' ? selectedIds.size > 0 && canGenerate : keywords.trim().length >= 2 && canGenerate;
+
     return (
       <div className="min-h-screen pb-24">
         <header className="sticky top-0 z-40 glass-dock border-b-0">
@@ -165,101 +174,147 @@ export function IdeaEngine({ channel, onBack }: IdeaEngineProps) {
         </header>
 
         <main className="container px-3 py-4 space-y-3">
-          {/* Category filter */}
-          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+          {/* Mode tabs */}
+          <div className="flex rounded-xl bg-muted/50 p-1 gap-1">
             <button
-              onClick={() => setFilterCategoryId(null)}
-              className={`glass-chip px-2.5 py-1 text-[10px] font-medium whitespace-nowrap transition-colors ${!filterCategoryId ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'text-muted-foreground'}`}
+              onClick={() => setMode('reference')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${mode === 'reference' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              전체
+              <BookOpen className="h-3.5 w-3.5" />
+              📚 레퍼런스 기반
             </button>
-            {categories.map(cat => (
-              <button
-                key={cat.id}
-                onClick={() => setFilterCategoryId(cat.id === filterCategoryId ? null : cat.id)}
-                className={`glass-chip px-2.5 py-1 text-[10px] font-medium whitespace-nowrap transition-colors ${filterCategoryId === cat.id ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'text-muted-foreground'}`}
-              >
-                {cat.icon} {cat.name}
-              </button>
-            ))}
-          </div>
-
-          {/* Selection count */}
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">
-              <span className="font-bold text-foreground">{selectedIds.size}</span>/10개 선택됨
-            </p>
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={handleGenerate}
-              disabled={selectedIds.size === 0 || !canGenerate}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold gradient-primary text-primary-foreground disabled:opacity-40 transition-opacity"
+            <button
+              onClick={() => setMode('keyword')}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${mode === 'keyword' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              <Sparkles className="h-3.5 w-3.5" />
-              아이디어 생성하기
-            </motion.button>
+              <Key className="h-3.5 w-3.5" />
+              🔑 키워드 기반
+            </button>
           </div>
 
-          {/* Item list */}
-          {itemsLoading ? (
-            <div className="flex justify-center py-16">
-              <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-            </div>
-          ) : filteredItems.length === 0 ? (
-            <div className="flex flex-col items-center py-16">
-              <p className="text-sm text-muted-foreground">저장된 아이템이 없습니다</p>
+          {mode === 'keyword' ? (
+            /* Keyword mode */
+            <div className="space-y-4">
+              <Textarea
+                value={keywords}
+                onChange={e => setKeywords(e.target.value)}
+                placeholder={"오늘의 주제나 키워드를 입력하세요\n예: 기준금리 동결, 아파트 평면도 분석, 현관 풍수"}
+                className="min-h-[160px] text-sm bg-muted/30 border-border/50 focus:border-primary/50"
+              />
+              <div className="flex items-center justify-between">
+                <p className="text-[10px] text-muted-foreground">
+                  {keywords.trim().length < 2 ? '최소 2글자 이상 입력해주세요' : `${keywords.trim().length}글자 입력됨`}
+                </p>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleGenerate}
+                  disabled={!canSubmit}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold gradient-primary text-primary-foreground disabled:opacity-40 transition-opacity"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  아이디어 생성하기
+                </motion.button>
+              </div>
             </div>
           ) : (
-            <div className="space-y-2">
-              {filteredItems.map((item, i) => {
-                const isSelected = selectedIds.has(item.id);
-                const cat = getCategoryById(item.category_id || '');
-                return (
-                  <motion.div
-                    key={item.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.02 }}
-                    onClick={() => toggleItem(item.id)}
-                    className={`glass-card p-2.5 cursor-pointer transition-all ${isSelected ? 'ring-2 ring-primary shadow-md' : 'hover:shadow-sm'}`}
+            /* Reference mode (existing) */
+            <>
+              {/* Category filter */}
+              <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide">
+                <button
+                  onClick={() => setFilterCategoryId(null)}
+                  className={`glass-chip px-2.5 py-1 text-[10px] font-medium whitespace-nowrap transition-colors ${!filterCategoryId ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'text-muted-foreground'}`}
+                >
+                  전체
+                </button>
+                {categories.map(cat => (
+                  <button
+                    key={cat.id}
+                    onClick={() => setFilterCategoryId(cat.id === filterCategoryId ? null : cat.id)}
+                    className={`glass-chip px-2.5 py-1 text-[10px] font-medium whitespace-nowrap transition-colors ${filterCategoryId === cat.id ? 'bg-primary/20 text-primary ring-1 ring-primary/30' : 'text-muted-foreground'}`}
                   >
-                    <div className="flex items-center gap-2.5">
-                      <Checkbox
-                        checked={isSelected}
-                        onCheckedChange={() => toggleItem(item.id)}
-                        className="shrink-0"
-                      />
-                      {/* Thumbnail */}
-                      {item.thumbnail_url ? (
-                        <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-muted">
-                          <img src={item.thumbnail_url} alt="" className="w-full h-full object-cover" />
-                        </div>
-                      ) : (
-                        <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center shrink-0">
-                          <PlatformIcon platform={item.platform as Platform} size="sm" />
-                        </div>
-                      )}
-                      {/* Info */}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[10px] text-muted-foreground">{item.platform}</span>
-                          {cat && (
-                            <span
-                              className="text-[10px] px-1.5 py-0.5 rounded-full"
-                              style={{ backgroundColor: `${cat.color}20`, color: cat.color }}
-                            >
-                              {cat.icon} {cat.name}
-                            </span>
+                    {cat.icon} {cat.name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Selection count */}
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground">
+                  <span className="font-bold text-foreground">{selectedIds.size}</span>/10개 선택됨
+                </p>
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleGenerate}
+                  disabled={!canSubmit}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold gradient-primary text-primary-foreground disabled:opacity-40 transition-opacity"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  아이디어 생성하기
+                </motion.button>
+              </div>
+
+              {/* Item list */}
+              {itemsLoading ? (
+                <div className="flex justify-center py-16">
+                  <div className="w-8 h-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+                </div>
+              ) : filteredItems.length === 0 ? (
+                <div className="flex flex-col items-center py-16">
+                  <p className="text-sm text-muted-foreground">저장된 아이템이 없습니다</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {filteredItems.map((item, i) => {
+                    const isSelected = selectedIds.has(item.id);
+                    const cat = getCategoryById(item.category_id || '');
+                    return (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: i * 0.02 }}
+                        onClick={() => toggleItem(item.id)}
+                        className={`glass-card p-2.5 cursor-pointer transition-all ${isSelected ? 'ring-2 ring-primary shadow-md' : 'hover:shadow-sm'}`}
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={() => toggleItem(item.id)}
+                            className="shrink-0"
+                          />
+                          {item.thumbnail_url ? (
+                            <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-muted">
+                              <img src={item.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                            </div>
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg bg-muted/50 flex items-center justify-center shrink-0">
+                              <PlatformIcon platform={item.platform as Platform} size="sm" />
+                            </div>
                           )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-semibold text-foreground truncate">{item.title}</p>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[10px] text-muted-foreground">{item.platform}</span>
+                              {cat && (
+                                <span
+                                  className="text-[10px] px-1.5 py-0.5 rounded-full"
+                                  style={{ backgroundColor: `${cat.color}20`, color: cat.color }}
+                                >
+                                  {cat.icon} {cat.name}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              })}
-            </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
           )}
         </main>
       </div>
@@ -288,7 +343,7 @@ export function IdeaEngine({ channel, onBack }: IdeaEngineProps) {
           <div className="text-center">
             <h2 className="text-base font-bold text-foreground mb-1">AI가 아이디어를 만들고 있어요...</h2>
             <p className="text-xs text-muted-foreground">
-              {selectedIds.size}개 레퍼런스를 분석 중
+              {mode === 'reference' ? `${selectedIds.size}개 레퍼런스를 분석 중` : '키워드를 분석 중'}
             </p>
           </div>
           <Loader2 className="h-5 w-5 text-primary animate-spin" />
