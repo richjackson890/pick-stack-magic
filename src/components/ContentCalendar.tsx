@@ -421,11 +421,11 @@ export function ContentCalendar() {
                   날짜 변경
                 </button>
                 <button
-                  disabled
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-medium text-muted-foreground opacity-50 cursor-not-allowed"
+                  onClick={() => { setDraftModalIdea(selectedIdea); }}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-medium text-accent hover:bg-accent/10 transition-colors"
                 >
-                  <FileEdit className="h-3 w-3" />
-                  초안 생성
+                  {selectedIdea.draft_content ? <Eye className="h-3 w-3" /> : <FileEdit className="h-3 w-3" />}
+                  {selectedIdea.draft_content ? '초안 보기' : '초안 생성'}
                 </button>
                 <button
                   onClick={() => handleDeleteIdea(selectedIdea.id)}
