@@ -11,6 +11,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { DraftModal } from '@/components/DraftModal';
 
 interface ContentIdea {
   id: string;
