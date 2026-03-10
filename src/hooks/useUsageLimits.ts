@@ -60,7 +60,7 @@ export function useUsageLimits(): UsageLimits {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('is_premium, items_count, ai_analysis_count, idea_generation_count, monthly_reset_at')
+        .select('is_premium, items_count, ai_analysis_count, idea_generation_count, draft_generation_count, monthly_reset_at')
         .eq('user_id', user.id)
         .maybeSingle();
 
