@@ -107,13 +107,6 @@ export type Database = {
             referencedRelation: "creator_channels"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "content_ideas_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
         ]
       }
       creator_channels: {
@@ -156,15 +149,7 @@ export type Database = {
           updated_at?: string | null
           user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "creator_channels_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       items: {
         Row: {
