@@ -53,7 +53,7 @@ const Index = () => {
   const [selectedItem, setSelectedItem] = useState<DbItem | null>(null);
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [isCategoryManagementOpen, setIsCategoryManagementOpen] = useState(false);
-  const [currentTab, setCurrentTab] = useState<'home' | 'report' | 'dashboard'>('home');
+  const [currentTab, setCurrentTab] = useState<'home' | 'creator' | 'report' | 'dashboard'>('home');
   const [isShareCollectionOpen, setIsShareCollectionOpen] = useState(false);
   const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
   const [upgradeReason, setUpgradeReason] = useState<'items' | 'ai' | 'general'>('general');
