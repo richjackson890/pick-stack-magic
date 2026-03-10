@@ -63,14 +63,14 @@ export function SavedItemCard({ item, category, onClick, isMasonry = false }: Sa
               </div>
             )}
              {/* Center title overlay for items with thumbnails */}
-             <div className="absolute inset-0 grid place-items-center p-3 pointer-events-none">
-               <div className="max-w-[92%] text-center">
-                 <h3 className="line-clamp-2 text-sm font-extrabold tracking-tight text-primary-foreground drop-shadow-[0_6px_18px_rgba(0,0,0,0.6)]">
+             <div className="absolute inset-0 grid place-items-center p-2 sm:p-3 pointer-events-none">
+               <div className="max-w-[95%] text-center">
+                 <h3 className="line-clamp-2 text-[11px] sm:text-sm font-extrabold tracking-tight leading-snug text-primary-foreground drop-shadow-[0_4px_12px_rgba(0,0,0,0.7)]">
                    {item.title}
                  </h3>
                  {keywords?.length ? (
-                   <div className="mt-1 line-clamp-1 text-[10px] font-medium text-primary-foreground/80">
-                     {keywords.slice(0, 4).join(' · ')}
+                   <div className="mt-0.5 line-clamp-1 text-[8px] sm:text-[10px] font-medium text-primary-foreground/70">
+                     {keywords.slice(0, 3).join(' · ')}
                    </div>
                  ) : null}
                </div>
@@ -98,11 +98,11 @@ export function SavedItemCard({ item, category, onClick, isMasonry = false }: Sa
         
         {/* Category badge */}
         <span 
-          className="absolute bottom-1.5 right-1.5 text-[8px] font-medium text-white px-1.5 py-0.5 rounded-full flex items-center gap-0.5" 
+          className="absolute bottom-1 right-1 text-[7px] sm:text-[8px] font-medium text-white px-1 sm:px-1.5 py-0.5 rounded-full flex items-center gap-0.5 max-w-[60%] truncate" 
           style={{ backgroundColor: category?.color || '#6b7280' }}
         >
-          {category?.icon && <span>{category.icon}</span>}
-          {category?.name || '기타'}
+          {category?.icon && <span className="shrink-0">{category.icon}</span>}
+          <span className="truncate">{category?.name || '기타'}</span>
         </span>
       </div>
     </article>
