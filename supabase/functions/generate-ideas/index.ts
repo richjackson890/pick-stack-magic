@@ -160,7 +160,7 @@ ${referencesText}
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: "위 레퍼런스 자료를 분석하고 채널에 맞는 콘텐츠 아이디어 3개를 JSON으로 제안해줘." },
+          { role: "user", content: isKeywordMode ? "위 키워드를 기반으로 채널에 맞는 콘텐츠 아이디어 3개를 JSON으로 제안해줘." : "위 레퍼런스 자료를 분석하고 채널에 맞는 콘텐츠 아이디어 3개를 JSON으로 제안해줘." },
         ],
         temperature: 0.7,
         max_tokens: 2000,
