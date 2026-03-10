@@ -24,6 +24,7 @@ interface ContentIdea {
   channel_id: string | null;
   status: string | null;
   scheduled_date: string | null;
+  draft_content: string | null;
 }
 
 const DAY_HEADERS = ['월', '화', '수', '목', '금', '토', '일'];
