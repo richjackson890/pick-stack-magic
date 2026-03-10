@@ -265,6 +265,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           display_name: string | null
+          draft_generation_count: number
           email: string | null
           id: string
           idea_generation_count: number
@@ -281,6 +282,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
+          draft_generation_count?: number
           email?: string | null
           id?: string
           idea_generation_count?: number
@@ -297,6 +299,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           display_name?: string | null
+          draft_generation_count?: number
           email?: string | null
           id?: string
           idea_generation_count?: number
