@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Check, Lightbulb, Loader2, Trash2, CalendarDays, Save, Sparkles } from 'lucide-react';
+import { ArrowLeft, Check, Lightbulb, Loader2, Trash2, CalendarDays, Save, Sparkles, BookOpen, Key } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDbItems, DbItem } from '@/hooks/useDbItems';
@@ -11,6 +11,7 @@ import { CreatorChannel } from '@/hooks/useCreatorChannels';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { Platform } from '@/types/pickstack';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Textarea } from '@/components/ui/textarea';
 
 interface ContentIdea {
   id: string;
