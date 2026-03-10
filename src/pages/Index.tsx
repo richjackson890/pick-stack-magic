@@ -19,6 +19,7 @@ import { SaveModal } from '@/components/SaveModal';
 import { GlassDock } from '@/components/GlassDock';
 import { AIReport } from '@/components/AIReport';
 import { Dashboard } from '@/components/Dashboard';
+import { CreatorMode } from '@/components/CreatorMode';
 import { CategoryManagement } from '@/components/CategoryManagement';
 import { EmptyState } from '@/components/EmptyState';
 import { LiquidSpinner } from '@/components/LiquidSpinner';
