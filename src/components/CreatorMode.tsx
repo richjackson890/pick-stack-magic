@@ -95,6 +95,13 @@ export function CreatorMode() {
             <CalendarDays className="h-3.5 w-3.5" />
             캘린더
           </button>
+          <button
+            onClick={() => setActiveTab('trends')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'trends' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted/50'}`}
+          >
+            <TrendingUp className="h-3.5 w-3.5" />
+            트렌드
+          </button>
         </div>
       </header>
 
