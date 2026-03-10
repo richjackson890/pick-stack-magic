@@ -15,6 +15,7 @@ export interface UsageData {
   itemsCount: number;
   aiAnalysisCount: number;
   ideaGenerationCount: number;
+  draftGenerationCount: number;
   monthlyResetAt: string | null;
 }
 
