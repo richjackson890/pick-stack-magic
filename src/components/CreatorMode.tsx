@@ -114,7 +114,16 @@ export function CreatorMode() {
       </header>
 
       <main className="container px-3 py-4 space-y-3">
-        {activeTab === 'trends' ? (
+        {activeTab === 'feed' ? (
+          <ContentFeed
+            onNavigateToIdea={(kws) => {
+              if (channels.length > 0) {
+                setIdeaKeywords(kws);
+                setIdeaChannel(channels[0]);
+              }
+            }}
+          />
+        ) : activeTab === 'trends' ? (
           <TrendRadar
             onNavigateToIdea={(kws) => {
               if (channels.length > 0) {
