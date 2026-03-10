@@ -372,97 +372,111 @@ export function EnhancedFilterBar({
           </div>
         </div>
 
-        {/* Platform Chips - SNS별 필터 */}
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1">
-          <span className="text-[10px] font-semibold text-muted-foreground shrink-0">SNS</span>
-          <GlassChipGroup>
-            <GlassChip
-              selected={selectedPlatform === null}
-              onClick={() => onPlatformChange(null)}
-              size="sm"
+        {/* Collapsible Filter Section */}
+        <AnimatePresence>
+          {showFilters && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: 'easeInOut' }}
+              className="overflow-hidden"
             >
-              전체
-            </GlassChip>
-            {platformSuggestions.map((platform) => (
-              <GlassChip
-                key={platform}
-                selected={selectedPlatform === platform}
-                onClick={() => onPlatformChange(platform)}
-                size="sm"
-                icon={<PlatformIcon platform={platform} size="sm" className="w-4 h-4" />}
-              >
-                {platform}
-              </GlassChip>
-            ))}
-            {/* Show other platforms in dropdown if many exist */}
-            {PLATFORMS.filter(p => p !== 'Unknown' && !platformSuggestions.includes(p)).length > 0 && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="glass-chip px-2 py-1 text-xs text-muted-foreground flex items-center gap-1"
-                  >
-                    <ChevronDown className="h-3 w-3" />
-                    더보기
-                  </motion.button>
-                </PopoverTrigger>
-                <PopoverContent className="w-64 p-3 glass-sheet border-border/30" align="start">
-                  <p className="text-xs font-semibold text-muted-foreground mb-2">모든 플랫폼</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {PLATFORMS.filter(p => p !== 'Unknown').map((platform) => (
+              <div className="space-y-2 pt-1">
+                {/* Platform Chips - SNS별 필터 */}
+                <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1">
+                  <span className="text-[10px] font-semibold text-muted-foreground shrink-0">SNS</span>
+                  <GlassChipGroup>
+                    <GlassChip
+                      selected={selectedPlatform === null}
+                      onClick={() => onPlatformChange(null)}
+                      size="sm"
+                    >
+                      전체
+                    </GlassChip>
+                    {platformSuggestions.map((platform) => (
                       <GlassChip
                         key={platform}
                         selected={selectedPlatform === platform}
                         onClick={() => onPlatformChange(platform)}
                         size="sm"
-                        icon={<PlatformIcon platform={platform} size="sm" className="w-3.5 h-3.5" />}
+                        icon={<PlatformIcon platform={platform} size="sm" className="w-4 h-4" />}
                       >
                         {platform}
                       </GlassChip>
                     ))}
-                  </div>
-                </PopoverContent>
-              </Popover>
-            )}
-          </GlassChipGroup>
-        </div>
-        
-        {/* Category Chips */}
-        <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1">
-          <span className="text-[10px] font-semibold text-muted-foreground shrink-0">카테고리</span>
-          <GlassChipGroup>
-            <GlassChip
-              selected={selectedCategoryId === null}
-              onClick={() => onCategoryChange(null)}
-            >
-              전체
-            </GlassChip>
-            
-            {sortedCategories.map((category) => (
-              <GlassChip
-                key={category.id}
-                selected={selectedCategoryId === category.id}
-                onClick={() => onCategoryChange(category.id)}
-                color={category.color}
-                icon={<IconDisplay iconKey={migrateIconKey(category.icon)} size="sm" />}
-              >
-                {category.name}
-              </GlassChip>
-            ))}
-            
-            {onAddCategory && (
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={onAddCategory}
-                className="glass-chip w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground"
-              >
-                <Plus className="h-4 w-4" />
-              </motion.button>
-            )}
-          </GlassChipGroup>
-        </div>
+                    {PLATFORMS.filter(p => p !== 'Unknown' && !platformSuggestions.includes(p)).length > 0 && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="glass-chip px-2 py-1 text-xs text-muted-foreground flex items-center gap-1"
+                          >
+                            <ChevronDown className="h-3 w-3" />
+                            더보기
+                          </motion.button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-64 p-3 glass-sheet border-border/30" align="start">
+                          <p className="text-xs font-semibold text-muted-foreground mb-2">모든 플랫폼</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {PLATFORMS.filter(p => p !== 'Unknown').map((platform) => (
+                              <GlassChip
+                                key={platform}
+                                selected={selectedPlatform === platform}
+                                onClick={() => onPlatformChange(platform)}
+                                size="sm"
+                                icon={<PlatformIcon platform={platform} size="sm" className="w-3.5 h-3.5" />}
+                              >
+                                {platform}
+                              </GlassChip>
+                            ))}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </GlassChipGroup>
+                </div>
+                
+                {/* Category Chips */}
+                <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1">
+                  <span className="text-[10px] font-semibold text-muted-foreground shrink-0">카테고리</span>
+                  <GlassChipGroup>
+                    <GlassChip
+                      selected={selectedCategoryId === null}
+                      onClick={() => onCategoryChange(null)}
+                    >
+                      전체
+                    </GlassChip>
+                    
+                    {sortedCategories.map((category) => (
+                      <GlassChip
+                        key={category.id}
+                        selected={selectedCategoryId === category.id}
+                        onClick={() => onCategoryChange(category.id)}
+                        color={category.color}
+                        icon={<IconDisplay iconKey={migrateIconKey(category.icon)} size="sm" />}
+                      >
+                        {category.name}
+                      </GlassChip>
+                    ))}
+                    
+                    {onAddCategory && (
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={onAddCategory}
+                        className="glass-chip w-8 h-8 flex items-center justify-center text-muted-foreground hover:text-foreground"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </motion.button>
+                    )}
+                  </GlassChipGroup>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Active Filters Display */}
         {(selectedCategoryId || selectedPlatform || searchQuery) && (
