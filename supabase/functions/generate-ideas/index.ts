@@ -46,16 +46,17 @@ serve(async (req) => {
     }
     const userId = claims.claims.sub;
 
-    const { item_ids, keywords, channel_id } = await req.json();
+    const { item_ids, keywords, channel_id, auto_mode } = await req.json();
 
-    if ((!item_ids?.length && !keywords?.trim()) || !channel_id) {
-      return new Response(JSON.stringify({ error: "item_ids or keywords, and channel_id are required" }), {
+    if (!channel_id || (!item_ids?.length && !keywords?.trim() && !auto_mode)) {
+      return new Response(JSON.stringify({ error: "item_ids, keywords, or auto_mode, and channel_id are required" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const isKeywordMode = !item_ids?.length && !!keywords?.trim();
+    const isAutoMode = !!auto_mode;
+    const isKeywordMode = !isAutoMode && !item_ids?.length && !!keywords?.trim();
 
     // Check usage limits
     const { data: profile } = await supabase
