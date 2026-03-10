@@ -38,6 +38,7 @@ export function useUsageLimits(): UsageLimits {
     itemsCount: 0,
     aiAnalysisCount: 0,
     ideaGenerationCount: 0,
+    draftGenerationCount: 0,
     monthlyResetAt: null,
   });
   const [loading, setLoading] = useState(true);
