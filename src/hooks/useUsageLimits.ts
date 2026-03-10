@@ -7,6 +7,7 @@ export const FREE_LIMITS = {
   MAX_ITEMS: 50,
   MAX_AI_ANALYSIS_PER_MONTH: 10,
   MAX_IDEA_GENERATION_PER_MONTH: 3,
+  MAX_DRAFT_GENERATION_PER_MONTH: 2,
 } as const;
 
 export interface UsageData {
@@ -14,14 +15,17 @@ export interface UsageData {
   itemsCount: number;
   aiAnalysisCount: number;
   ideaGenerationCount: number;
+  draftGenerationCount: number;
   monthlyResetAt: string | null;
 }
 
 export interface UsageLimits {
   canSaveItem: boolean;
   canUseAiAnalysis: boolean;
+  canUseDraftGeneration: boolean;
   itemsRemaining: number;
   aiAnalysisRemaining: number;
+  draftGenerationRemaining: number;
   usageData: UsageData;
   loading: boolean;
   refetch: () => Promise<void>;
@@ -34,6 +38,7 @@ export function useUsageLimits(): UsageLimits {
     itemsCount: 0,
     aiAnalysisCount: 0,
     ideaGenerationCount: 0,
+    draftGenerationCount: 0,
     monthlyResetAt: null,
   });
   const [loading, setLoading] = useState(true);
@@ -45,6 +50,7 @@ export function useUsageLimits(): UsageLimits {
         itemsCount: 0,
         aiAnalysisCount: 0,
         ideaGenerationCount: 0,
+        draftGenerationCount: 0,
         monthlyResetAt: null,
       });
       setLoading(false);
@@ -54,7 +60,7 @@ export function useUsageLimits(): UsageLimits {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('is_premium, items_count, ai_analysis_count, idea_generation_count, monthly_reset_at')
+        .select('is_premium, items_count, ai_analysis_count, idea_generation_count, draft_generation_count, monthly_reset_at')
         .eq('user_id', user.id)
         .maybeSingle();
 
@@ -65,6 +71,7 @@ export function useUsageLimits(): UsageLimits {
         itemsCount: data?.items_count ?? 0,
         aiAnalysisCount: data?.ai_analysis_count ?? 0,
         ideaGenerationCount: (data as any)?.idea_generation_count ?? 0,
+        draftGenerationCount: (data as any)?.draft_generation_count ?? 0,
         monthlyResetAt: data?.monthly_reset_at ?? null,
       });
     } catch (error) {
@@ -87,11 +94,17 @@ export function useUsageLimits(): UsageLimits {
     ? Infinity 
     : Math.max(0, FREE_LIMITS.MAX_AI_ANALYSIS_PER_MONTH - usageData.aiAnalysisCount);
 
+  const draftGenerationRemaining = usageData.isPremium
+    ? Infinity
+    : Math.max(0, FREE_LIMITS.MAX_DRAFT_GENERATION_PER_MONTH - usageData.draftGenerationCount);
+
   return {
     canSaveItem: usageData.isPremium || usageData.itemsCount < FREE_LIMITS.MAX_ITEMS,
     canUseAiAnalysis: usageData.isPremium || usageData.aiAnalysisCount < FREE_LIMITS.MAX_AI_ANALYSIS_PER_MONTH,
+    canUseDraftGeneration: usageData.isPremium || usageData.draftGenerationCount < FREE_LIMITS.MAX_DRAFT_GENERATION_PER_MONTH,
     itemsRemaining,
     aiAnalysisRemaining,
+    draftGenerationRemaining,
     usageData,
     loading,
     refetch: fetchUsage,

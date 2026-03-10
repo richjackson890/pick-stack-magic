@@ -1,6 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronLeft, ChevronRight, X, Trash2, CalendarDays, FileEdit, ChevronDown } from 'lucide-react';
+import { ChevronLeft, ChevronRight, X, Trash2, CalendarDays, FileEdit, ChevronDown, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCreatorChannels, CreatorChannel } from '@/hooks/useCreatorChannels';
@@ -11,6 +11,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import { DraftModal } from '@/components/DraftModal';
 
 interface ContentIdea {
   id: string;
@@ -23,6 +24,7 @@ interface ContentIdea {
   channel_id: string | null;
   status: string | null;
   scheduled_date: string | null;
+  draft_content: string | null;
 }
 
 const DAY_HEADERS = ['월', '화', '수', '목', '금', '토', '일'];
@@ -96,8 +98,9 @@ export function ContentCalendar() {
 
   // Modals
   const [selectedIdea, setSelectedIdea] = useState<ContentIdea | null>(null);
-  const [assignDate, setAssignDate] = useState<string | null>(null); // date string for assigning unscheduled ideas
+  const [assignDate, setAssignDate] = useState<string | null>(null);
   const [unscheduledIdeas, setUnscheduledIdeas] = useState<ContentIdea[]>([]);
+  const [draftModalIdea, setDraftModalIdea] = useState<ContentIdea | null>(null);
 
   // Fetch ideas for the visible range
   const fetchIdeas = useCallback(async () => {
@@ -122,6 +125,7 @@ export function ContentCalendar() {
         channel_id: r.channel_id,
         status: r.status,
         scheduled_date: r.scheduled_date,
+        draft_content: r.draft_content || null,
       }));
       setIdeas(mapped);
     } catch {
@@ -417,11 +421,11 @@ export function ContentCalendar() {
                   날짜 변경
                 </button>
                 <button
-                  disabled
-                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-medium text-muted-foreground opacity-50 cursor-not-allowed"
+                  onClick={() => { setDraftModalIdea(selectedIdea); }}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-[10px] font-medium text-accent hover:bg-accent/10 transition-colors"
                 >
-                  <FileEdit className="h-3 w-3" />
-                  초안 생성
+                  {selectedIdea.draft_content ? <Eye className="h-3 w-3" /> : <FileEdit className="h-3 w-3" />}
+                  {selectedIdea.draft_content ? '초안 보기' : '초안 생성'}
                 </button>
                 <button
                   onClick={() => handleDeleteIdea(selectedIdea.id)}
@@ -470,6 +474,23 @@ export function ContentCalendar() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Draft Modal */}
+      {draftModalIdea && (
+        <DraftModal
+          open={!!draftModalIdea}
+          onClose={() => setDraftModalIdea(null)}
+          ideaId={draftModalIdea.id}
+          ideaTitle={draftModalIdea.title}
+          ideaFormat={draftModalIdea.format}
+          channelName={draftModalIdea.channel_id ? (channelMap[draftModalIdea.channel_id]?.name || '') : ''}
+          existingDraft={draftModalIdea.draft_content}
+          onDraftGenerated={(ideaId, draft) => {
+            setIdeas(prev => prev.map(i => i.id === ideaId ? { ...i, draft_content: draft, status: 'drafted' } : i));
+            setSelectedIdea(prev => prev && prev.id === ideaId ? { ...prev, draft_content: draft, status: 'drafted' } : prev);
+          }}
+        />
+      )}
     </div>
   );
 }

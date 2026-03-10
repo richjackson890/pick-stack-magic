@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, Check, Lightbulb, Loader2, Trash2, CalendarDays, Save, Sparkles, BookOpen, Key } from 'lucide-react';
+import { ArrowLeft, Check, Lightbulb, Loader2, Trash2, CalendarDays, Save, Sparkles, BookOpen, Key, FileEdit, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDbItems, DbItem } from '@/hooks/useDbItems';
@@ -12,6 +12,7 @@ import { PlatformIcon } from '@/components/PlatformIcon';
 import { Platform } from '@/types/pickstack';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
+import { DraftModal } from '@/components/DraftModal';
 
 interface ContentIdea {
   id: string;
@@ -25,6 +26,7 @@ interface ContentIdea {
   channel_id: string | null;
   status: string | null;
   scheduled_date: string | null;
+  draft_content: string | null;
 }
 
 interface IdeaEngineProps {
@@ -61,6 +63,7 @@ export function IdeaEngine({ channel, onBack }: IdeaEngineProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [mode, setMode] = useState<'reference' | 'keyword'>('reference');
   const [keywords, setKeywords] = useState('');
+  const [draftModalIdea, setDraftModalIdea] = useState<ContentIdea | null>(null);
 
   const canGenerate = usageData.isPremium || (usageData as any).ideaGenerationCount < FREE_IDEA_LIMIT;
   const ideasRemaining = usageData.isPremium ? Infinity : FREE_IDEA_LIMIT - ((usageData as any).ideaGenerationCount || 0);
@@ -112,6 +115,7 @@ export function IdeaEngine({ channel, onBack }: IdeaEngineProps) {
         content_layers: Array.isArray(idea.content_layers) ? idea.content_layers : [],
         hashtags: idea.hashtags || [],
         reference_item_ids: idea.reference_item_ids || [],
+        draft_content: idea.draft_content || null,
       }));
 
       setGeneratedIdeas(ideas);
@@ -453,6 +457,13 @@ export function IdeaEngine({ channel, onBack }: IdeaEngineProps) {
                   <CalendarDays className="h-3 w-3" />
                   {idea.scheduled_date ? idea.scheduled_date : '날짜 지정'}
                 </button>
+                <button
+                  onClick={() => setDraftModalIdea(idea)}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-medium text-accent hover:bg-accent/10 transition-colors"
+                >
+                  {idea.draft_content ? <Eye className="h-3 w-3" /> : <FileEdit className="h-3 w-3" />}
+                  {idea.draft_content ? '초안 보기' : '초안 생성'}
+                </button>
                 {idea.status === 'scheduled' && (
                   <span className="ml-auto text-[10px] text-primary font-medium flex items-center gap-1">
                     <Check className="h-3 w-3" /> 저장됨
@@ -463,6 +474,22 @@ export function IdeaEngine({ channel, onBack }: IdeaEngineProps) {
           );
         })}
       </main>
+
+      {/* Draft Modal */}
+      {draftModalIdea && (
+        <DraftModal
+          open={!!draftModalIdea}
+          onClose={() => setDraftModalIdea(null)}
+          ideaId={draftModalIdea.id}
+          ideaTitle={draftModalIdea.title}
+          ideaFormat={draftModalIdea.format}
+          channelName={channel.name}
+          existingDraft={draftModalIdea.draft_content}
+          onDraftGenerated={(ideaId, draft) => {
+            setGeneratedIdeas(prev => prev.map(i => i.id === ideaId ? { ...i, draft_content: draft, status: 'drafted' } : i));
+          }}
+        />
+      )}
     </div>
   );
 }
