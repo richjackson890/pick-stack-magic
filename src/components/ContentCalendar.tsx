@@ -474,6 +474,23 @@ export function ContentCalendar() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Draft Modal */}
+      {draftModalIdea && (
+        <DraftModal
+          open={!!draftModalIdea}
+          onClose={() => setDraftModalIdea(null)}
+          ideaId={draftModalIdea.id}
+          ideaTitle={draftModalIdea.title}
+          ideaFormat={draftModalIdea.format}
+          channelName={draftModalIdea.channel_id ? (channelMap[draftModalIdea.channel_id]?.name || '') : ''}
+          existingDraft={draftModalIdea.draft_content}
+          onDraftGenerated={(ideaId, draft) => {
+            setIdeas(prev => prev.map(i => i.id === ideaId ? { ...i, draft_content: draft, status: 'drafted' } : i));
+            setSelectedIdea(prev => prev && prev.id === ideaId ? { ...prev, draft_content: draft, status: 'drafted' } : prev);
+          }}
+        />
+      )}
     </div>
   );
 }
