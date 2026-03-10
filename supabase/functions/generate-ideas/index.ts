@@ -123,21 +123,14 @@ serve(async (req) => {
       });
     }
 
-    const referenceLabel = isKeywordMode ? "사용자 입력 키워드" : "레퍼런스 자료";
-
-    const systemPrompt = `너는 SNS 콘텐츠 전략가다. 사용자가 제공한 ${referenceLabel}와 채널 프로필을 분석해서 콘텐츠 아이디어를 3개 제안해라.
-
-채널 정보:
+    const channelInfoBlock = `채널 정보:
 - 이름: ${channel.name}
 - 플랫폼: ${channel.platform}
 - 톤앤매너: ${(channel.tone_keywords || []).join(", ")}
 - 콘텐츠 공식: ${channel.content_formula || "없음"}
-- 타겟 해시태그: ${(channel.target_hashtags || []).join(", ")}
+- 타겟 해시태그: ${(channel.target_hashtags || []).join(", ")}`;
 
-${referenceLabel}:
-${referencesText}
-
-반드시 아래 JSON 형식으로만 응답해라. 다른 텍스트 없이 JSON만:
+    const jsonFormat = `반드시 아래 JSON 형식으로만 응답해라. 다른 텍스트 없이 JSON만:
 {
   "ideas": [
     {
@@ -150,6 +143,39 @@ ${referencesText}
     }
   ]
 }`;
+
+    let systemPrompt: string;
+    let userPrompt: string;
+
+    if (isAutoMode) {
+      const today = new Date().toISOString().split("T")[0];
+      systemPrompt = `너는 SNS 콘텐츠 전략가다. 채널 프로필 정보만 보고, 현재 시점에서 이 채널의 타겟 오디언스가 가장 관심 가질 만한 콘텐츠 아이디어를 3개 제안해라.
+
+${channelInfoBlock}
+
+현재 날짜: ${today}
+
+다음을 고려해라:
+1. 계절성 (현재 시기에 맞는 주제)
+2. 반복적으로 검증된 SNS 바이럴 주제 패턴
+3. 채널의 톤과 공식에 맞는 앵글
+
+${jsonFormat}`;
+      userPrompt = "이 채널의 프로필 정보만 보고, 현재 시점에서 이 채널의 타겟 오디언스가 가장 관심 가질 만한 콘텐츠 아이디어를 3개 JSON으로 제안해줘.";
+    } else {
+      const referenceLabel = isKeywordMode ? "사용자 입력 키워드" : "레퍼런스 자료";
+      systemPrompt = `너는 SNS 콘텐츠 전략가다. 사용자가 제공한 ${referenceLabel}와 채널 프로필을 분석해서 콘텐츠 아이디어를 3개 제안해라.
+
+${channelInfoBlock}
+
+${referenceLabel}:
+${referencesText}
+
+${jsonFormat}`;
+      userPrompt = isKeywordMode 
+        ? "위 키워드를 기반으로 채널에 맞는 콘텐츠 아이디어 3개를 JSON으로 제안해줘."
+        : "위 레퍼런스 자료를 분석하고 채널에 맞는 콘텐츠 아이디어 3개를 JSON으로 제안해줘.";
+    }
 
     console.log("[generate-ideas] Calling AI...");
 
