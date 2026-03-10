@@ -124,6 +124,7 @@ export function ContentCalendar() {
         channel_id: r.channel_id,
         status: r.status,
         scheduled_date: r.scheduled_date,
+        draft_content: r.draft_content || null,
       }));
       setIdeas(mapped);
     } catch {
