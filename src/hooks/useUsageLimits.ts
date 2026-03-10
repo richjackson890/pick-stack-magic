@@ -94,11 +94,17 @@ export function useUsageLimits(): UsageLimits {
     ? Infinity 
     : Math.max(0, FREE_LIMITS.MAX_AI_ANALYSIS_PER_MONTH - usageData.aiAnalysisCount);
 
+  const draftGenerationRemaining = usageData.isPremium
+    ? Infinity
+    : Math.max(0, FREE_LIMITS.MAX_DRAFT_GENERATION_PER_MONTH - usageData.draftGenerationCount);
+
   return {
     canSaveItem: usageData.isPremium || usageData.itemsCount < FREE_LIMITS.MAX_ITEMS,
     canUseAiAnalysis: usageData.isPremium || usageData.aiAnalysisCount < FREE_LIMITS.MAX_AI_ANALYSIS_PER_MONTH,
+    canUseDraftGeneration: usageData.isPremium || usageData.draftGenerationCount < FREE_LIMITS.MAX_DRAFT_GENERATION_PER_MONTH,
     itemsRemaining,
     aiAnalysisRemaining,
+    draftGenerationRemaining,
     usageData,
     loading,
     refetch: fetchUsage,
