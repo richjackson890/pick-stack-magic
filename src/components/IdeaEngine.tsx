@@ -115,6 +115,7 @@ export function IdeaEngine({ channel, onBack }: IdeaEngineProps) {
         content_layers: Array.isArray(idea.content_layers) ? idea.content_layers : [],
         hashtags: idea.hashtags || [],
         reference_item_ids: idea.reference_item_ids || [],
+        draft_content: idea.draft_content || null,
       }));
 
       setGeneratedIdeas(ideas);
