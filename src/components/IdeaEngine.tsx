@@ -208,7 +208,47 @@ export function IdeaEngine({ channel, onBack, initialKeywords }: IdeaEngineProps
             </button>
           </div>
 
-          {mode === 'keyword' ? (
+          {mode === 'auto' ? (
+            /* Auto mode */
+            <div className="space-y-5">
+              <div className="glass-card p-5 text-center space-y-4">
+                <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-accent/20 to-primary/20 flex items-center justify-center">
+                  <Bot className="h-8 w-8 text-accent" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground mb-1">AI 자동 추천</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    채널 프로필과 최신 트렌드를 기반으로<br />AI가 자동으로 아이디어를 추천합니다
+                  </p>
+                </div>
+
+                {/* Channel tone keywords */}
+                {channel.tone_keywords && channel.tone_keywords.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">관심 분야</p>
+                    <div className="flex flex-wrap justify-center gap-1.5">
+                      {channel.tone_keywords.map((kw, i) => (
+                        <span key={i} className="glass-chip px-2.5 py-1 text-[10px] font-medium text-foreground">
+                          {kw}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={handleGenerate}
+                  disabled={!canSubmit}
+                  className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl text-sm font-bold gradient-primary text-primary-foreground disabled:opacity-40 transition-opacity"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  아이디어 자동 생성
+                </motion.button>
+              </div>
+            </div>
+          ) : mode === 'keyword' ? (
             /* Keyword mode */
             <div className="space-y-4">
               <Textarea
