@@ -12,6 +12,7 @@ import { PlatformIcon } from '@/components/PlatformIcon';
 import { Platform } from '@/types/pickstack';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
+import { DraftModal } from '@/components/DraftModal';
 
 interface ContentIdea {
   id: string;
