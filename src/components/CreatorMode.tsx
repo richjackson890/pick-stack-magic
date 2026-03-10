@@ -1,12 +1,13 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { PenTool, Plus, Sparkles, Lightbulb, CalendarDays, LayoutList } from 'lucide-react';
+import { PenTool, Plus, Sparkles, Lightbulb, CalendarDays, LayoutList, TrendingUp } from 'lucide-react';
 import { useCreatorChannels, CreatorChannel } from '@/hooks/useCreatorChannels';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { ChannelFormModal } from '@/components/ChannelFormModal';
 import { IdeaEngine } from '@/components/IdeaEngine';
 import { ContentCalendar } from '@/components/ContentCalendar';
+import { TrendRadar } from '@/components/TrendRadar';
 import { Platform } from '@/types/pickstack';
 
 const DAY_LABELS: Record<number, string> = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일' };
@@ -17,11 +18,12 @@ export function CreatorMode() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingChannel, setEditingChannel] = useState<CreatorChannel | null>(null);
   const [ideaChannel, setIdeaChannel] = useState<CreatorChannel | null>(null);
-  const [activeTab, setActiveTab] = useState<'channels' | 'calendar'>('channels');
+  const [activeTab, setActiveTab] = useState<'channels' | 'calendar' | 'trends'>('channels');
+  const [ideaKeywords, setIdeaKeywords] = useState<string | null>(null);
 
   // If idea engine is open, show it
   if (ideaChannel) {
-    return <IdeaEngine channel={ideaChannel} onBack={() => setIdeaChannel(null)} />;
+    return <IdeaEngine channel={ideaChannel} onBack={() => { setIdeaChannel(null); setIdeaKeywords(null); }} initialKeywords={ideaKeywords} />;
   }
 
   const handleOpenAdd = () => {
@@ -93,11 +95,32 @@ export function CreatorMode() {
             <CalendarDays className="h-3.5 w-3.5" />
             캘린더
           </button>
+          <button
+            onClick={() => setActiveTab('trends')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'trends' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted/50'}`}
+          >
+            <TrendingUp className="h-3.5 w-3.5" />
+            트렌드
+          </button>
         </div>
       </header>
 
       <main className="container px-3 py-4 space-y-3">
-        {activeTab === 'calendar' ? (
+        {activeTab === 'trends' ? (
+          <TrendRadar
+            onNavigateToIdea={(kws) => {
+              if (channels.length > 0) {
+                setIdeaKeywords(kws);
+                setIdeaChannel(channels[0]);
+              }
+            }}
+            onNavigateHome={() => {
+              // Navigate to home tab - handled by parent
+              window.location.hash = '';
+              window.dispatchEvent(new CustomEvent('navigate-home'));
+            }}
+          />
+        ) : activeTab === 'calendar' ? (
           <ContentCalendar />
         ) : (
         <>
