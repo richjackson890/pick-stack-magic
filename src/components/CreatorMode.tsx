@@ -218,6 +218,8 @@ export function CreatorMode() {
             </motion.button>
           </motion.div>
         ))}
+        </>
+        )}
       </main>
 
       {/* Channel Form Modal */}
