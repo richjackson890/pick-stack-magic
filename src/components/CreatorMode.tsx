@@ -97,6 +97,13 @@ export function CreatorMode() {
             캘린더
           </button>
           <button
+            onClick={() => setActiveTab('feed')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'feed' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted/50'}`}
+          >
+            <Rss className="h-3.5 w-3.5" />
+            피드
+          </button>
+          <button
             onClick={() => setActiveTab('trends')}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'trends' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted/50'}`}
           >
