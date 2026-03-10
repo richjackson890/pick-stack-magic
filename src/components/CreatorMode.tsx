@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { PenTool, Plus, Sparkles, Lightbulb } from 'lucide-react';
+import { PenTool, Plus, Sparkles, Lightbulb, CalendarDays, LayoutList } from 'lucide-react';
 import { useCreatorChannels, CreatorChannel } from '@/hooks/useCreatorChannels';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { ChannelFormModal } from '@/components/ChannelFormModal';
 import { IdeaEngine } from '@/components/IdeaEngine';
+import { ContentCalendar } from '@/components/ContentCalendar';
 import { Platform } from '@/types/pickstack';
 
 const DAY_LABELS: Record<number, string> = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일' };
@@ -16,6 +17,7 @@ export function CreatorMode() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingChannel, setEditingChannel] = useState<CreatorChannel | null>(null);
   const [ideaChannel, setIdeaChannel] = useState<CreatorChannel | null>(null);
+  const [activeTab, setActiveTab] = useState<'channels' | 'calendar'>('channels');
 
   // If idea engine is open, show it
   if (ideaChannel) {
@@ -74,9 +76,31 @@ export function CreatorMode() {
             </div>
           </div>
         </div>
+
+        {/* Tabs */}
+        <div className="container px-3 flex gap-1 mt-1">
+          <button
+            onClick={() => setActiveTab('channels')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'channels' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted/50'}`}
+          >
+            <LayoutList className="h-3.5 w-3.5" />
+            채널
+          </button>
+          <button
+            onClick={() => setActiveTab('calendar')}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${activeTab === 'calendar' ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted/50'}`}
+          >
+            <CalendarDays className="h-3.5 w-3.5" />
+            캘린더
+          </button>
+        </div>
       </header>
 
       <main className="container px-3 py-4 space-y-3">
+        {activeTab === 'calendar' ? (
+          <ContentCalendar />
+        ) : (
+        <>
         {/* Channel Count & Add Button */}
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground">
@@ -194,6 +218,8 @@ export function CreatorMode() {
             </motion.button>
           </motion.div>
         ))}
+        </>
+        )}
       </main>
 
       {/* Channel Form Modal */}
