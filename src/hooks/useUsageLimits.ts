@@ -22,8 +22,10 @@ export interface UsageData {
 export interface UsageLimits {
   canSaveItem: boolean;
   canUseAiAnalysis: boolean;
+  canUseDraftGeneration: boolean;
   itemsRemaining: number;
   aiAnalysisRemaining: number;
+  draftGenerationRemaining: number;
   usageData: UsageData;
   loading: boolean;
   refetch: () => Promise<void>;
