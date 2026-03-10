@@ -106,7 +106,21 @@ export function CreatorMode() {
       </header>
 
       <main className="container px-3 py-4 space-y-3">
-        {activeTab === 'calendar' ? (
+        {activeTab === 'trends' ? (
+          <TrendRadar
+            onNavigateToIdea={(kws) => {
+              if (channels.length > 0) {
+                setIdeaKeywords(kws);
+                setIdeaChannel(channels[0]);
+              }
+            }}
+            onNavigateHome={() => {
+              // Navigate to home tab - handled by parent
+              window.location.hash = '';
+              window.dispatchEvent(new CustomEvent('navigate-home'));
+            }}
+          />
+        ) : activeTab === 'calendar' ? (
           <ContentCalendar />
         ) : (
         <>
