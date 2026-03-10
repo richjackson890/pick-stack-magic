@@ -282,6 +282,7 @@ export type Database = {
           display_name: string | null
           email: string | null
           id: string
+          idea_generation_count: number
           is_premium: boolean
           items_count: number
           monthly_reset_at: string
@@ -297,6 +298,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          idea_generation_count?: number
           is_premium?: boolean
           items_count?: number
           monthly_reset_at?: string
@@ -312,6 +314,7 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          idea_generation_count?: number
           is_premium?: boolean
           items_count?: number
           monthly_reset_at?: string
