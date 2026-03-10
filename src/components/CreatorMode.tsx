@@ -8,6 +8,7 @@ import { ChannelFormModal } from '@/components/ChannelFormModal';
 import { IdeaEngine } from '@/components/IdeaEngine';
 import { ContentCalendar } from '@/components/ContentCalendar';
 import { TrendRadar } from '@/components/TrendRadar';
+import { ContentFeed } from '@/components/ContentFeed';
 import { Platform } from '@/types/pickstack';
 
 const DAY_LABELS: Record<number, string> = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일' };
