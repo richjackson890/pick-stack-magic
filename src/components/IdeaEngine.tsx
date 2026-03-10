@@ -50,7 +50,7 @@ const ENGAGEMENT_CONFIG: Record<string, { label: string; className: string }> = 
   high: { label: 'High', className: 'bg-red-500/20 text-red-600 dark:text-red-400' },
 };
 
-export function IdeaEngine({ channel, onBack }: IdeaEngineProps) {
+export function IdeaEngine({ channel, onBack, initialKeywords }: IdeaEngineProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const { items, loading: itemsLoading } = useDbItems();
@@ -62,8 +62,8 @@ export function IdeaEngine({ channel, onBack }: IdeaEngineProps) {
   const [filterCategoryId, setFilterCategoryId] = useState<string | null>(null);
   const [generatedIdeas, setGeneratedIdeas] = useState<ContentIdea[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [mode, setMode] = useState<'reference' | 'keyword'>('reference');
-  const [keywords, setKeywords] = useState('');
+  const [mode, setMode] = useState<'reference' | 'keyword'>(initialKeywords ? 'keyword' : 'reference');
+  const [keywords, setKeywords] = useState(initialKeywords || '');
   const [draftModalIdea, setDraftModalIdea] = useState<ContentIdea | null>(null);
 
   const canGenerate = usageData.isPremium || (usageData as any).ideaGenerationCount < FREE_IDEA_LIMIT;
