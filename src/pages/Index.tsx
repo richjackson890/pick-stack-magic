@@ -258,6 +258,19 @@ const Index = () => {
     );
   }
 
+  if (currentTab === 'creator') {
+    return (
+      <>
+        <CreatorMode />
+        <GlassDock
+          currentTab={currentTab}
+          onTabChange={setCurrentTab}
+          onAdd={handleAddClick}
+        />
+      </>
+    );
+  }
+
   if (currentTab === 'report') {
     return (
       <>
