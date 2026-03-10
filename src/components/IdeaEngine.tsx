@@ -190,17 +190,21 @@ export function IdeaEngine({ channel, onBack, initialKeywords }: IdeaEngineProps
           <div className="flex rounded-xl bg-muted/50 p-1 gap-1">
             <button
               onClick={() => setMode('reference')}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${mode === 'reference' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-semibold transition-all ${mode === 'reference' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              <BookOpen className="h-3.5 w-3.5" />
-              📚 레퍼런스 기반
+              📚 레퍼런스
             </button>
             <button
               onClick={() => setMode('keyword')}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-semibold transition-all ${mode === 'keyword' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-semibold transition-all ${mode === 'keyword' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
             >
-              <Key className="h-3.5 w-3.5" />
-              🔑 키워드 기반
+              🔑 키워드
+            </button>
+            <button
+              onClick={() => setMode('auto')}
+              className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-[11px] font-semibold transition-all ${mode === 'auto' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+            >
+              🤖 AI 자동
             </button>
           </div>
 
