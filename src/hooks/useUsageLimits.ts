@@ -7,6 +7,7 @@ export const FREE_LIMITS = {
   MAX_ITEMS: 50,
   MAX_AI_ANALYSIS_PER_MONTH: 10,
   MAX_IDEA_GENERATION_PER_MONTH: 3,
+  MAX_DRAFT_GENERATION_PER_MONTH: 2,
 } as const;
 
 export interface UsageData {
