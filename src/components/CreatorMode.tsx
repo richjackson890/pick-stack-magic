@@ -18,7 +18,8 @@ export function CreatorMode() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingChannel, setEditingChannel] = useState<CreatorChannel | null>(null);
   const [ideaChannel, setIdeaChannel] = useState<CreatorChannel | null>(null);
-  const [activeTab, setActiveTab] = useState<'channels' | 'calendar'>('channels');
+  const [activeTab, setActiveTab] = useState<'channels' | 'calendar' | 'trends'>('channels');
+  const [ideaKeywords, setIdeaKeywords] = useState<string | null>(null);
 
   // If idea engine is open, show it
   if (ideaChannel) {
