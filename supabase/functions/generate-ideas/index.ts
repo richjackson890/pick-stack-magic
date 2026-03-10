@@ -224,7 +224,7 @@ ${referencesText}
       content_layers: idea.content_layers || [],
       hashtags: idea.hashtags || [],
       estimated_engagement: idea.estimated_engagement || "mid",
-      reference_item_ids: item_ids,
+      reference_item_ids: isKeywordMode ? [] : item_ids,
       status: "idea",
     }));
 
