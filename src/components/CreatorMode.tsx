@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { PenTool, Plus, Sparkles } from 'lucide-react';
+import { PenTool, Plus, Sparkles, Lightbulb } from 'lucide-react';
 import { useCreatorChannels, CreatorChannel } from '@/hooks/useCreatorChannels';
 import { useUsageLimits } from '@/hooks/useUsageLimits';
 import { PlatformIcon } from '@/components/PlatformIcon';
 import { ChannelFormModal } from '@/components/ChannelFormModal';
+import { IdeaEngine } from '@/components/IdeaEngine';
 import { Platform } from '@/types/pickstack';
 
 const DAY_LABELS: Record<number, string> = { 1: '월', 2: '화', 3: '수', 4: '목', 5: '금', 6: '토', 7: '일' };
@@ -14,6 +15,12 @@ export function CreatorMode() {
   const { usageData } = useUsageLimits();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingChannel, setEditingChannel] = useState<CreatorChannel | null>(null);
+  const [ideaChannel, setIdeaChannel] = useState<CreatorChannel | null>(null);
+
+  // If idea engine is open, show it
+  if (ideaChannel) {
+    return <IdeaEngine channel={ideaChannel} onBack={() => setIdeaChannel(null)} />;
+  }
 
   const handleOpenAdd = () => {
     if (!canAddChannel(usageData.isPremium)) return;
@@ -128,10 +135,9 @@ export function CreatorMode() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.05 }}
-            onClick={() => handleOpenEdit(channel)}
-            className="glass-card p-3.5 cursor-pointer hover:shadow-md transition-shadow"
+            className="glass-card p-3.5"
           >
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-3 cursor-pointer" onClick={() => handleOpenEdit(channel)}>
               {/* Platform Icon */}
               <div className="w-10 h-10 rounded-xl bg-muted/50 flex items-center justify-center shrink-0">
                 <PlatformIcon platform={channel.platform as Platform} size="md" />
@@ -172,6 +178,20 @@ export function CreatorMode() {
                 style={{ backgroundColor: channel.color }}
               />
             </div>
+
+            {/* Idea Generation Button */}
+            <motion.button
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIdeaChannel(channel);
+              }}
+              className="mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-accent/10 text-accent hover:bg-accent/20 transition-colors"
+            >
+              <Lightbulb className="h-3.5 w-3.5" />
+              아이디어 생성
+            </motion.button>
           </motion.div>
         ))}
       </main>
