@@ -90,6 +90,7 @@ export function IdeaEngine({ channel, onBack, initialKeywords }: IdeaEngineProps
     if (!user) return;
     if (mode === 'reference' && selectedIds.size === 0) return;
     if (mode === 'keyword' && keywords.trim().length < 2) return;
+    // auto mode: no input validation needed
     if (!canGenerate) {
       toast({ title: '월간 아이디어 생성 한도 초과', description: 'Pro로 업그레이드하세요.', variant: 'destructive' });
       return;
