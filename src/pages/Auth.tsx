@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Bookmark, Sparkles, ArrowLeft, Mail } from 'lucide-react';
+import { Loader2, Lightbulb, Sparkles, ArrowLeft, Mail } from 'lucide-react';
 import { z } from 'zod';
 
 const emailSchema = z.string().email('올바른 이메일 형식을 입력해주세요');
@@ -82,7 +82,7 @@ const Auth = () => {
         } else {
           toast({
             title: '회원가입 완료! 🎉',
-            description: 'PickStack에 오신 것을 환영합니다!',
+            description: 'Welcome to DLab Archi Tips!',
           });
         }
       } else {
@@ -173,12 +173,12 @@ const Auth = () => {
       {/* Logo & Branding */}
       <div className="flex flex-col items-center mb-8">
         <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center mb-4 shadow-lg">
-          <Bookmark className="w-8 h-8 text-primary-foreground" />
+          <Lightbulb className="w-8 h-8 text-primary-foreground" />
         </div>
-        <h1 className="text-3xl font-bold text-foreground">PickStack</h1>
+        <h1 className="text-3xl font-bold text-foreground">DLab Archi Tips</h1>
         <p className="text-muted-foreground mt-2 text-center flex items-center gap-1">
           <Sparkles className="w-4 h-4" />
-          AI가 자동 분류하는 스마트 저장소
+          Architecture Team Knowledge Sharing
         </p>
       </div>
 
@@ -267,8 +267,8 @@ const Auth = () => {
           </CardTitle>
           <CardDescription>
             {activeTab === 'login'
-              ? '계정에 로그인하여 저장물을 확인하세요'
-              : '새 계정을 만들어 시작하세요'}
+              ? 'Sign in to access architecture tips'
+              : 'Create an account to get started'}
           </CardDescription>
         </CardHeader>
         <CardContent>

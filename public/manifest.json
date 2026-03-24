@@ -1,7 +1,7 @@
 {
-  "name": "PickStack",
-  "short_name": "PickStack",
-  "description": "스마트하게 저장하고, AI가 정리해주는 나만의 콘텐츠 보관함",
+  "name": "DLab Archi Tips",
+  "short_name": "ArchiTips",
+  "description": "Architecture team knowledge sharing and best practices",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0f172a",

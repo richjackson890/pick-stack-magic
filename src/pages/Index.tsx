@@ -9,7 +9,6 @@ import { useUserSettings } from '@/hooks/useUserSettings';
 import { useBatchAnalyze } from '@/hooks/useBatchAnalyze';
 import { useContentAnalysis } from '@/hooks/useContentAnalysis';
 import { useBackNavigation } from '@/hooks/useBackNavigation';
-import { useUsageLimits } from '@/hooks/useUsageLimits';
 import { Header } from '@/components/Header';
 import { EnhancedFilterBar } from '@/components/EnhancedFilterBar';
 import { GlassCard } from '@/components/GlassCard';
@@ -25,9 +24,6 @@ import { EmptyState } from '@/components/EmptyState';
 import { LiquidSpinner } from '@/components/LiquidSpinner';
 import { GlassToast } from '@/components/GlassToast';
 import { ShareCollectionModal } from '@/components/ShareCollectionModal';
-import { AdBanner } from '@/components/AdBanner';
-import { UpgradeModal } from '@/components/UpgradeModal';
-import { SaveSuccessNudge } from '@/components/SaveSuccessNudge';
 import { BulkActionBar } from '@/components/BulkActionBar';
 import { ReminderCard } from '@/components/ReminderCard';
 import { RefreshCw, Share2 } from 'lucide-react';
@@ -42,7 +38,6 @@ const Index = () => {
   const { settings, updateAutoAnalyze } = useUserSettings();
   const { analyzePending, isProcessing, progress } = useBatchAnalyze();
   const { triggerAutoAnalysis } = useContentAnalysis();
-  const { canSaveItem, canUseAiAnalysis, usageData, refetch: refetchUsage } = useUsageLimits();
   
   // Back navigation hook for PWA
   useBackNavigation();
@@ -56,8 +51,6 @@ const Index = () => {
   const [isCategoryManagementOpen, setIsCategoryManagementOpen] = useState(false);
   const [currentTab, setCurrentTab] = useState<'home' | 'creator' | 'report' | 'dashboard'>('home');
   const [isShareCollectionOpen, setIsShareCollectionOpen] = useState(false);
-  const [isUpgradeModalOpen, setIsUpgradeModalOpen] = useState(false);
-  const [upgradeReason, setUpgradeReason] = useState<'items' | 'ai' | 'general'>('general');
   
   // Bulk selection state
   const [bulkMode, setBulkMode] = useState(false);
@@ -65,9 +58,6 @@ const Index = () => {
   
   // Reminder state
   const [showReminder, setShowReminder] = useState(true);
-  
-  // Save nudge state
-  const [showSaveNudge, setShowSaveNudge] = useState(false);
   
   // Pull to refresh state
   const [isPulling, setIsPulling] = useState(false);
@@ -127,20 +117,15 @@ const Index = () => {
     await refetch();
     setTimeout(() => {
       setIsRefreshing(false);
-      setToastState({ show: true, type: 'success', message: '업데이트 완료' });
+      setToastState({ show: true, type: 'success', message: 'Updated' });
       setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 2000);
     }, 800);
   }, [refetch]);
 
-  // Handle add button click with limit check
+  // Handle add button click
   const handleAddClick = useCallback(() => {
-    if (!canSaveItem) {
-      setUpgradeReason('items');
-      setIsUpgradeModalOpen(true);
-      return;
-    }
     setIsSaveModalOpen(true);
-  }, [canSaveItem]);
+  }, []);
 
   const handleSave = async (newItem: {
     source_type: 'url' | 'text' | 'image';
@@ -177,19 +162,11 @@ const Index = () => {
       analysis_mode: 'light',
     } as any);
     
-    // Refresh usage after save
-    refetchUsage();
-    
-    // Show save success nudge
-    setShowSaveNudge(true);
-    setTimeout(() => setShowSaveNudge(false), 5000);
-    
-    // Trigger content analysis in background if auto_analyze is enabled and has quota
-    if (savedItem?.id && settings.auto_analyze && canUseAiAnalysis) {
+    // Trigger content analysis in background if auto_analyze is enabled
+    if (savedItem?.id && settings.auto_analyze) {
       triggerAutoAnalysis(savedItem.id).then(() => {
         setTimeout(() => {
           refetch();
-          refetchUsage();
         }, 1500);
       });
     }
@@ -204,7 +181,7 @@ const Index = () => {
 
   const handleDeleteItem = async (itemId: string) => {
     await deleteItem(itemId);
-    setToastState({ show: true, type: 'success', message: '삭제되었습니다' });
+    setToastState({ show: true, type: 'success', message: 'Deleted' });
     setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 2000);
   };
 
@@ -225,7 +202,7 @@ const Index = () => {
     }
     setSelectedIds(new Set());
     setBulkMode(false);
-    setToastState({ show: true, type: 'success', message: `${ids.length}개 삭제됨` });
+    setToastState({ show: true, type: 'success', message: `${ids.length} items deleted` });
     setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 2000);
   };
 
@@ -237,7 +214,7 @@ const Index = () => {
     setSelectedIds(new Set());
     setBulkMode(false);
     const cat = categories.find(c => c.id === categoryId);
-    setToastState({ show: true, type: 'success', message: `${ids.length}개를 '${cat?.name || '카테고리'}'로 이동` });
+    setToastState({ show: true, type: 'success', message: `${ids.length} items moved to '${cat?.name || 'category'}'` });
     setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 2000);
   };
 
@@ -252,7 +229,7 @@ const Index = () => {
             animate={{ opacity: 1 }}
             className="text-sm text-muted-foreground"
           >
-            로딩 중...
+            Loading...
           </motion.p>
         </div>
       </div>
@@ -313,13 +290,6 @@ const Index = () => {
     <div ref={containerRef} className="min-h-screen pb-24">
       <Header onSettingsClick={() => setIsCategoryManagementOpen(true)} />
 
-      {/* Top Ad Banner - Only for non-premium users */}
-      {!usageData.isPremium && (
-        <div className="container px-2 pt-2">
-          <AdBanner slot="top" isPremium={usageData.isPremium} onUpgrade={() => { setUpgradeReason('general'); setIsUpgradeModalOpen(true); }} />
-        </div>
-      )}
-      
       <EnhancedFilterBar
         categories={categories}
         items={items}
@@ -368,7 +338,7 @@ const Index = () => {
               }}
               className={`glass-chip px-3 py-1 text-2xs font-medium transition-colors ${bulkMode ? 'text-primary ring-1 ring-primary/50' : 'text-muted-foreground'}`}
             >
-              {bulkMode ? '선택 취소' : '선택'}
+              {bulkMode ? 'Cancel' : 'Select'}
             </motion.button>
           </div>
         )}
@@ -384,7 +354,7 @@ const Index = () => {
             <div className="w-14 h-14 rounded-2xl glass flex items-center justify-center mb-4">
               <span className="text-2xl">🔍</span>
             </div>
-            <p className="text-sm text-muted-foreground">검색 결과가 없습니다</p>
+            <p className="text-sm text-muted-foreground">No results found</p>
           </motion.div>
         ) : viewMode === 'list' ? (
           <div className="space-y-2">
@@ -456,11 +426,6 @@ const Index = () => {
                     isMasonry={false}
                   />
                 </motion.div>
-                {!usageData.isPremium && (index + 1) % 6 === 0 && index < filteredItems.length - 1 && (
-                  <div key={`ad-${index}`} className="col-span-full">
-                    <AdBanner slot="feed" isPremium={usageData.isPremium} className="my-2" onUpgrade={() => { setUpgradeReason('general'); setIsUpgradeModalOpen(true); }} />
-                  </div>
-                )}
               </>
             ))}
           </div>
@@ -535,26 +500,6 @@ const Index = () => {
         type={toastState.type}
         message={toastState.message}
         onClose={() => setToastState(prev => ({ ...prev, show: false }))}
-      />
-
-      {/* Upgrade Modal */}
-      <UpgradeModal
-        isOpen={isUpgradeModalOpen}
-        onClose={() => setIsUpgradeModalOpen(false)}
-        reason={upgradeReason}
-      />
-
-      {/* Save Success Nudge */}
-      <SaveSuccessNudge
-        show={showSaveNudge}
-        itemsCount={usageData.itemsCount}
-        isPremium={usageData.isPremium}
-        onUpgrade={() => {
-          setShowSaveNudge(false);
-          setUpgradeReason('items');
-          setIsUpgradeModalOpen(true);
-        }}
-        onDismiss={() => setShowSaveNudge(false)}
       />
 
       {/* Category Share Button - Show when a category is selected */}

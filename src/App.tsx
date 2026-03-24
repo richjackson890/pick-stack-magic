@@ -14,8 +14,6 @@ import Terms from "./pages/Terms";
 import Share from "./pages/Share";
 import PublicView from "./pages/PublicView";
 import ManualSaveTest from "./pages/ManualSaveTest";
-import PaymentSuccess from "./pages/PaymentSuccess";
-import PaymentFail from "./pages/PaymentFail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -95,12 +93,6 @@ function AppRoutes() {
           <Share />
         </ProtectedRoute>
       } />
-      <Route path="/payment/success" element={
-        <ProtectedRoute>
-          <PaymentSuccess />
-        </ProtectedRoute>
-      } />
-      <Route path="/payment/fail" element={<PaymentFail />} />
       <Route path="/manual-save" element={
         <ProtectedRoute>
           <ManualSaveTest />
