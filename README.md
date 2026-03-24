@@ -1,73 +1,84 @@
-# Welcome to your Lovable project
+# PickStack (픽스택)
 
-## Project info
+AI-powered smart content curation PWA for SNS creators. Save links, text, or images from any platform and get automated summaries, categorization, and content ideation.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+## Tech Stack
 
-## How can I edit this code?
+- **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS + shadcn/ui
+- **Backend**: Lovable Cloud (Supabase) — Auth, Database, Edge Functions, Storage
+- **AI**: Gemini Flash (summaries, OCR, content generation)
+- **Animations**: Framer Motion
 
-There are several ways of editing your application.
+## Getting Started
 
-**Use Lovable**
+### Prerequisites
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+- Node.js 18+
+- npm or bun
 
-Changes made via Lovable will be committed automatically to this repo.
+### Installation
 
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+```bash
+git clone <YOUR_REPO_URL>
+cd pickstack
+npm install
 npm run dev
 ```
 
-**Edit a file directly in GitHub**
+The app runs at `http://localhost:8080`.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+### Environment Variables
 
-**Use GitHub Codespaces**
+Create a `.env` file in the project root:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```env
+VITE_SUPABASE_URL=<your-supabase-project-url>
+VITE_SUPABASE_PUBLISHABLE_KEY=<your-supabase-anon-key>
+VITE_SUPABASE_PROJECT_ID=<your-supabase-project-id>
+```
 
-## What technologies are used for this project?
+### Edge Function Secrets
 
-This project is built with:
+The following secrets must be configured in your backend (Edge Functions environment):
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+| Secret | Description | Required |
+|--------|-------------|----------|
+| `LOVABLE_API_KEY` | Lovable AI gateway key (auto-provided in Lovable Cloud) | Yes |
+| `TOSS_SECRET_KEY` | TossPayments secret key for payment processing | For payments |
 
-## How can I deploy this project?
+## Features
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+- 📎 **Smart Save** — Paste any URL or text, AI extracts metadata & generates 3-line summaries
+- 🏷️ **Auto-Categorization** — AI classifies content into customizable categories
+- 🔍 **Full-Text Search** — Search across titles, tags, keywords, and AI-generated snippets
+- 🎨 **Creator Mode** — Manage channels, content calendar, trend radar, and news feed
+- 💡 **Idea Engine** — Generate content ideas from saved items or keywords
+- 📊 **AI Reports** — Get insights on your saved content patterns
+- 🔗 **Sharing** — Share individual items or curated collections via public links
+- 💳 **Premium** — TossPayments integration for subscription upgrades
 
-## Can I connect a custom domain to my Lovable project?
+## Project Structure
 
-Yes, you can!
+```
+src/
+├── components/       # UI components
+├── contexts/         # React contexts (Auth, Categories)
+├── hooks/            # Custom hooks
+├── integrations/     # Supabase client & types (auto-generated)
+├── pages/            # Route pages
+├── types/            # TypeScript types
+└── utils/            # Utilities
+supabase/
+├── functions/        # Edge Functions
+│   ├── analyze-content/
+│   ├── confirm-payment/
+│   ├── generate-cover/
+│   ├── generate-draft/
+│   ├── generate-feed/
+│   └── generate-ideas/
+└── migrations/       # Database migrations
+```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## License
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+Private project.
