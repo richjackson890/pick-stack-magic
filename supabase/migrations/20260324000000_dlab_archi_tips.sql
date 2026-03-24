@@ -25,10 +25,33 @@ CREATE POLICY "Users can insert own profile"
   ON public.profiles FOR INSERT
   WITH CHECK (auth.uid() = id);
 
--- Categories table
+-- Auto-create profile on first auth signup/login
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, name, avatar_url)
+  VALUES (
+    NEW.id,
+    NEW.email,
+    COALESCE(NEW.raw_user_meta_data ->> 'full_name', NEW.raw_user_meta_data ->> 'name', split_part(NEW.email, '@', 1)),
+    COALESCE(NEW.raw_user_meta_data ->> 'avatar_url', NEW.raw_user_meta_data ->> 'picture')
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    name = COALESCE(EXCLUDED.name, public.profiles.name),
+    avatar_url = COALESCE(EXCLUDED.avatar_url, public.profiles.avatar_url);
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Categories table (shared, no user_id)
 CREATE TABLE IF NOT EXISTS public.categories (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
+  name TEXT NOT NULL UNIQUE,
   color TEXT DEFAULT '#6366f1',
   icon TEXT DEFAULT 'folder'
 );
@@ -108,12 +131,9 @@ CREATE INDEX IF NOT EXISTS idx_team_members_invited_email ON public.team_members
 
 -- Seed default categories for architecture team
 INSERT INTO public.categories (name, color, icon) VALUES
-  ('Design Patterns', '#6366f1', 'layers'),
-  ('Cloud Architecture', '#06b6d4', 'cloud'),
-  ('DevOps', '#f97316', 'settings'),
-  ('Security', '#ef4444', 'shield'),
-  ('Performance', '#22c55e', 'zap'),
-  ('Best Practices', '#a855f7', 'star'),
-  ('Code Review', '#eab308', 'code'),
-  ('System Design', '#3b82f6', 'layout')
-ON CONFLICT DO NOTHING;
+  ('법규검토', '#ef4444', 'scale'),
+  ('심사경향', '#f97316', 'trending-up'),
+  ('디자인레퍼런스', '#6366f1', 'palette'),
+  ('구조/시공', '#22c55e', 'building'),
+  ('기타', '#6b7280', 'folder')
+ON CONFLICT (name) DO NOTHING;

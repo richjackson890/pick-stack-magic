@@ -23,6 +23,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
+  // Upsert profile in the profiles table (for existing users or if trigger didn't fire)
+  const ensureProfile = async (authUser: User) => {
+    try {
+      const meta = authUser.user_metadata || {};
+      await (supabase.from('profiles' as any).upsert({
+        id: authUser.id,
+        email: authUser.email,
+        name: meta.full_name || meta.name || authUser.email?.split('@')[0] || '',
+        avatar_url: meta.avatar_url || meta.picture || null,
+      }, { onConflict: 'id' }) as any);
+    } catch (err) {
+      console.error('Error upserting profile:', err);
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -30,6 +45,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+
+        // Ensure profile exists on sign in
+        if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+          ensureProfile(session.user);
+        }
       }
     );
 
@@ -38,6 +58,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      if (session?.user) {
+        ensureProfile(session.user);
+      }
     });
 
     return () => subscription.unsubscribe();
