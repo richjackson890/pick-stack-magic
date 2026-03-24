@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
@@ -8,10 +8,11 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Check, Sparkles, ChevronDown, Plus, X } from 'lucide-react';
+import { Check, Sparkles, ChevronDown, Plus, X, Loader2, Wand2, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ArchiCategory } from '@/hooks/useArchiCategories';
 import { TipInsert } from '@/hooks/useTips';
+import { useUrlPreview } from '@/hooks/useUrlPreview';
 
 interface SaveModalProps {
   isOpen: boolean;
@@ -21,7 +22,16 @@ interface SaveModalProps {
   onSave: (tip: TipInsert) => void;
 }
 
+const CATEGORY_EMOJI: Record<string, string> = {
+  'scale': '⚖',
+  'trending-up': '📈',
+  'palette': '🎨',
+  'building': '🏗',
+  'folder': '📁',
+};
+
 export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onSave }: SaveModalProps) {
+  const { preview, loading: previewLoading, error: previewError, fetchPreview, clearPreview } = useUrlPreview();
   const [isSaved, setIsSaved] = useState(false);
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
@@ -32,6 +42,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
   const [tagInput, setTagInput] = useState('');
   const [competitionName, setCompetitionName] = useState('');
   const [showCategorySelector, setShowCategorySelector] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize default category
   useEffect(() => {
@@ -53,10 +64,36 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
       setCompetitionName('');
       setShowCategorySelector(false);
       setIsSaved(false);
+      clearPreview();
       const defaultCat = getDefaultCategory();
       if (defaultCat) setSelectedCategoryId(defaultCat.id);
     }
-  }, [isOpen, getDefaultCategory]);
+  }, [isOpen, getDefaultCategory, clearPreview]);
+
+  // Debounced URL preview fetch
+  const handleUrlChange = (newUrl: string) => {
+    setUrl(newUrl);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    clearPreview();
+
+    if (newUrl.startsWith('http')) {
+      debounceRef.current = setTimeout(() => {
+        fetchPreview(newUrl, categories);
+      }, 800);
+    }
+  };
+
+  // Apply AI suggestions from preview
+  const applyPreview = () => {
+    if (!preview) return;
+    if (preview.title && !title) setTitle(preview.title);
+    if (preview.image && !imageUrl) setImageUrl(preview.image);
+    if (preview.tags.length > 0 && tags.length === 0) setTags(preview.tags);
+    if (preview.suggestedCategory) {
+      const match = categories.find(c => c.name === preview.suggestedCategory);
+      if (match) setSelectedCategoryId(match.id);
+    }
+  };
 
   const handleAddTag = () => {
     const trimmed = tagInput.trim();
@@ -114,6 +151,67 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
           </div>
         ) : (
           <div className="mt-6 space-y-5 pb-8">
+            {/* URL with preview */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Reference URL</label>
+              <Input
+                type="url"
+                value={url}
+                onChange={(e) => handleUrlChange(e.target.value)}
+                placeholder="https://... (paste a link to auto-fill)"
+              />
+
+              {/* URL Preview loading */}
+              {previewLoading && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-secondary/50">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="text-xs text-muted-foreground">URL 분석 중...</span>
+                </div>
+              )}
+
+              {/* URL Preview result */}
+              {preview && !previewLoading && (
+                <div className="rounded-lg border border-border/50 overflow-hidden bg-secondary/30">
+                  {preview.image && (
+                    <img
+                      src={preview.image}
+                      alt="Preview"
+                      className="w-full h-32 object-cover"
+                      onError={(e) => (e.currentTarget.style.display = 'none')}
+                    />
+                  )}
+                  <div className="p-3 space-y-1.5">
+                    {preview.title && (
+                      <p className="text-sm font-medium line-clamp-2">{preview.title}</p>
+                    )}
+                    {preview.description && (
+                      <p className="text-xs text-muted-foreground line-clamp-2">{preview.description}</p>
+                    )}
+                    {preview.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {preview.tags.slice(0, 4).map(t => (
+                          <span key={t} className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary">#{t}</span>
+                        ))}
+                      </div>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={applyPreview}
+                      className="w-full mt-2 text-xs gap-1.5"
+                    >
+                      <Wand2 className="h-3 w-3" />
+                      AI 추천 적용하기
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {previewError && (
+                <p className="text-xs text-muted-foreground">미리보기를 불러올 수 없습니다</p>
+              )}
+            </div>
+
             {/* Title */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Title <span className="text-destructive">*</span></label>
@@ -132,17 +230,6 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Describe the tip, insight, or lesson learned..."
                 className="min-h-[100px]"
-              />
-            </div>
-
-            {/* URL */}
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Reference URL</label>
-              <Input
-                type="url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                placeholder="https://..."
               />
             </div>
 
@@ -182,11 +269,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
                         className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white"
                         style={{ backgroundColor: selectedCategory.color }}
                       >
-                        {selectedCategory.icon === 'scale' ? '⚖' :
-                         selectedCategory.icon === 'trending-up' ? '📈' :
-                         selectedCategory.icon === 'palette' ? '🎨' :
-                         selectedCategory.icon === 'building' ? '🏗' :
-                         '📁'}
+                        {CATEGORY_EMOJI[selectedCategory.icon] || '📁'}
                       </span>
                       <span className="font-medium text-sm">{selectedCategory.name}</span>
                     </>

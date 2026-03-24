@@ -1,8 +1,9 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTips, Tip } from '@/hooks/useTips';
 import { useArchiCategories } from '@/hooks/useArchiCategories';
+import { useGroqAnalysis } from '@/hooks/useGroqAnalysis';
 import { Header } from '@/components/Header';
 import { TipCard } from '@/components/TipCard';
 import { SaveModal } from '@/components/SaveModal';
@@ -11,6 +12,7 @@ import { EmptyState } from '@/components/EmptyState';
 import { LiquidSpinner } from '@/components/LiquidSpinner';
 import { GlassToast } from '@/components/GlassToast';
 import { GlassChip, GlassChipGroup } from '@/components/GlassChip';
+import { TipsTrendRadar } from '@/components/TipsTrendRadar';
 import { RefreshCw, Search, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +20,7 @@ const Index = () => {
   const { user } = useAuth();
   const { tips, loading: tipsLoading, addTip, deleteTip, refetch } = useTips();
   const { categories, loading: categoriesLoading, getCategoryById, getDefaultCategory } = useArchiCategories();
+  const { analyzeTip, analyzingIds } = useGroqAnalysis();
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -32,9 +35,9 @@ const Index = () => {
     message: string;
   }>({ show: false, type: 'info', message: '' });
 
-  const showToast = (type: 'success' | 'error', message: string) => {
+  const showToast = (type: 'success' | 'error' | 'info', message: string) => {
     setToastState({ show: true, type, message });
-    setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 2000);
+    setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 2500);
   };
 
   // Filter tips
@@ -46,8 +49,10 @@ const Index = () => {
         const titleMatch = tip.title?.toLowerCase().includes(q);
         const contentMatch = tip.content?.toLowerCase().includes(q);
         const tagMatch = tip.tags?.some(t => t.toLowerCase().includes(q));
+        const aiTagMatch = tip.ai_tags?.some(t => t.toLowerCase().includes(q));
         const compMatch = tip.competition_name?.toLowerCase().includes(q);
-        return titleMatch || contentMatch || tagMatch || compMatch;
+        const summaryMatch = tip.ai_summary?.toLowerCase().includes(q);
+        return titleMatch || contentMatch || tagMatch || aiTagMatch || compMatch || summaryMatch;
       }
       return true;
     });
@@ -61,6 +66,16 @@ const Index = () => {
     const saved = await addTip(tipData);
     if (saved) {
       showToast('success', 'Tip saved!');
+
+      // Trigger Groq AI analysis in the background
+      showToast('info', 'AI 분석 시작...');
+      analyzeTip(saved, categories).then((result) => {
+        if (result) {
+          // Refresh to show updated AI fields
+          refetch();
+          showToast('success', 'AI 분석 완료!');
+        }
+      });
     }
   };
 
@@ -96,10 +111,22 @@ const Index = () => {
     );
   }
 
-  // For now, non-home tabs show placeholder
+  // Dashboard tab — Trend Radar
+  if (currentTab === 'dashboard') {
+    return (
+      <>
+        <Header />
+        <TipsTrendRadar tips={tips} categories={categories} getCategoryById={getCategoryById} />
+        <GlassDock currentTab={currentTab} onTabChange={setCurrentTab} onAdd={handleAddClick} />
+      </>
+    );
+  }
+
+  // Other non-home tabs — placeholder
   if (currentTab !== 'home') {
     return (
       <>
+        <Header />
         <div className="min-h-screen flex items-center justify-center">
           <p className="text-muted-foreground text-sm">Coming soon</p>
         </div>
@@ -201,6 +228,7 @@ const Index = () => {
                   tip={tip}
                   category={getCategoryById(tip.category)}
                   onDelete={() => handleDelete(tip.id)}
+                  isAnalyzing={analyzingIds.has(tip.id)}
                 />
               </motion.div>
             ))}

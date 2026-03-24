@@ -1,13 +1,15 @@
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Tip } from '@/hooks/useTips';
 import { ArchiCategory } from '@/hooks/useArchiCategories';
-import { ExternalLink, Trash2, Heart, User } from 'lucide-react';
+import { ExternalLink, Trash2, Heart, User, Sparkles, Loader2, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TipCardProps {
   tip: Tip;
   category?: ArchiCategory;
   onDelete?: () => void;
+  isAnalyzing?: boolean;
 }
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -18,8 +20,10 @@ const CATEGORY_EMOJI: Record<string, string> = {
   'folder': '📁',
 };
 
-export function TipCard({ tip, category, onDelete }: TipCardProps) {
+export function TipCard({ tip, category, onDelete, isAnalyzing }: TipCardProps) {
+  const [showAiSection, setShowAiSection] = useState(false);
   const authorName = tip.profiles?.name || tip.profiles?.email?.split('@')[0] || 'Unknown';
+  const hasAiData = tip.ai_status === 'done' && (tip.ai_summary || tip.ai_tags?.length > 0);
 
   return (
     <motion.article
@@ -41,7 +45,7 @@ export function TipCard({ tip, category, onDelete }: TipCardProps) {
       )}
 
       <div className="p-4 space-y-2.5">
-        {/* Top row: category + competition name */}
+        {/* Top row: category + competition name + AI status */}
         <div className="flex items-center gap-2 flex-wrap">
           {category && (
             <span
@@ -56,6 +60,12 @@ export function TipCard({ tip, category, onDelete }: TipCardProps) {
               🏆 {tip.competition_name}
             </span>
           )}
+          {(isAnalyzing || tip.ai_status === 'processing') && (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-primary/10 text-primary">
+              <Loader2 className="h-2.5 w-2.5 animate-spin" />
+              AI 분석중
+            </span>
+          )}
         </div>
 
         {/* Title */}
@@ -68,6 +78,57 @@ export function TipCard({ tip, category, onDelete }: TipCardProps) {
           <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
             {tip.content}
           </p>
+        )}
+
+        {/* AI Summary section */}
+        {hasAiData && (
+          <div className="space-y-1.5">
+            <button
+              onClick={(e) => { e.stopPropagation(); setShowAiSection(!showAiSection); }}
+              className="flex items-center gap-1.5 text-xs text-primary/80 hover:text-primary transition-colors"
+            >
+              <Sparkles className="h-3 w-3" />
+              <span className="font-medium">AI 분석 결과</span>
+              <ChevronDown className={cn("h-3 w-3 transition-transform", showAiSection && "rotate-180")} />
+            </button>
+
+            <AnimatePresence>
+              {showAiSection && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="p-2.5 rounded-lg bg-primary/5 border border-primary/10 space-y-2">
+                    {tip.ai_summary && (
+                      <p className="text-xs text-foreground/80 leading-relaxed">
+                        {tip.ai_summary}
+                      </p>
+                    )}
+                    {tip.ai_tags && tip.ai_tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {tip.ai_tags.map(tag => (
+                          <span
+                            key={tag}
+                            className="px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-medium"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {tip.ai_suggested_category && (
+                      <p className="text-[10px] text-muted-foreground">
+                        추천 카테고리: <strong>{tip.ai_suggested_category}</strong>
+                      </p>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         )}
 
         {/* URL link */}

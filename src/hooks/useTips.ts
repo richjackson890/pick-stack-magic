@@ -15,6 +15,11 @@ export interface Tip {
   competition_name: string | null;
   likes: number;
   created_at: string;
+  // AI analysis fields
+  ai_summary: string | null;
+  ai_tags: string[];
+  ai_suggested_category: string | null;
+  ai_status: 'pending' | 'processing' | 'done' | 'error' | null;
   // Joined profile data
   profiles?: {
     name: string | null;
@@ -52,6 +57,10 @@ export function useTips() {
         ...tip,
         tags: tip.tags || [],
         likes: tip.likes || 0,
+        ai_summary: tip.ai_summary || null,
+        ai_tags: tip.ai_tags || [],
+        ai_suggested_category: tip.ai_suggested_category || null,
+        ai_status: tip.ai_status || null,
       })));
     } catch (error: any) {
       console.error('Error fetching tips:', error);
@@ -94,6 +103,10 @@ export function useTips() {
         ...data,
         tags: data.tags || [],
         likes: data.likes || 0,
+        ai_summary: data.ai_summary || null,
+        ai_tags: data.ai_tags || [],
+        ai_suggested_category: data.ai_suggested_category || null,
+        ai_status: data.ai_status || null,
       };
 
       setTips(prev => [newTip, ...prev]);
