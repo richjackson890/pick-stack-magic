@@ -4,7 +4,8 @@
       "Bash(wc -l /d/Users/SYlee/pick-stack-magic/src/components/*.tsx)",
       "Bash(wc -l /d/Users/SYlee/pick-stack-magic/src/**/*.tsx /d/Users/SYlee/pick-stack-magic/src/**/*.ts)",
       "Bash(npx tsc:*)",
-      "Bash(npx vite:*)"
+      "Bash(npx vite:*)",
+      "Bash(npm install:*)"
     ]
   }
 }
