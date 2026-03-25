@@ -1,9 +1,13 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTips, Tip } from '@/hooks/useTips';
+import { ViewMode } from '@/components/TipCard';
 import { useArchiCategories } from '@/hooks/useArchiCategories';
 import { useGroqAnalysis } from '@/hooks/useGroqAnalysis';
+import { useTeam } from '@/hooks/useTeam';
+import { useTipLikes } from '@/hooks/useTipLikes';
+import { useTipComments } from '@/hooks/useTipComments';
 import { Header } from '@/components/Header';
 import { TipCard } from '@/components/TipCard';
 import { SaveModal } from '@/components/SaveModal';
@@ -13,7 +17,9 @@ import { LiquidSpinner } from '@/components/LiquidSpinner';
 import { GlassToast } from '@/components/GlassToast';
 import { GlassChip, GlassChipGroup } from '@/components/GlassChip';
 import { TipsTrendRadar } from '@/components/TipsTrendRadar';
-import { RefreshCw, Search, X } from 'lucide-react';
+import { TeamTab } from '@/components/TeamTab';
+import { TipDetailModal } from '@/components/TipDetailModal';
+import { RefreshCw, Search, X, LayoutGrid, List } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const Index = () => {
@@ -21,10 +27,17 @@ const Index = () => {
   const { tips, loading: tipsLoading, addTip, updateTip, deleteTip, refetch } = useTips();
   const { categories, loading: categoriesLoading, getCategoryById, getDefaultCategory } = useArchiCategories();
   const { analyzeTip, analyzingIds } = useGroqAnalysis();
+  const { team } = useTeam();
+  const { toggleLike, isLiked, setInitialCount, getCount } = useTipLikes();
+  const { fetchCommentCount, getCount: getCommentCount } = useTipComments();
 
+  const [viewMode, setViewMode] = useState<ViewMode>(() => {
+    return (localStorage.getItem('tipViewMode') as ViewMode) || 'grid';
+  });
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [detailTip, setDetailTip] = useState<Tip | null>(null);
   const [editingTip, setEditingTip] = useState<Tip | null>(null);
   const [currentTab, setCurrentTab] = useState<'home' | 'creator' | 'report' | 'dashboard'>('home');
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -58,6 +71,28 @@ const Index = () => {
       return true;
     });
   }, [tips, selectedCategoryId, searchQuery]);
+
+  // Initialize like counts and comment counts
+  useEffect(() => {
+    tips.forEach(tip => setInitialCount(tip.id, tip.likes));
+    if (tips.length > 0) fetchCommentCount(tips.map(t => t.id));
+  }, [tips, setInitialCount, fetchCommentCount]);
+
+  const handleLike = async (tipId: string) => {
+    const result = await toggleLike(tipId);
+    if (result) {
+      // Update local tips state with new like count
+      refetch();
+    }
+  };
+
+  const toggleViewMode = useCallback(() => {
+    setViewMode(prev => {
+      const next = prev === 'grid' ? 'list' : 'grid';
+      localStorage.setItem('tipViewMode', next);
+      return next;
+    });
+  }, []);
 
   const handleAddClick = useCallback(() => {
     setIsSaveModalOpen(true);
@@ -137,6 +172,19 @@ const Index = () => {
     );
   }
 
+  // Team tab
+  if (currentTab === 'creator') {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen pb-24">
+          <TeamTab />
+        </div>
+        <GlassDock currentTab={currentTab} onTabChange={setCurrentTab} onAdd={handleAddClick} />
+      </>
+    );
+  }
+
   // Other non-home tabs — placeholder
   if (currentTab !== 'home') {
     return (
@@ -157,7 +205,7 @@ const Index = () => {
       {/* Filter Bar */}
       <div className="sticky top-12 z-20 glass-dock border-t-0 border-b border-border/30">
         <div className="container px-3 py-2.5 space-y-2.5">
-          {/* Search Row */}
+          {/* Search Row + View Toggle */}
           <div className="flex items-center gap-2">
             <div className={cn(
               'flex items-center gap-2 glass-chip px-3 py-2 flex-1'
@@ -176,6 +224,17 @@ const Index = () => {
                 </button>
               )}
             </div>
+            <button
+              onClick={toggleViewMode}
+              className="glass-chip p-2 shrink-0 hover:bg-secondary/80 transition-colors"
+              title={viewMode === 'grid' ? 'List view' : 'Grid view'}
+            >
+              {viewMode === 'grid' ? (
+                <List className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <LayoutGrid className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
           </div>
 
           {/* Category Chips */}
@@ -231,7 +290,11 @@ const Index = () => {
             <p className="text-sm text-muted-foreground">No results found</p>
           </motion.div>
         ) : (
-          <div className="space-y-3">
+          <div className={cn(
+            viewMode === 'grid'
+              ? 'grid grid-cols-2 gap-2.5'
+              : 'space-y-2'
+          )}>
             {filteredTips.map((tip, index) => (
               <motion.div
                 key={tip.id}
@@ -242,9 +305,15 @@ const Index = () => {
                 <TipCard
                   tip={tip}
                   category={getCategoryById(tip.category)}
-                  onEdit={() => handleEdit(tip)}
-                  onDelete={() => handleDelete(tip.id)}
+                  onEdit={tip.user_id === user?.id || user?.email === 'believe0me77@gmail.com' ? () => handleEdit(tip) : undefined}
+                  onDelete={tip.user_id === user?.id || user?.email === 'believe0me77@gmail.com' ? () => handleDelete(tip.id) : undefined}
+                  onLike={() => handleLike(tip.id)}
+                  onComment={() => setDetailTip(tip)}
+                  isLiked={isLiked(tip.id)}
+                  likeCount={getCount(tip.id, tip.likes)}
+                  commentCount={getCommentCount(tip.id)}
                   isAnalyzing={analyzingIds.has(tip.id)}
+                  viewMode={viewMode}
                 />
               </motion.div>
             ))}
@@ -276,6 +345,13 @@ const Index = () => {
         onClose={() => { setIsSaveModalOpen(false); setEditingTip(null); }}
         onSave={handleSave}
         editingTip={editingTip}
+        teamId={team?.id}
+      />
+
+      <TipDetailModal
+        tip={detailTip}
+        isOpen={!!detailTip}
+        onClose={() => setDetailTip(null)}
       />
 
       <GlassToast

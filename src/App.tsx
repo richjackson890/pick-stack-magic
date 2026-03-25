@@ -14,6 +14,7 @@ import Terms from "./pages/Terms";
 import Share from "./pages/Share";
 import PublicView from "./pages/PublicView";
 import ManualSaveTest from "./pages/ManualSaveTest";
+import Invite from "./pages/Invite";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -96,6 +97,11 @@ function AppRoutes() {
       <Route path="/manual-save" element={
         <ProtectedRoute>
           <ManualSaveTest />
+        </ProtectedRoute>
+      } />
+      <Route path="/invite" element={
+        <ProtectedRoute>
+          <Invite />
         </ProtectedRoute>
       } />
       <Route path="/" element={

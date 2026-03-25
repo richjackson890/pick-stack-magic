@@ -21,6 +21,7 @@ interface SaveModalProps {
   onClose: () => void;
   onSave: (tip: TipInsert) => void;
   editingTip?: Tip | null;
+  teamId?: string | null;
 }
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -32,7 +33,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
   'robot': '🤖',
 };
 
-export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onSave, editingTip }: SaveModalProps) {
+export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onSave, editingTip, teamId }: SaveModalProps) {
   const { preview, loading: previewLoading, error: previewError, fetchPreview, clearPreview } = useUrlPreview();
   const [isSaved, setIsSaved] = useState(false);
   const [title, setTitle] = useState('');
@@ -44,6 +45,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
   const [tagInput, setTagInput] = useState('');
   const [competitionName, setCompetitionName] = useState('');
   const [showCategorySelector, setShowCategorySelector] = useState(false);
+  const [shareWithTeam, setShareWithTeam] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Initialize default category
@@ -70,6 +72,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
         setTags(editingTip.tags || []);
         setCompetitionName(editingTip.competition_name || '');
         setSelectedCategoryId(editingTip.category || '');
+        setShareWithTeam(!!editingTip.team_id);
       } else {
         setTitle('');
         setContent('');
@@ -77,6 +80,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
         setImageUrl('');
         setTags([]);
         setCompetitionName('');
+        setShareWithTeam(false);
         const defaultCat = getDefaultCategory();
         if (defaultCat) setSelectedCategoryId(defaultCat.id);
       }
@@ -138,6 +142,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
       category: selectedCategoryId || undefined,
       tags: tags.length > 0 ? tags : undefined,
       competition_name: competitionName.trim() || undefined,
+      team_id: shareWithTeam && teamId ? teamId : null,
     });
 
     setTimeout(() => {
@@ -362,6 +367,21 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
                 </div>
               )}
             </div>
+
+            {/* Team Share Toggle */}
+            {teamId && (
+              <label className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 cursor-pointer">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">Share with Team</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={shareWithTeam}
+                  onChange={(e) => setShareWithTeam(e.target.checked)}
+                  className="w-4 h-4 rounded accent-primary"
+                />
+              </label>
+            )}
 
             {/* Save Button */}
             <Button

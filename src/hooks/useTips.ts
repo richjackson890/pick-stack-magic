@@ -14,6 +14,7 @@ export interface Tip {
   tags: string[];
   competition_name: string | null;
   likes: number;
+  team_id: string | null;
   created_at: string;
   // AI analysis fields
   ai_summary: string | null;
@@ -36,6 +37,7 @@ export type TipInsert = {
   category?: string;
   tags?: string[];
   competition_name?: string;
+  team_id?: string | null;
 };
 
 export function useTips() {
@@ -93,6 +95,7 @@ export function useTips() {
           category: tip.category || null,
           tags: tip.tags || [],
           competition_name: tip.competition_name || null,
+          team_id: tip.team_id || null,
         })
         .select('*, profiles(name, avatar_url, email)')
         .single() as any);
@@ -151,21 +154,30 @@ export function useTips() {
     if (!user) return false;
 
     try {
-      const { error } = await (supabase
+      console.log('[useTips] DELETE start - tip:', id, 'user:', user.id);
+
+      // Step 1: Execute DELETE on Supabase FIRST, before touching local state
+      const { error, status, statusText } = await (supabase
         .from('tips' as any)
         .delete()
-        .eq('id', id)
-        .eq('user_id', user.id) as any);
+        .eq('id', id) as any);
 
-      if (error) throw error;
+      console.log('[useTips] DELETE response:', { error, status, statusText });
 
+      if (error) {
+        console.error('[useTips] DELETE error:', JSON.stringify(error));
+        throw error;
+      }
+
+      // Step 2: Only remove from local state AFTER successful DB delete
       setTips(prev => prev.filter(tip => tip.id !== id));
+      console.log('[useTips] DELETE success, removed from local state');
       return true;
     } catch (error: any) {
-      console.error('Error deleting tip:', error);
+      console.error('[useTips] DELETE failed:', error);
       toast({
         title: 'Failed to delete tip',
-        description: error.message,
+        description: error.message || 'Unknown error',
         variant: 'destructive',
       });
       return false;

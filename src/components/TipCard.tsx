@@ -2,15 +2,23 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tip } from '@/hooks/useTips';
 import { ArchiCategory } from '@/hooks/useArchiCategories';
-import { ExternalLink, Trash2, Heart, User, Sparkles, Loader2, ChevronDown, Pencil } from 'lucide-react';
+import { ExternalLink, Trash2, Heart, User, Sparkles, Loader2, ChevronDown, Pencil, MessageCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+export type ViewMode = 'grid' | 'list';
 
 interface TipCardProps {
   tip: Tip;
   category?: ArchiCategory;
   onDelete?: () => void;
   onEdit?: () => void;
+  onComment?: () => void;
+  onLike?: () => void;
+  isLiked?: boolean;
+  likeCount?: number;
+  commentCount?: number;
   isAnalyzing?: boolean;
+  viewMode?: ViewMode;
 }
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -22,11 +30,119 @@ const CATEGORY_EMOJI: Record<string, string> = {
   'robot': '🤖',
 };
 
-export function TipCard({ tip, category, onDelete, onEdit, isAnalyzing }: TipCardProps) {
+export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, isLiked, likeCount, commentCount, isAnalyzing, viewMode = 'grid' }: TipCardProps) {
   const [showAiSection, setShowAiSection] = useState(false);
   const authorName = tip.profiles?.name || tip.profiles?.email?.split('@')[0] || 'Unknown';
   const hasAiData = tip.ai_status === 'done' && (tip.ai_summary || tip.ai_tags?.length > 0);
 
+  if (viewMode === 'list') {
+    return (
+      <motion.article
+        whileHover={{ scale: 1.002 }}
+        whileTap={{ scale: 0.998 }}
+        className="glass-card rounded-xl overflow-hidden"
+      >
+        <div className="flex gap-3 p-3">
+          {/* Thumbnail - left */}
+          {tip.image_url ? (
+            <div className="w-[120px] h-[80px] rounded-lg overflow-hidden shrink-0">
+              <img
+                src={tip.image_url}
+                alt={tip.title}
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          ) : (
+            <div className="w-[120px] h-[80px] rounded-lg bg-secondary/50 shrink-0 flex items-center justify-center">
+              <span className="text-2xl opacity-30">📌</span>
+            </div>
+          )}
+
+          {/* Content - right */}
+          <div className="flex-1 min-w-0 flex flex-col justify-between">
+            {/* Top: category + title */}
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {category && (
+                  <span
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-semibold text-white"
+                    style={{ backgroundColor: category.color }}
+                  >
+                    {CATEGORY_EMOJI[category.icon] || '📁'} {category.name}
+                  </span>
+                )}
+                {(isAnalyzing || tip.ai_status === 'processing') && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-medium bg-primary/10 text-primary">
+                    <Loader2 className="h-2 w-2 animate-spin" />
+                    AI
+                  </span>
+                )}
+              </div>
+              <h3 className="text-sm font-bold text-foreground leading-snug line-clamp-1">
+                {tip.title}
+              </h3>
+              {tip.content && (
+                <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+                  {tip.content}
+                </p>
+              )}
+            </div>
+
+            {/* Bottom: tags + actions */}
+            <div className="flex items-center justify-between mt-1">
+              <div className="flex items-center gap-1 overflow-hidden">
+                {tip.tags?.slice(0, 3).map(tag => (
+                  <span
+                    key={tag}
+                    className="px-1.5 py-0.5 rounded-full bg-primary/10 text-primary text-[10px] font-medium shrink-0"
+                  >
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onLike?.(); }}
+                  className={cn("flex items-center gap-0.5 text-[10px] transition-colors", isLiked ? "text-red-500" : "text-muted-foreground")}
+                >
+                  <Heart className={cn("h-3 w-3", isLiked && "fill-current")} />
+                  {likeCount ?? tip.likes}
+                </button>
+                {onComment && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onComment(); }}
+                    className="flex items-center gap-0.5 text-[10px] text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <MessageCircle className="h-3 w-3" />
+                    {commentCount || 0}
+                  </button>
+                )}
+                {onEdit && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                    className="text-muted-foreground hover:text-primary transition-colors"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                )}
+                {onDelete && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                    className="text-muted-foreground hover:text-destructive transition-colors"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.article>
+    );
+  }
+
+  // Grid view (default)
   return (
     <motion.article
       whileHover={{ scale: 1.005 }}
@@ -181,17 +297,28 @@ export function TipCard({ tip, category, onDelete, onEdit, isAnalyzing }: TipCar
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
-              <Heart className="h-3.5 w-3.5" />
-              {tip.likes}
-            </span>
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={(e) => { e.stopPropagation(); onLike?.(); }}
+              className={cn("flex items-center gap-0.5 text-xs transition-colors", isLiked ? "text-red-500" : "text-muted-foreground")}
+            >
+              <Heart className={cn("h-3.5 w-3.5", isLiked && "fill-current")} />
+              {likeCount ?? tip.likes}
+            </motion.button>
+            {onComment && (
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={(e) => { e.stopPropagation(); onComment(); }}
+                className="flex items-center gap-0.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+              >
+                <MessageCircle className="h-3.5 w-3.5" />
+                {commentCount || 0}
+              </motion.button>
+            )}
             {onEdit && (
               <motion.button
                 whileTap={{ scale: 0.9 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onEdit();
-                }}
+                onClick={(e) => { e.stopPropagation(); onEdit(); }}
                 className="text-muted-foreground hover:text-primary transition-colors"
               >
                 <Pencil className="h-3.5 w-3.5" />
@@ -200,10 +327,7 @@ export function TipCard({ tip, category, onDelete, onEdit, isAnalyzing }: TipCar
             {onDelete && (
               <motion.button
                 whileTap={{ scale: 0.9 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete();
-                }}
+                onClick={(e) => { e.stopPropagation(); onDelete(); }}
                 className="text-muted-foreground hover:text-destructive transition-colors"
               >
                 <Trash2 className="h-3.5 w-3.5" />
