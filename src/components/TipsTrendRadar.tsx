@@ -16,6 +16,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
   'palette': '🎨',
   'building': '🏗',
   'folder': '📁',
+  'robot': '🤖',
 };
 
 export function TipsTrendRadar({ tips, categories, getCategoryById }: TipsTrendRadarProps) {

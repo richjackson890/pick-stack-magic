@@ -2,13 +2,14 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tip } from '@/hooks/useTips';
 import { ArchiCategory } from '@/hooks/useArchiCategories';
-import { ExternalLink, Trash2, Heart, User, Sparkles, Loader2, ChevronDown } from 'lucide-react';
+import { ExternalLink, Trash2, Heart, User, Sparkles, Loader2, ChevronDown, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface TipCardProps {
   tip: Tip;
   category?: ArchiCategory;
   onDelete?: () => void;
+  onEdit?: () => void;
   isAnalyzing?: boolean;
 }
 
@@ -18,9 +19,10 @@ const CATEGORY_EMOJI: Record<string, string> = {
   'palette': '🎨',
   'building': '🏗',
   'folder': '📁',
+  'robot': '🤖',
 };
 
-export function TipCard({ tip, category, onDelete, isAnalyzing }: TipCardProps) {
+export function TipCard({ tip, category, onDelete, onEdit, isAnalyzing }: TipCardProps) {
   const [showAiSection, setShowAiSection] = useState(false);
   const authorName = tip.profiles?.name || tip.profiles?.email?.split('@')[0] || 'Unknown';
   const hasAiData = tip.ai_status === 'done' && (tip.ai_summary || tip.ai_tags?.length > 0);
@@ -183,6 +185,18 @@ export function TipCard({ tip, category, onDelete, isAnalyzing }: TipCardProps) 
               <Heart className="h-3.5 w-3.5" />
               {tip.likes}
             </span>
+            {onEdit && (
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit();
+                }}
+                className="text-muted-foreground hover:text-primary transition-colors"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </motion.button>
+            )}
             {onDelete && (
               <motion.button
                 whileTap={{ scale: 0.9 }}

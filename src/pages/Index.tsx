@@ -18,13 +18,14 @@ import { cn } from '@/lib/utils';
 
 const Index = () => {
   const { user } = useAuth();
-  const { tips, loading: tipsLoading, addTip, deleteTip, refetch } = useTips();
+  const { tips, loading: tipsLoading, addTip, updateTip, deleteTip, refetch } = useTips();
   const { categories, loading: categoriesLoading, getCategoryById, getDefaultCategory } = useArchiCategories();
   const { analyzeTip, analyzingIds } = useGroqAnalysis();
 
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [editingTip, setEditingTip] = useState<Tip | null>(null);
   const [currentTab, setCurrentTab] = useState<'home' | 'creator' | 'report' | 'dashboard'>('home');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -63,6 +64,15 @@ const Index = () => {
   }, []);
 
   const handleSave = async (tipData: Parameters<typeof addTip>[0]) => {
+    if (editingTip) {
+      const success = await updateTip(editingTip.id, tipData);
+      if (success) {
+        showToast('success', 'Tip updated!');
+        setEditingTip(null);
+      }
+      return;
+    }
+
     const saved = await addTip(tipData);
     if (saved) {
       showToast('success', 'Tip saved!');
@@ -77,6 +87,11 @@ const Index = () => {
         }
       });
     }
+  };
+
+  const handleEdit = (tip: Tip) => {
+    setEditingTip(tip);
+    setIsSaveModalOpen(true);
   };
 
   const handleDelete = async (id: string) => {
@@ -227,6 +242,7 @@ const Index = () => {
                 <TipCard
                   tip={tip}
                   category={getCategoryById(tip.category)}
+                  onEdit={() => handleEdit(tip)}
                   onDelete={() => handleDelete(tip.id)}
                   isAnalyzing={analyzingIds.has(tip.id)}
                 />
@@ -257,8 +273,9 @@ const Index = () => {
         isOpen={isSaveModalOpen}
         categories={categories}
         getDefaultCategory={getDefaultCategory}
-        onClose={() => setIsSaveModalOpen(false)}
+        onClose={() => { setIsSaveModalOpen(false); setEditingTip(null); }}
         onSave={handleSave}
+        editingTip={editingTip}
       />
 
       <GlassToast

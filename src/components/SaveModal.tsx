@@ -11,7 +11,7 @@ import {
 import { Check, Sparkles, ChevronDown, Plus, X, Loader2, Wand2, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ArchiCategory } from '@/hooks/useArchiCategories';
-import { TipInsert } from '@/hooks/useTips';
+import { Tip, TipInsert } from '@/hooks/useTips';
 import { useUrlPreview } from '@/hooks/useUrlPreview';
 
 interface SaveModalProps {
@@ -20,6 +20,7 @@ interface SaveModalProps {
   getDefaultCategory: () => ArchiCategory | undefined;
   onClose: () => void;
   onSave: (tip: TipInsert) => void;
+  editingTip?: Tip | null;
 }
 
 const CATEGORY_EMOJI: Record<string, string> = {
@@ -28,9 +29,10 @@ const CATEGORY_EMOJI: Record<string, string> = {
   'palette': '🎨',
   'building': '🏗',
   'folder': '📁',
+  'robot': '🤖',
 };
 
-export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onSave }: SaveModalProps) {
+export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onSave, editingTip }: SaveModalProps) {
   const { preview, loading: previewLoading, error: previewError, fetchPreview, clearPreview } = useUrlPreview();
   const [isSaved, setIsSaved] = useState(false);
   const [title, setTitle] = useState('');
@@ -52,23 +54,34 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
     }
   }, [categories, selectedCategoryId, getDefaultCategory]);
 
-  // Reset form when opened
+  // Reset form when opened, or populate with editing data
   useEffect(() => {
     if (isOpen) {
-      setTitle('');
-      setContent('');
-      setUrl('');
-      setImageUrl('');
-      setTags([]);
-      setTagInput('');
-      setCompetitionName('');
       setShowCategorySelector(false);
       setIsSaved(false);
       clearPreview();
-      const defaultCat = getDefaultCategory();
-      if (defaultCat) setSelectedCategoryId(defaultCat.id);
+      setTagInput('');
+
+      if (editingTip) {
+        setTitle(editingTip.title || '');
+        setContent(editingTip.content || '');
+        setUrl(editingTip.url || '');
+        setImageUrl(editingTip.image_url || '');
+        setTags(editingTip.tags || []);
+        setCompetitionName(editingTip.competition_name || '');
+        setSelectedCategoryId(editingTip.category || '');
+      } else {
+        setTitle('');
+        setContent('');
+        setUrl('');
+        setImageUrl('');
+        setTags([]);
+        setCompetitionName('');
+        const defaultCat = getDefaultCategory();
+        if (defaultCat) setSelectedCategoryId(defaultCat.id);
+      }
     }
-  }, [isOpen, getDefaultCategory, clearPreview]);
+  }, [isOpen, editingTip, getDefaultCategory, clearPreview]);
 
   // Debounced URL preview fetch
   const handleUrlChange = (newUrl: string) => {
@@ -85,10 +98,15 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
 
   // Apply AI suggestions from preview
   const applyPreview = () => {
-    if (!preview) return;
-    if (preview.title && !title) setTitle(preview.title);
-    if (preview.image && !imageUrl) setImageUrl(preview.image);
-    if (preview.tags.length > 0 && tags.length === 0) setTags(preview.tags);
+    if (!preview) {
+      console.warn('[SaveModal] applyPreview called but no preview data');
+      return;
+    }
+    console.log('[SaveModal] Applying preview:', preview);
+    if (preview.title) setTitle(preview.title);
+    if (preview.description) setContent(preview.description);
+    if (preview.image) setImageUrl(preview.image);
+    if (preview.tags.length > 0) setTags(preview.tags);
     if (preview.suggestedCategory) {
       const match = categories.find(c => c.name === preview.suggestedCategory);
       if (match) setSelectedCategoryId(match.id);
@@ -138,7 +156,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
             <span className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center">
               <Sparkles className="h-4 w-4 text-white" />
             </span>
-            Share a Tip
+            {editingTip ? 'Edit Tip' : 'Share a Tip'}
           </SheetTitle>
         </SheetHeader>
 
@@ -163,9 +181,9 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
 
               {/* URL Preview loading */}
               {previewLoading && (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-secondary/50">
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-secondary/50 animate-pulse">
                   <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                  <span className="text-xs text-muted-foreground">URL 분석 중...</span>
+                  <span className="text-xs text-muted-foreground">AI가 URL을 분석하고 있습니다...</span>
                 </div>
               )}
 
@@ -198,6 +216,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
                       variant="outline"
                       size="sm"
                       onClick={applyPreview}
+                      disabled={!preview}
                       className="w-full mt-2 text-xs gap-1.5"
                     >
                       <Wand2 className="h-3 w-3" />
@@ -350,7 +369,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
               onClick={handleSave}
               disabled={!title.trim()}
             >
-              Save Tip
+              {editingTip ? 'Update Tip' : 'Save Tip'}
             </Button>
           </div>
         )}
