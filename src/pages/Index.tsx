@@ -21,6 +21,7 @@ import { GlassChip, GlassChipGroup } from '@/components/GlassChip';
 import { TipsTrendRadar } from '@/components/TipsTrendRadar';
 import { StatsTab } from '@/components/StatsTab';
 import { TeamTab } from '@/components/TeamTab';
+import { AIReportTab } from '@/components/AIReportTab';
 import { TipDetailModal } from '@/components/TipDetailModal';
 import { RefreshCw, Search, X, LayoutGrid, List, ArrowUpDown, Bookmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -222,8 +223,8 @@ const Index = () => {
     );
   }
 
-  // Other non-home tabs — placeholder
-  if (currentTab !== 'home') {
+  // AI Report tab
+  if (currentTab === 'report') {
     return (
       <>
         <Header
@@ -233,9 +234,7 @@ const Index = () => {
           onMarkAllAsRead={markAllAsRead}
           onNotificationClick={handleNotificationClick}
         />
-        <div className="min-h-screen flex items-center justify-center">
-          <p className="text-muted-foreground text-sm">Coming soon</p>
-        </div>
+        <AIReportTab tips={tips} categories={categories} getCategoryById={getCategoryById} />
         <GlassDock currentTab={currentTab} onTabChange={setCurrentTab} onAdd={handleAddClick} />
       </>
     );

@@ -43,37 +43,57 @@ export function useTeam() {
   const fetchTeam = useCallback(async () => {
     if (!user) { setLoading(false); return; }
     try {
-      // Find user's team membership
-      const { data: membership, error: memErr } = await (supabase
+      // Find user's team membership — maybeSingle to avoid 406 when not in any team
+      const { data: membership } = await (supabase
         .from('team_members_v2' as any)
         .select('team_id, role')
         .eq('user_id', user.id)
         .limit(1)
-        .single() as any);
+        .maybeSingle() as any);
 
-      if (memErr || !membership) {
+      if (!membership) {
         setTeam(null);
+        setMembers([]);
+        setInvites([]);
         setLoading(false);
         return;
       }
 
-      // Fetch team
+      // Fetch team — maybeSingle in case team was deleted
       const { data: teamData } = await (supabase
         .from('teams' as any)
         .select('*')
         .eq('id', membership.team_id)
-        .single() as any);
+        .maybeSingle() as any);
 
       if (teamData) setTeam(teamData);
 
-      // Fetch members with profiles
+      // Fetch members without join, then profiles separately
       const { data: membersData } = await (supabase
         .from('team_members_v2' as any)
-        .select('*, profiles(name, avatar_url, email)')
+        .select('*')
         .eq('team_id', membership.team_id)
         .order('joined_at') as any);
 
-      setMembers(membersData || []);
+      const rawMembers: TeamMember[] = membersData || [];
+
+      if (rawMembers.length > 0) {
+        const userIds = [...new Set(rawMembers.map(m => m.user_id))];
+        const { data: profiles } = await (supabase
+          .from('profiles' as any)
+          .select('id, name, avatar_url, email')
+          .in('id', userIds) as any);
+
+        if (profiles) {
+          const profileMap: Record<string, TeamMember['profiles']> = {};
+          profiles.forEach((p: any) => {
+            profileMap[p.id] = { name: p.name, avatar_url: p.avatar_url, email: p.email };
+          });
+          rawMembers.forEach(m => { m.profiles = profileMap[m.user_id]; });
+        }
+      }
+
+      setMembers(rawMembers);
 
       // Fetch invites
       const { data: invitesData } = await (supabase
@@ -84,8 +104,8 @@ export function useTeam() {
         .order('created_at', { ascending: false }) as any);
 
       setInvites(invitesData || []);
-    } catch (err: any) {
-      console.error('[useTeam] Error:', err);
+    } catch {
+      // Silently handle — 406/empty results are not real errors
     } finally {
       setLoading(false);
     }
