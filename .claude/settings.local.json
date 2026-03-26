@@ -5,7 +5,23 @@
       "Bash(wc -l /d/Users/SYlee/pick-stack-magic/src/**/*.tsx /d/Users/SYlee/pick-stack-magic/src/**/*.ts)",
       "Bash(npx tsc:*)",
       "Bash(npx vite:*)",
-      "Bash(npm install:*)"
+      "Bash(npm install:*)",
+      "Bash(supabase functions:*)",
+      "Bash(npx supabase:*)",
+      "Bash(where supabase:*)",
+      "Bash(xargs grep:*)",
+      "Bash(find /d/Users/SYlee/pick-stack-magic -name *.sql -o -name schema* -o -name *migrations*)",
+      "Bash(npm run:*)",
+      "Bash(npx kill-port:*)",
+      "Bash(grep -l categories D:/Users/SYlee/pick-stack-magic/supabase/migrations/*.sql)",
+      "Bash(find /d/Users/SYlee/pick-stack-magic -type f -name *Comment*)",
+      "Bash(find /d/Users/SYlee/pick-stack-magic -type f \\\\\\(-name *.sql -o -name *.ts -o -name *.js \\\\\\) -path */migrations/* -o -path */schema*)",
+      "Bash(grep -r tip_comments /d/Users/SYlee/pick-stack-magic/src --include=*.ts --include=*.tsx)",
+      "Bash(grep -r TipDetailModal /d/Users/SYlee/pick-stack-magic/src --include=*.ts --include=*.tsx)",
+      "Bash(find /d/Users/SYlee/pick-stack-magic/src/components/ui -type f -name *.tsx)",
+      "Bash(find /d/Users/SYlee/pick-stack-magic/src/components -type f -name *.tsx)",
+      "Bash(find /d/Users/SYlee/pick-stack-magic/src -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))",
+      "Bash(grep -r \"glass-card\\\\|glass-button\\\\|glass-dock\" /d/Users/SYlee/pick-stack-magic/src --include=*.css)"
     ]
   }
 }

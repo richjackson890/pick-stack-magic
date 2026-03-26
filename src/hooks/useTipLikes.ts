@@ -26,33 +26,44 @@ export function useTipLikes() {
   const toggleLike = async (tipId: string): Promise<{ liked: boolean; count: number } | null> => {
     if (!user) return null;
 
-    const isLiked = likedTipIds.has(tipId);
+    // DB에서 실제 좋아요 상태 확인 (로컬 상태와 DB 불일치 방지)
+    const { data: existing } = await (supabase
+      .from('tip_likes' as any)
+      .select('id')
+      .eq('tip_id', tipId)
+      .eq('user_id', user.id)
+      .maybeSingle() as any);
 
-    if (isLiked) {
-      // Unlike
+    if (existing) {
+      // Unlike - DB에 좋아요가 있으므로 삭제
       await (supabase.from('tip_likes' as any)
         .delete()
         .eq('tip_id', tipId)
         .eq('user_id', user.id) as any);
 
       // Decrement likes count on tip
-      await (supabase.rpc('decrement_likes' as any, { tip_id_input: tipId }) as any).catch(() => {
+      try {
+        await (supabase.rpc('decrement_likes' as any, { tip_id_input: tipId }) as any);
+      } catch {
         // Fallback: direct update
-        return supabase.from('tips' as any).update({ likes: (likeCounts[tipId] || 1) - 1 }).eq('id', tipId);
-      });
+        await (supabase.from('tips' as any).update({ likes: (likeCounts[tipId] || 1) - 1 }).eq('id', tipId) as any);
+      }
 
       setLikedTipIds(prev => { const next = new Set(prev); next.delete(tipId); return next; });
       setLikeCounts(prev => ({ ...prev, [tipId]: Math.max(0, (prev[tipId] || 1) - 1) }));
       return { liked: false, count: Math.max(0, (likeCounts[tipId] || 1) - 1) };
     } else {
-      // Like
+      // Like - DB에 좋아요가 없으므로 삽입
       await (supabase.from('tip_likes' as any)
         .insert({ tip_id: tipId, user_id: user.id }) as any);
 
       // Increment likes count on tip
-      await (supabase.rpc('increment_likes' as any, { tip_id_input: tipId }) as any).catch(() => {
-        return supabase.from('tips' as any).update({ likes: (likeCounts[tipId] || 0) + 1 }).eq('id', tipId);
-      });
+      try {
+        await (supabase.rpc('increment_likes' as any, { tip_id_input: tipId }) as any);
+      } catch {
+        // Fallback: direct update
+        await (supabase.from('tips' as any).update({ likes: (likeCounts[tipId] || 0) + 1 }).eq('id', tipId) as any);
+      }
 
       setLikedTipIds(prev => new Set(prev).add(tipId));
       setLikeCounts(prev => ({ ...prev, [tipId]: (prev[tipId] || 0) + 1 }));
