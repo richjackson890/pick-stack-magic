@@ -48,14 +48,15 @@ export function useTips() {
 
   const fetchTips = useCallback(async () => {
     try {
+      // Fetch tips without join to avoid CORS issues with foreign table relations
       const { data, error } = await (supabase
         .from('tips' as any)
-        .select('*, profiles(name, avatar_url, email)')
+        .select('*')
         .order('created_at', { ascending: false }) as any);
 
       if (error) throw error;
 
-      setTips((data || []).map((tip: any) => ({
+      const rawTips: Tip[] = (data || []).map((tip: any) => ({
         ...tip,
         tags: tip.tags || [],
         likes: tip.likes || 0,
@@ -63,7 +64,28 @@ export function useTips() {
         ai_tags: tip.ai_tags || [],
         ai_suggested_category: tip.ai_suggested_category || null,
         ai_status: tip.ai_status || null,
-      })));
+      }));
+
+      // Fetch profiles separately for unique user_ids
+      const userIds = [...new Set(rawTips.map(t => t.user_id))];
+      if (userIds.length > 0) {
+        const { data: profiles } = await (supabase
+          .from('profiles' as any)
+          .select('id, name, avatar_url, email')
+          .in('id', userIds) as any);
+
+        if (profiles) {
+          const profileMap: Record<string, Tip['profiles']> = {};
+          profiles.forEach((p: any) => {
+            profileMap[p.id] = { name: p.name, avatar_url: p.avatar_url, email: p.email };
+          });
+          rawTips.forEach(tip => {
+            tip.profiles = profileMap[tip.user_id];
+          });
+        }
+      }
+
+      setTips(rawTips);
     } catch (error: any) {
       console.error('Error fetching tips:', error);
       toast({
@@ -97,10 +119,21 @@ export function useTips() {
           competition_name: tip.competition_name || null,
           team_id: tip.team_id || null,
         })
-        .select('*, profiles(name, avatar_url, email)')
+        .select('*')
         .single() as any);
 
       if (error) throw error;
+
+      // Fetch profile separately
+      let profile: Tip['profiles'] | undefined;
+      const { data: profileData } = await (supabase
+        .from('profiles' as any)
+        .select('id, name, avatar_url, email')
+        .eq('id', user.id)
+        .single() as any);
+      if (profileData) {
+        profile = { name: profileData.name, avatar_url: profileData.avatar_url, email: profileData.email };
+      }
 
       const newTip: Tip = {
         ...data,
@@ -110,6 +143,7 @@ export function useTips() {
         ai_tags: data.ai_tags || [],
         ai_suggested_category: data.ai_suggested_category || null,
         ai_status: data.ai_status || null,
+        profiles: profile,
       };
 
       setTips(prev => [newTip, ...prev]);

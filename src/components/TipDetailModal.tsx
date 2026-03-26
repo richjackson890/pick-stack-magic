@@ -12,9 +12,10 @@ interface TipDetailModalProps {
   tip: Tip | null;
   isOpen: boolean;
   onClose: () => void;
+  onCommentAdded?: (tipId: string, tipOwnerId: string) => void;
 }
 
-export function TipDetailModal({ tip, isOpen, onClose }: TipDetailModalProps) {
+export function TipDetailModal({ tip, isOpen, onClose, onCommentAdded }: TipDetailModalProps) {
   const { user } = useAuth();
   const { comments, loading, fetchComments, addComment, deleteComment } = useTipComments();
   const [newComment, setNewComment] = useState('');
@@ -37,7 +38,8 @@ export function TipDetailModal({ tip, isOpen, onClose }: TipDetailModalProps) {
   const handleSend = async () => {
     if (!tip || !newComment.trim()) return;
     setSending(true);
-    await addComment(tip.id, newComment);
+    const success = await addComment(tip.id, newComment);
+    if (success) onCommentAdded?.(tip.id, tip.user_id);
     setNewComment('');
     setSending(false);
   };
@@ -46,16 +48,27 @@ export function TipDetailModal({ tip, isOpen, onClose }: TipDetailModalProps) {
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent side="bottom" className="h-[75vh] flex flex-col">
-        <SheetHeader className="shrink-0">
+      <SheetContent side="bottom" className="h-[90vh] flex flex-col p-0 rounded-t-2xl">
+        <SheetHeader className="shrink-0 px-6 pt-5 pb-3">
           <SheetTitle className="flex items-center gap-2 text-left">
             <MessageCircle className="h-5 w-5 text-primary shrink-0" />
             <span className="line-clamp-1">{tip.title}</span>
           </SheetTitle>
         </SheetHeader>
 
-        {/* Comments list */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto py-4 space-y-3">
+        {/* Thumbnail image */}
+        {tip.image_url && (
+          <div className="shrink-0 w-full px-6">
+            <img
+              src={tip.image_url}
+              alt={tip.title}
+              className="w-full h-64 object-cover rounded-xl"
+            />
+          </div>
+        )}
+
+        {/* Comments list - scrollable */}
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
           {loading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -79,8 +92,8 @@ export function TipDetailModal({ tip, isOpen, onClose }: TipDetailModalProps) {
           )}
         </div>
 
-        {/* Comment input */}
-        <div className="shrink-0 flex gap-2 pt-3 border-t border-border/30">
+        {/* Comment input - fixed at bottom */}
+        <div className="shrink-0 flex gap-2 px-6 py-4 border-t border-border/30 bg-background">
           <Input
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
@@ -105,33 +118,47 @@ export function TipDetailModal({ tip, isOpen, onClose }: TipDetailModalProps) {
 function CommentItem({ comment, isOwn, onDelete }: { comment: TipComment; isOwn: boolean; onDelete: () => void }) {
   const name = comment.profiles?.name || comment.profiles?.email?.split('@')[0] || 'Unknown';
 
+  const Avatar = () => (
+    comment.profiles?.avatar_url ? (
+      <img src={comment.profiles.avatar_url} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
+    ) : (
+      <div className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
+        <User className="h-4 w-4" />
+      </div>
+    )
+  );
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0 }}
-      className="flex gap-2.5"
+      className={`flex gap-2.5 max-w-[85%] group ${isOwn ? 'ml-auto flex-row-reverse' : ''}`}
     >
-      {comment.profiles?.avatar_url ? (
-        <img src={comment.profiles.avatar_url} alt="" className="w-7 h-7 rounded-full object-cover shrink-0 mt-0.5" />
-      ) : (
-        <div className="w-7 h-7 rounded-full bg-muted flex items-center justify-center shrink-0 mt-0.5">
-          <User className="h-3.5 w-3.5" />
-        </div>
-      )}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-2">
+      <Avatar />
+      <div className={`min-w-0 ${isOwn ? 'items-end' : ''}`}>
+        <div className={`flex items-baseline gap-2 mb-0.5 ${isOwn ? 'flex-row-reverse' : ''}`}>
           <span className="text-xs font-semibold">{name}</span>
           <span className="text-[10px] text-muted-foreground">
             {new Date(comment.created_at).toLocaleDateString()}
           </span>
+        </div>
+        <div className={`relative rounded-2xl px-3.5 py-2 ${
+          isOwn
+            ? 'bg-primary text-primary-foreground rounded-tr-sm'
+            : 'bg-muted rounded-tl-sm'
+        }`}>
+          <p className="text-sm leading-relaxed">{comment.content}</p>
           {isOwn && (
-            <button onClick={onDelete} className="text-muted-foreground hover:text-destructive ml-auto">
+            <button
+              onClick={onDelete}
+              className="absolute -left-6 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Delete"
+            >
               <Trash2 className="h-3 w-3" />
             </button>
           )}
         </div>
-        <p className="text-sm text-foreground/90 leading-relaxed">{comment.content}</p>
       </div>
     </motion.div>
   );

@@ -24,14 +24,37 @@ export function useTipComments() {
   const fetchComments = useCallback(async (tipId: string) => {
     setLoading(true);
     try {
+      // Fetch comments without join to avoid CORS issues
       const { data, error } = await (supabase
         .from('tip_comments' as any)
-        .select('*, profiles(name, avatar_url, email)')
+        .select('*')
         .eq('tip_id', tipId)
         .order('created_at', { ascending: true }) as any);
 
       if (error) throw error;
-      setComments(data || []);
+
+      const rawComments: TipComment[] = data || [];
+
+      // Fetch profiles separately
+      const userIds = [...new Set(rawComments.map(c => c.user_id))];
+      if (userIds.length > 0) {
+        const { data: profiles } = await (supabase
+          .from('profiles' as any)
+          .select('id, name, avatar_url, email')
+          .in('id', userIds) as any);
+
+        if (profiles) {
+          const profileMap: Record<string, TipComment['profiles']> = {};
+          profiles.forEach((p: any) => {
+            profileMap[p.id] = { name: p.name, avatar_url: p.avatar_url, email: p.email };
+          });
+          rawComments.forEach(c => {
+            c.profiles = profileMap[c.user_id];
+          });
+        }
+      }
+
+      setComments(rawComments);
     } catch (err) {
       console.error('[useTipComments] fetch error:', err);
     } finally {
@@ -96,5 +119,5 @@ export function useTipComments() {
 
   const getCount = (tipId: string) => commentCounts[tipId] || 0;
 
-  return { comments, loading, fetchComments, addComment, deleteComment, fetchCommentCount, getCount };
+  return { comments, loading, fetchComments, addComment, deleteComment, fetchCommentCount, getCount, commentCounts };
 }

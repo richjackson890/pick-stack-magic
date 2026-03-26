@@ -8,6 +8,8 @@ import { useGroqAnalysis } from '@/hooks/useGroqAnalysis';
 import { useTeam } from '@/hooks/useTeam';
 import { useTipLikes } from '@/hooks/useTipLikes';
 import { useTipComments } from '@/hooks/useTipComments';
+import { useBookmarks } from '@/hooks/useBookmarks';
+import { useNotifications } from '@/hooks/useNotifications';
 import { Header } from '@/components/Header';
 import { TipCard } from '@/components/TipCard';
 import { SaveModal } from '@/components/SaveModal';
@@ -17,9 +19,10 @@ import { LiquidSpinner } from '@/components/LiquidSpinner';
 import { GlassToast } from '@/components/GlassToast';
 import { GlassChip, GlassChipGroup } from '@/components/GlassChip';
 import { TipsTrendRadar } from '@/components/TipsTrendRadar';
+import { StatsTab } from '@/components/StatsTab';
 import { TeamTab } from '@/components/TeamTab';
 import { TipDetailModal } from '@/components/TipDetailModal';
-import { RefreshCw, Search, X, LayoutGrid, List } from 'lucide-react';
+import { RefreshCw, Search, X, LayoutGrid, List, ArrowUpDown, Bookmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const Index = () => {
@@ -29,7 +32,9 @@ const Index = () => {
   const { analyzeTip, analyzingIds } = useGroqAnalysis();
   const { team } = useTeam();
   const { toggleLike, isLiked, setInitialCount, getCount } = useTipLikes();
-  const { fetchCommentCount, getCount: getCommentCount } = useTipComments();
+  const { fetchCommentCount, getCount: getCommentCount, commentCounts } = useTipComments();
+  const { toggleBookmark, isBookmarked, bookmarkedIds } = useBookmarks();
+  const { notifications, unreadCount, markAsRead, markAllAsRead, createNotification } = useNotifications();
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem('tipViewMode') as ViewMode) || 'grid';
@@ -40,6 +45,8 @@ const Index = () => {
   const [detailTip, setDetailTip] = useState<Tip | null>(null);
   const [editingTip, setEditingTip] = useState<Tip | null>(null);
   const [currentTab, setCurrentTab] = useState<'home' | 'creator' | 'report' | 'dashboard'>('home');
+  const [sortMode, setSortMode] = useState<'latest' | 'likes' | 'comments'>('latest');
+  const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Toast state
@@ -54,9 +61,10 @@ const Index = () => {
     setTimeout(() => setToastState(prev => ({ ...prev, show: false })), 2500);
   };
 
-  // Filter tips
+  // Filter + sort tips
   const filteredTips = useMemo(() => {
-    return tips.filter(tip => {
+    const filtered = tips.filter(tip => {
+      if (showBookmarksOnly && !bookmarkedIds.has(tip.id)) return false;
       if (selectedCategoryId && tip.category !== selectedCategoryId) return false;
       if (searchQuery) {
         const q = searchQuery.toLowerCase();
@@ -66,11 +74,20 @@ const Index = () => {
         const aiTagMatch = tip.ai_tags?.some(t => t.toLowerCase().includes(q));
         const compMatch = tip.competition_name?.toLowerCase().includes(q);
         const summaryMatch = tip.ai_summary?.toLowerCase().includes(q);
-        return titleMatch || contentMatch || tagMatch || aiTagMatch || compMatch || summaryMatch;
+        const authorMatch = tip.profiles?.name?.toLowerCase().includes(q)
+          || tip.profiles?.email?.toLowerCase().includes(q);
+        const categoryMatch = getCategoryById(tip.category)?.name?.toLowerCase().includes(q);
+        return titleMatch || contentMatch || tagMatch || aiTagMatch || compMatch || summaryMatch || authorMatch || categoryMatch;
       }
       return true;
     });
-  }, [tips, selectedCategoryId, searchQuery]);
+
+    return filtered.sort((a, b) => {
+      if (sortMode === 'likes') return (b.likes || 0) - (a.likes || 0);
+      if (sortMode === 'comments') return (getCommentCount(b.id) || 0) - (getCommentCount(a.id) || 0);
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [tips, selectedCategoryId, searchQuery, sortMode, showBookmarksOnly, bookmarkedIds, getCategoryById, getCommentCount]);
 
   // Initialize like counts and comment counts
   useEffect(() => {
@@ -81,10 +98,18 @@ const Index = () => {
   const handleLike = async (tipId: string) => {
     const result = await toggleLike(tipId);
     if (result) {
-      // Update local tips state with new like count
       refetch();
+      if (result.liked) {
+        const tip = tips.find(t => t.id === tipId);
+        if (tip) createNotification(tip.user_id, 'like', tipId);
+      }
     }
   };
+
+  const handleNotificationClick = useCallback((tipId: string) => {
+    const tip = tips.find(t => t.id === tipId);
+    if (tip) setDetailTip(tip);
+  }, [tips]);
 
   const toggleViewMode = useCallback(() => {
     setViewMode(prev => {
@@ -161,12 +186,18 @@ const Index = () => {
     );
   }
 
-  // Dashboard tab — Trend Radar
+  // Dashboard tab — Stats
   if (currentTab === 'dashboard') {
     return (
       <>
-        <Header />
-        <TipsTrendRadar tips={tips} categories={categories} getCategoryById={getCategoryById} />
+        <Header
+          notifications={notifications}
+          unreadCount={unreadCount}
+          onMarkAsRead={markAsRead}
+          onMarkAllAsRead={markAllAsRead}
+          onNotificationClick={handleNotificationClick}
+        />
+        <StatsTab tips={tips} categories={categories} getCategoryById={getCategoryById} commentCounts={commentCounts} />
         <GlassDock currentTab={currentTab} onTabChange={setCurrentTab} onAdd={handleAddClick} />
       </>
     );
@@ -176,7 +207,13 @@ const Index = () => {
   if (currentTab === 'creator') {
     return (
       <>
-        <Header />
+        <Header
+          notifications={notifications}
+          unreadCount={unreadCount}
+          onMarkAsRead={markAsRead}
+          onMarkAllAsRead={markAllAsRead}
+          onNotificationClick={handleNotificationClick}
+        />
         <div className="min-h-screen pb-24">
           <TeamTab />
         </div>
@@ -189,7 +226,13 @@ const Index = () => {
   if (currentTab !== 'home') {
     return (
       <>
-        <Header />
+        <Header
+          notifications={notifications}
+          unreadCount={unreadCount}
+          onMarkAsRead={markAsRead}
+          onMarkAllAsRead={markAllAsRead}
+          onNotificationClick={handleNotificationClick}
+        />
         <div className="min-h-screen flex items-center justify-center">
           <p className="text-muted-foreground text-sm">Coming soon</p>
         </div>
@@ -200,12 +243,18 @@ const Index = () => {
 
   return (
     <div className="min-h-screen pb-24">
-      <Header />
+      <Header
+          notifications={notifications}
+          unreadCount={unreadCount}
+          onMarkAsRead={markAsRead}
+          onMarkAllAsRead={markAllAsRead}
+          onNotificationClick={handleNotificationClick}
+        />
 
       {/* Filter Bar */}
       <div className="sticky top-12 z-20 glass-dock border-t-0 border-b border-border/30">
-        <div className="container px-3 py-2.5 space-y-2.5">
-          {/* Search Row + View Toggle */}
+        <div className="container px-3 py-2.5 space-y-2">
+          {/* Search Row */}
           <div className="flex items-center gap-2">
             <div className={cn(
               'flex items-center gap-2 glass-chip px-3 py-2 flex-1'
@@ -213,7 +262,7 @@ const Index = () => {
               <Search className="h-4 w-4 text-muted-foreground shrink-0" />
               <input
                 type="text"
-                placeholder="Search tips by title, tag, project..."
+                placeholder="Search title, tag, author, category..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
@@ -237,26 +286,49 @@ const Index = () => {
             </button>
           </div>
 
-          {/* Category Chips */}
-          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide py-1">
-            <GlassChipGroup>
-              <GlassChip
-                selected={selectedCategoryId === null}
-                onClick={() => setSelectedCategoryId(null)}
-              >
-                All
-              </GlassChip>
-              {categories.map(cat => (
+          {/* Category Chips + Sort */}
+          <div className="flex items-center gap-2">
+            <div className="flex-1 flex items-center gap-2 overflow-x-auto scrollbar-hide py-1">
+              <GlassChipGroup>
                 <GlassChip
-                  key={cat.id}
-                  selected={selectedCategoryId === cat.id}
-                  onClick={() => setSelectedCategoryId(cat.id)}
-                  color={cat.color}
+                  selected={selectedCategoryId === null && !showBookmarksOnly}
+                  onClick={() => { setSelectedCategoryId(null); setShowBookmarksOnly(false); }}
                 >
-                  {cat.name}
+                  All
                 </GlassChip>
-              ))}
-            </GlassChipGroup>
+                <GlassChip
+                  selected={showBookmarksOnly}
+                  onClick={() => { setShowBookmarksOnly(!showBookmarksOnly); setSelectedCategoryId(null); }}
+                  icon={<Bookmark className="h-3 w-3" />}
+                >
+                  Bookmarks
+                </GlassChip>
+                {categories.map(cat => (
+                  <GlassChip
+                    key={cat.id}
+                    selected={selectedCategoryId === cat.id}
+                    onClick={() => setSelectedCategoryId(cat.id)}
+                    color={cat.color}
+                  >
+                    {cat.name}
+                  </GlassChip>
+                ))}
+              </GlassChipGroup>
+            </div>
+
+            {/* Sort dropdown */}
+            <div className="relative shrink-0">
+              <select
+                value={sortMode}
+                onChange={(e) => setSortMode(e.target.value as typeof sortMode)}
+                className="glass-chip appearance-none pl-2 pr-6 py-1.5 text-xs font-medium bg-transparent outline-none cursor-pointer text-muted-foreground"
+              >
+                <option value="latest">Latest</option>
+                <option value="likes">Likes</option>
+                <option value="comments">Comments</option>
+              </select>
+              <ArrowUpDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
+            </div>
           </div>
         </div>
       </div>
@@ -308,8 +380,10 @@ const Index = () => {
                   onEdit={tip.user_id === user?.id || user?.email === 'believe0me77@gmail.com' ? () => handleEdit(tip) : undefined}
                   onDelete={tip.user_id === user?.id || user?.email === 'believe0me77@gmail.com' ? () => handleDelete(tip.id) : undefined}
                   onLike={() => handleLike(tip.id)}
+                  onBookmark={() => toggleBookmark(tip.id)}
                   onComment={() => setDetailTip(tip)}
                   isLiked={isLiked(tip.id)}
+                  isBookmarked={isBookmarked(tip.id)}
                   likeCount={getCount(tip.id, tip.likes)}
                   commentCount={getCommentCount(tip.id)}
                   isAnalyzing={analyzingIds.has(tip.id)}
@@ -352,6 +426,7 @@ const Index = () => {
         tip={detailTip}
         isOpen={!!detailTip}
         onClose={() => setDetailTip(null)}
+        onCommentAdded={(tipId, tipOwnerId) => createNotification(tipOwnerId, 'comment', tipId)}
       />
 
       <GlassToast

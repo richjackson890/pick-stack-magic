@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tip } from '@/hooks/useTips';
 import { ArchiCategory } from '@/hooks/useArchiCategories';
-import { ExternalLink, Trash2, Heart, User, Sparkles, Loader2, ChevronDown, Pencil, MessageCircle } from 'lucide-react';
+import { ExternalLink, Trash2, Heart, User, Sparkles, Loader2, ChevronDown, Pencil, MessageCircle, Bookmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export type ViewMode = 'grid' | 'list';
@@ -14,7 +14,9 @@ interface TipCardProps {
   onEdit?: () => void;
   onComment?: () => void;
   onLike?: () => void;
+  onBookmark?: () => void;
   isLiked?: boolean;
+  isBookmarked?: boolean;
   likeCount?: number;
   commentCount?: number;
   isAnalyzing?: boolean;
@@ -30,7 +32,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
   'robot': '🤖',
 };
 
-export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, isLiked, likeCount, commentCount, isAnalyzing, viewMode = 'grid' }: TipCardProps) {
+export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, onBookmark, isLiked, isBookmarked, likeCount, commentCount, isAnalyzing, viewMode = 'grid' }: TipCardProps) {
   const [showAiSection, setShowAiSection] = useState(false);
   const authorName = tip.profiles?.name || tip.profiles?.email?.split('@')[0] || 'Unknown';
   const hasAiData = tip.ai_status === 'done' && (tip.ai_summary || tip.ai_tags?.length > 0);
@@ -116,6 +118,14 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, is
                   >
                     <MessageCircle className="h-3 w-3" />
                     {commentCount || 0}
+                  </button>
+                )}
+                {onBookmark && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onBookmark(); }}
+                    className={cn("transition-colors", isBookmarked ? "text-yellow-500" : "text-muted-foreground hover:text-yellow-500")}
+                  >
+                    <Bookmark className={cn("h-3 w-3", isBookmarked && "fill-current")} />
                   </button>
                 )}
                 {onEdit && (
@@ -313,6 +323,15 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, is
               >
                 <MessageCircle className="h-3.5 w-3.5" />
                 {commentCount || 0}
+              </motion.button>
+            )}
+            {onBookmark && (
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={(e) => { e.stopPropagation(); onBookmark(); }}
+                className={cn("transition-colors", isBookmarked ? "text-yellow-500" : "text-muted-foreground hover:text-yellow-500")}
+              >
+                <Bookmark className={cn("h-3.5 w-3.5", isBookmarked && "fill-current")} />
               </motion.button>
             )}
             {onEdit && (
