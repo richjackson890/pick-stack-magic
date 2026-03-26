@@ -1,39 +1,34 @@
-// PickStack Service Worker
-const CACHE_NAME = 'pickstack-v2';
+// DLab Archi Tips Service Worker
+const CACHE_NAME = 'dlab-archi-v3';
 const OFFLINE_URL = '/';
+
+// Assets to pre-cache during install
+const PRECACHE_ASSETS = [
+  '/',
+  '/manifest.json',
+  '/favicon.ico',
+  '/icons/icon-192.png',
+  '/icons/icon-512.png',
+];
 
 // Pre-cache essential resources during install
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing service worker...');
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll([
-        '/',
-        '/manifest.json',
-        '/favicon.ico',
-        '/icons/icon-192.png',
-        '/icons/icon-512.png',
-      ]);
-    })
+    caches.open(CACHE_NAME).then((cache) => cache.addAll(PRECACHE_ASSETS))
   );
   self.skipWaiting();
 });
 
 // Clean up old caches on activate
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker...');
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames
-          .filter((name) => name !== CACHE_NAME)
-          .map((name) => caches.delete(name))
-      );
-    }).then(() => clients.claim())
+    caches.keys().then((names) =>
+      Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n)))
+    ).then(() => clients.claim())
   );
 });
 
-// Fetch event - handle share target POST requests
+// Fetch event handler
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
@@ -43,18 +38,18 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Skip non-GET requests
+  // Skip non-GET and non-http(s) requests
   if (event.request.method !== 'GET') return;
+  if (!url.protocol.startsWith('http')) return;
 
-  // Skip chrome-extension and non-http(s) requests
-  if (!event.request.url.startsWith('http')) return;
+  // Skip Supabase API / Groq API calls — always go to network
+  if (url.hostname.includes('supabase') || url.hostname.includes('groq')) return;
 
-  // Network-first for navigation requests, cache fallback
+  // Navigation requests — network first, fallback to cached shell
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request)
         .then((response) => {
-          // Cache successful navigation responses
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
           return response;
@@ -64,18 +59,26 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // For other requests, network-first with cache fallback
-  event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Only cache same-origin successful responses
-        if (response.ok && url.origin === self.location.origin) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
+  // Static assets (same-origin JS/CSS/images) — stale-while-revalidate
+  if (url.origin === self.location.origin) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        const networkFetch = fetch(event.request).then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        });
+        return cached || networkFetch;
       })
-      .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // External resources — network only with cache fallback
+  event.respondWith(
+    fetch(event.request).catch(() => caches.match(event.request))
   );
 });
 
@@ -93,7 +96,6 @@ async function handleShareTarget(request) {
 
     return Response.redirect(redirectUrl.toString(), 303);
   } catch (error) {
-    console.error('[SW] Error handling share target:', error);
     return Response.redirect('/share?error=parse_failed', 303);
   }
 }

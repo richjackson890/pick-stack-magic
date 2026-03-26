@@ -23,6 +23,7 @@ import { StatsTab } from '@/components/StatsTab';
 import { TeamTab } from '@/components/TeamTab';
 import { AIReportTab } from '@/components/AIReportTab';
 import { TipDetailModal } from '@/components/TipDetailModal';
+import { InstallBanner } from '@/components/InstallBanner';
 import { RefreshCw, Search, X, LayoutGrid, List, ArrowUpDown, Bookmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -434,6 +435,8 @@ const Index = () => {
         message={toastState.message}
         onClose={() => setToastState(prev => ({ ...prev, show: false }))}
       />
+
+      <InstallBanner />
     </div>
   );
 };
