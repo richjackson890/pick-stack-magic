@@ -6,26 +6,35 @@ import { Button } from '@/components/ui/button';
 import { Tip } from '@/hooks/useTips';
 import { useTipComments, TipComment } from '@/hooks/useTipComments';
 import { useAuth } from '@/contexts/AuthContext';
-import { Send, Trash2, User, Loader2, MessageCircle } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { Send, Trash2, User, Loader2, MessageCircle, Trophy, Save } from 'lucide-react';
 
 interface TipDetailModalProps {
   tip: Tip | null;
   isOpen: boolean;
   onClose: () => void;
   onCommentAdded?: (tipId: string, tipOwnerId: string) => void;
+  onTipUpdated?: () => void;
 }
 
-export function TipDetailModal({ tip, isOpen, onClose, onCommentAdded }: TipDetailModalProps) {
+export function TipDetailModal({ tip, isOpen, onClose, onCommentAdded, onTipUpdated }: TipDetailModalProps) {
   const { user } = useAuth();
   const { comments, loading, fetchComments, addComment, deleteComment } = useTipComments();
   const [newComment, setNewComment] = useState('');
   const [sending, setSending] = useState(false);
+  const [competitionMemo, setCompetitionMemo] = useState('');
+  const [savingMemo, setSavingMemo] = useState(false);
+  const [memoSaved, setMemoSaved] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const isOwner = user?.id === tip?.user_id;
 
   useEffect(() => {
     if (isOpen && tip) {
       fetchComments(tip.id);
       setNewComment('');
+      setCompetitionMemo(tip.competition_name || '');
+      setMemoSaved(false);
     }
   }, [isOpen, tip, fetchComments]);
 
@@ -42,6 +51,19 @@ export function TipDetailModal({ tip, isOpen, onClose, onCommentAdded }: TipDeta
     if (success) onCommentAdded?.(tip.id, tip.user_id);
     setNewComment('');
     setSending(false);
+  };
+
+  const handleSaveMemo = async () => {
+    if (!tip) return;
+    setSavingMemo(true);
+    await (supabase
+      .from('tips' as any)
+      .update({ competition_name: competitionMemo.trim() || null })
+      .eq('id', tip.id) as any);
+    setSavingMemo(false);
+    setMemoSaved(true);
+    onTipUpdated?.();
+    setTimeout(() => setMemoSaved(false), 2000);
   };
 
   if (!tip) return null;
@@ -66,6 +88,41 @@ export function TipDetailModal({ tip, isOpen, onClose, onCommentAdded }: TipDeta
             />
           </div>
         )}
+
+        {/* Competition memo */}
+        <div className="shrink-0 px-6 py-3 space-y-2 border-b border-border/20">
+          <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+            <Trophy className="h-3.5 w-3.5" />
+            Competition / Project
+          </div>
+          {isOwner ? (
+            <div className="flex gap-2">
+              <Input
+                value={competitionMemo}
+                onChange={(e) => { setCompetitionMemo(e.target.value); setMemoSaved(false); }}
+                placeholder="Enter competition or project name..."
+                className="flex-1 text-sm"
+              />
+              <Button
+                size="sm"
+                variant={memoSaved ? 'outline' : 'default'}
+                onClick={handleSaveMemo}
+                disabled={savingMemo || memoSaved}
+                className="shrink-0"
+              >
+                {savingMemo ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : memoSaved ? 'Saved' : <Save className="h-3.5 w-3.5" />}
+              </Button>
+            </div>
+          ) : (
+            tip.competition_name ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-secondary text-secondary-foreground">
+                🏆 {tip.competition_name}
+              </span>
+            ) : (
+              <p className="text-xs text-muted-foreground/60">No competition linked</p>
+            )
+          )}
+        </div>
 
         {/* Comments list - scrollable */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">

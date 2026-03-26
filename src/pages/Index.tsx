@@ -24,6 +24,7 @@ import { TeamTab } from '@/components/TeamTab';
 import { AIReportTab } from '@/components/AIReportTab';
 import { TipDetailModal } from '@/components/TipDetailModal';
 import { InstallBanner } from '@/components/InstallBanner';
+import { WorkDashboard } from '@/components/WorkDashboard';
 import { RefreshCw, Search, X, LayoutGrid, List, ArrowUpDown, Bookmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -32,7 +33,7 @@ const Index = () => {
   const { tips, loading: tipsLoading, addTip, updateTip, deleteTip, refetch } = useTips();
   const { categories, loading: categoriesLoading, getCategoryById, getDefaultCategory } = useArchiCategories();
   const { analyzeTip, analyzingIds } = useGroqAnalysis();
-  const { team } = useTeam();
+  const { team, members: teamMembers } = useTeam();
   const { toggleLike, isLiked, setInitialCount, getCount } = useTipLikes();
   const { fetchCommentCount, getCount: getCommentCount, commentCounts } = useTipComments();
   const { toggleBookmark, isBookmarked, bookmarkedIds } = useBookmarks();
@@ -49,6 +50,7 @@ const Index = () => {
   const [currentTab, setCurrentTab] = useState<'home' | 'creator' | 'report' | 'dashboard'>('home');
   const [sortMode, setSortMode] = useState<'latest' | 'likes' | 'comments'>('latest');
   const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
+  const [homeSubTab, setHomeSubTab] = useState<'tips' | 'work'>('tips');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Toast state
@@ -241,24 +243,15 @@ const Index = () => {
     );
   }
 
-  return (
-    <div className="min-h-screen pb-24">
-      <Header
-          notifications={notifications}
-          unreadCount={unreadCount}
-          onMarkAsRead={markAsRead}
-          onMarkAllAsRead={markAllAsRead}
-          onNotificationClick={handleNotificationClick}
-        />
-
+  // Tips feed content (reused in both desktop and mobile)
+  const tipsFeed = (
+    <>
       {/* Filter Bar */}
-      <div className="sticky top-12 z-20 glass-dock border-t-0 border-b border-border/30">
-        <div className="container px-3 py-2.5 space-y-2">
+      <div className="sticky top-12 z-20 glass-dock border-t-0 border-b border-border/30 lg:static lg:rounded-xl lg:border lg:mb-3">
+        <div className="px-3 py-2.5 space-y-2">
           {/* Search Row */}
           <div className="flex items-center gap-2">
-            <div className={cn(
-              'flex items-center gap-2 glass-chip px-3 py-2 flex-1'
-            )}>
+            <div className={cn('flex items-center gap-2 glass-chip px-3 py-2 flex-1')}>
               <Search className="h-4 w-4 text-muted-foreground shrink-0" />
               <input
                 type="text"
@@ -347,7 +340,7 @@ const Index = () => {
         )}
       </AnimatePresence>
 
-      <main className="container py-3 px-2">
+      <div className="py-3 px-2">
         {tips.length === 0 ? (
           <EmptyState onAddClick={handleAddClick} />
         ) : filteredTips.length === 0 ? (
@@ -393,18 +386,82 @@ const Index = () => {
             ))}
           </div>
         )}
+      </div>
+    </>
+  );
 
-        {/* Refresh Button */}
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={handleRefresh}
-          disabled={isRefreshing}
-          className="fixed bottom-28 right-4 glass-button w-12 h-12 rounded-full flex items-center justify-center neon-glow"
-        >
-          <RefreshCw className={`h-5 w-5 text-muted-foreground ${isRefreshing ? 'animate-spin' : ''}`} />
-        </motion.button>
-      </main>
+  return (
+    <div className="min-h-screen pb-24">
+      <Header
+        notifications={notifications}
+        unreadCount={unreadCount}
+        onMarkAsRead={markAsRead}
+        onMarkAllAsRead={markAllAsRead}
+        onNotificationClick={handleNotificationClick}
+      />
+
+      {/* Mobile sub-tab switcher (Tips / Work) — visible only on small screens */}
+      <div className="lg:hidden sticky top-12 z-20 glass-dock border-t-0 border-b border-border/30">
+        <div className="flex">
+          {(['tips', 'work'] as const).map(tab => (
+            <button
+              key={tab}
+              onClick={() => setHomeSubTab(tab)}
+              className={cn(
+                'flex-1 py-2.5 text-xs font-semibold text-center transition-colors relative',
+                homeSubTab === tab ? 'text-primary' : 'text-muted-foreground'
+              )}
+            >
+              {tab === 'tips' ? 'Tips' : 'Work'}
+              {homeSubTab === tab && (
+                <motion.div
+                  layoutId="home-subtab"
+                  className="absolute bottom-0 left-1/4 right-1/4 h-0.5 rounded-full bg-primary"
+                />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Desktop: side-by-side layout */}
+      <div className="hidden lg:flex container gap-4 pt-3">
+        {/* Left: Tips feed 60% */}
+        <main className="w-[60%] min-w-0">
+          {tipsFeed}
+        </main>
+
+        {/* Right: Work dashboard 40% */}
+        <aside className="w-[40%] min-w-0 pt-1">
+          <div className="sticky top-14">
+            <WorkDashboard teamId={team?.id} teamMembers={teamMembers} />
+          </div>
+        </aside>
+      </div>
+
+      {/* Mobile: tab-based layout */}
+      <div className="lg:hidden">
+        {homeSubTab === 'tips' ? (
+          <main className="container">
+            {tipsFeed}
+          </main>
+        ) : (
+          <div className="container px-4 pt-3">
+            <WorkDashboard teamId={team?.id} teamMembers={teamMembers} />
+          </div>
+        )}
+      </div>
+
+      {/* Refresh Button */}
+      <motion.button
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        onClick={handleRefresh}
+        disabled={isRefreshing}
+        className="fixed bottom-28 right-4 glass-button w-12 h-12 rounded-full flex items-center justify-center neon-glow"
+      >
+        <RefreshCw className={`h-5 w-5 text-muted-foreground ${isRefreshing ? 'animate-spin' : ''}`} />
+      </motion.button>
 
       <GlassDock
         currentTab={currentTab}
@@ -427,6 +484,7 @@ const Index = () => {
         isOpen={!!detailTip}
         onClose={() => setDetailTip(null)}
         onCommentAdded={(tipId, tipOwnerId) => createNotification(tipOwnerId, 'comment', tipId)}
+        onTipUpdated={refetch}
       />
 
       <GlassToast
