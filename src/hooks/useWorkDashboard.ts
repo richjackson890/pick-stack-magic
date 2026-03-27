@@ -79,7 +79,6 @@ export function useWorkDashboard(teamId: string | undefined) {
         .from('projects') as any)
         .select('*')
         .eq('created_by', user.id)
-        .eq('status', 'active')
         .or(`deadline.is.null,deadline.gte.${today}`)
         .order('deadline') as any;
 
@@ -174,6 +173,7 @@ export function useWorkDashboard(teamId: string | undefined) {
       name,
       type: type?.trim() || null,
       deadline: deadline?.trim() || null,
+      status: '진행중',
       created_by: user.id,
     };
     console.log('[WorkDashboard] addProject payload:', payload);

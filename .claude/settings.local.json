@@ -21,7 +21,10 @@
       "Bash(find /d/Users/SYlee/pick-stack-magic/src/components/ui -type f -name *.tsx)",
       "Bash(find /d/Users/SYlee/pick-stack-magic/src/components -type f -name *.tsx)",
       "Bash(find /d/Users/SYlee/pick-stack-magic/src -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\))",
-      "Bash(grep -r \"glass-card\\\\|glass-button\\\\|glass-dock\" /d/Users/SYlee/pick-stack-magic/src --include=*.css)"
+      "Bash(grep -r \"glass-card\\\\|glass-button\\\\|glass-dock\" /d/Users/SYlee/pick-stack-magic/src --include=*.css)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ]
   }
 }
