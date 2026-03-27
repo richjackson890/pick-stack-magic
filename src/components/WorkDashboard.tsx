@@ -47,9 +47,10 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   const toggle = (key: string) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
 
   const openForm = (type: FormType) => {
-    setProjectName(''); setProjectType(''); setProjectDeadline(''); setSelectedMembers(new Set());
-    setEventTitle(''); setEventDate(''); setEventTime('');
-    setLeaveDate(''); setLeaveType('연차');
+    const today = new Date().toISOString().slice(0, 10);
+    setProjectName(''); setProjectType(''); setProjectDeadline(today); setSelectedMembers(new Set());
+    setEventTitle(''); setEventDate(today); setEventTime('');
+    setLeaveDate(today); setLeaveType('연차');
     setActiveForm(type);
   };
 

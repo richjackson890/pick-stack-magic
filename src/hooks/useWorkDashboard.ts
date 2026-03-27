@@ -73,9 +73,15 @@ export function useWorkDashboard(teamId: string | undefined) {
     console.log('[WorkDashboard] fetchAll - week:', week);
 
     try {
-      // Projects (active)
-      const projectQuery = (supabase.from('projects' as any).select('*').eq('created_by', user.id).eq('status', 'active').order('deadline') as any);
-      const { data: projectsData } = await projectQuery;
+      // Projects (active, deadline >= today or no deadline)
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: projectsData } = await (supabase
+        .from('projects') as any)
+        .select('*')
+        .eq('created_by', user.id)
+        .eq('status', 'active')
+        .or(`deadline.is.null,deadline.gte.${today}`)
+        .order('deadline') as any;
 
       const rawProjects: Project[] = (projectsData || []).map((p: any) => ({ ...p, members: [] }));
 
