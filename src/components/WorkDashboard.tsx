@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useWorkDashboard, Project, TeamEvent, Leave } from '@/hooks/useWorkDashboard';
+import { useWorkDashboard, Project, TeamEvent, Leave, WeekSnapshot } from '@/hooks/useWorkDashboard';
 import { useAuth } from '@/contexts/AuthContext';
 import { TeamMember } from '@/hooks/useTeam';
-import { ChevronDown, Plus, Briefcase, Calendar, PalmtreeIcon as Palmtree, Trash2, Loader2, X, Check, Pencil, Users, Printer } from 'lucide-react';
+import { ChevronDown, Plus, Briefcase, Calendar, PalmtreeIcon as Palmtree, Trash2, Loader2, X, Check, Pencil, Users, Printer, History } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -14,6 +14,11 @@ interface WorkDashboardProps {
 }
 
 type FormType = 'project' | 'event' | 'leave' | null;
+
+const getTodayKST = () => {
+  const now = new Date();
+  return new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
+};
 
 const getDisplayName = (profiles?: { display_name?: string | null; name?: string | null; email?: string }) =>
   profiles?.display_name || profiles?.name || profiles?.email?.split('@')[0] || '?';
@@ -34,9 +39,12 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     deleteProject, deleteEvent, deleteLeave, deleteProjectTask,
     addProjectType, deleteProjectType,
     upsertLeaveBalance,
+    snapshots, viewingSnapshot, viewSnapshot,
   } = useWorkDashboard(teamId);
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [showHistory, setShowHistory] = useState(false);
+  const isReadOnly = !!viewingSnapshot;
   const [activeForm, setActiveForm] = useState<FormType>(null);
   const [saving, setSaving] = useState(false);
 
@@ -76,7 +84,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   };
 
   const openForm = (type: FormType) => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getTodayKST();
     resetForm();
     setProjectName(''); setProjectType(''); setSelectedMembers(new Set()); setTaskDrafts([]);
     setEventTitle(''); setEventDate(today); setEventTime('');
@@ -122,7 +130,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
 
   // Task draft helpers
   const addTaskDraft = () => {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getTodayKST();
     setTaskDrafts(prev => [...prev, { title: '', start_date: today, end_date: today }]);
   };
 
@@ -195,8 +203,17 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
 
   const isAdmin = user?.email === 'believe0me77@gmail.com';
 
-  // 이번 주 월~금 계산
+  // 주간 날짜 라벨
+  const fmtWeekDate = (d: Date) => {
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
+    return `${d.getMonth() + 1}/${d.getDate()}(${days[d.getDay()]})`;
+  };
   const getWeekLabel = () => {
+    if (viewingSnapshot) {
+      const mon = new Date(viewingSnapshot.week_start + 'T00:00:00');
+      const fri = new Date(viewingSnapshot.week_end + 'T00:00:00');
+      return `${fmtWeekDate(mon)} ~ ${fmtWeekDate(fri)}`;
+    }
     const now = new Date();
     const day = now.getDay();
     const diffMon = day === 0 ? -6 : 1 - day;
@@ -204,9 +221,12 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     mon.setDate(now.getDate() + diffMon);
     const fri = new Date(mon);
     fri.setDate(mon.getDate() + 4);
-    const days = ['일', '월', '화', '수', '목', '금', '토'];
-    const fmt = (d: Date) => `${d.getMonth() + 1}월 ${d.getDate()}일(${days[d.getDay()]})`;
-    return `${fmt(mon)} ~ ${fmt(fri)}`;
+    return `${fmtWeekDate(mon)} ~ ${fmtWeekDate(fri)}`;
+  };
+  const getSnapshotLabel = (s: WeekSnapshot) => {
+    const mon = new Date(s.week_start + 'T00:00:00');
+    const fri = new Date(s.week_end + 'T00:00:00');
+    return `${fmtWeekDate(mon)} ~ ${fmtWeekDate(fri)}`;
   };
 
   const handlePrint = () => {
@@ -215,141 +235,203 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     const projectsHtml = projects.map(p => {
       const memberNames = p.members.map(m => [m.position, m.name].filter(Boolean).join(' ')).join(', ');
       const tasksHtml = (p.tasks || []).map(t =>
-        `<div class="task">• ${esc(t.title)} <span class="date">${formatShortDate(t.start_date)} ~ ${formatShortDate(t.end_date)}</span></div>`
+        `<tr class="sub"><td class="sub-name">└ ${esc(t.title)}</td><td></td><td></td><td class="r mono">${formatShortDate(t.start_date)} ~ ${formatShortDate(t.end_date)}</td></tr>`
       ).join('');
-      return `<div class="item">
-        <strong>${esc(p.name)}</strong>
-        ${p.type ? `<span class="badge type">${esc(p.type)}</span>` : ''}
-        ${memberNames ? `<span class="members">${esc(memberNames)}</span>` : ''}
-      </div>${tasksHtml}`;
-    }).join('') || '<div class="empty">등록된 프로젝트가 없습니다</div>';
+      return `<tr class="proj-row">
+        <td class="bold">${esc(p.name)}</td>
+        <td class="type-col">${p.type ? `(${esc(p.type)})` : ''}</td>
+        <td class="accent">${esc(memberNames)}</td>
+        <td class="r">${p.tasks.length > 0 ? p.tasks.length + '건' : ''}</td>
+      </tr>${tasksHtml}`;
+    }).join('') || '<tr><td colspan="4" class="empty">등록된 프로젝트가 없습니다</td></tr>';
 
     const eventsHtml = events.map(e =>
-      `<div class="item">
-        <span class="date">${formatDate(e.event_date)}</span>
-        ${e.event_time ? `<span class="time">${esc(e.event_time)}</span>` : ''}
-        <span class="title">${esc(e.title)}</span>
-      </div>`
-    ).join('') || '<div class="empty">일정 없음</div>';
+      `<tr>
+        <td class="mono" style="width:90px">${formatDate(e.event_date)}</td>
+        <td class="accent" style="width:50px">${e.event_time ? esc(e.event_time) : ''}</td>
+        <td>${esc(e.title)}</td>
+      </tr>`
+    ).join('') || '<tr><td colspan="3" class="empty">일정 없음</td></tr>';
 
     const leavesHtml = leaves.map(l => {
       const lname = l.profile?.display_name || l.profile?.name || '';
-      return `<div class="item">
-        <span class="date">${formatDate(l.leave_date)}</span>
-        <span class="badge leave-${l.type === '연차' ? 'full' : l.type.includes('반반') ? 'quarter' : 'half'}">${esc(l.type)}</span>
-        <span class="title">${esc(lname)}</span>
-      </div>`;
-    }).join('') || '<div class="empty">연차 없음</div>';
+      return `<tr>
+        <td class="mono" style="width:90px">${formatDate(l.leave_date)}</td>
+        <td style="width:70px"><span class="tag ${l.type === '연차' ? 'tag-red' : l.type.includes('반반') ? 'tag-purple' : 'tag-amber'}">${esc(l.type)}</span></td>
+        <td>${esc(lname)}</td>
+      </tr>`;
+    }).join('') || '<tr><td colspan="3" class="empty">연차 없음</td></tr>';
 
-    const balancesHtml = teamMembers.map(m => {
+    const balanceRows = teamMembers.map(m => {
       const bal = balances.find(b => b.user_id === m.user_id);
       const name = getDisplayName(m.profiles);
       const pos = m.profiles?.position || '';
-      if (!bal) return `<div class="item"><span class="name">${pos ? esc(pos) + ' ' : ''}${esc(name)}</span><span class="muted">미등록</span></div>`;
+      const label = (pos ? esc(pos) + ' ' : '') + esc(name);
+      if (!bal) return `<tr><td>${label}</td><td class="c">-</td><td class="c">-</td><td class="c muted">미등록</td></tr>`;
       const remaining = bal.total_days - bal.used_days;
-      const color = remaining <= 2 ? '#ef4444' : remaining <= 5 ? '#f59e0b' : '#10b981';
-      const pct = bal.total_days > 0 ? (remaining / bal.total_days) * 100 : 0;
-      return `<div class="balance-row">
-        <span class="name">${pos ? esc(pos) + ' ' : ''}${esc(name)}</span>
-        <span class="muted">사용 ${bal.used_days} / ${bal.total_days}</span>
-        <strong style="color:${color}; min-width:60px; text-align:right">잔여 ${remaining}</strong>
-      </div>
-      <div class="bar"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>`;
-    }).join('') || '<div class="empty">데이터 없음</div>';
+      const color = remaining <= 2 ? '#ef4444' : remaining <= 5 ? '#f59e0b' : '#f97316';
+      return `<tr>
+        <td>${label}</td>
+        <td class="c mono">${bal.total_days}</td>
+        <td class="c mono">${bal.used_days}</td>
+        <td class="c bold" style="color:${color}">${remaining}</td>
+      </tr>`;
+    }).join('');
 
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    printWindow.document.write(`<!DOCTYPE html>
+    const w = window.open('', '_blank');
+    if (!w) return;
+    w.document.write(`<!DOCTYPE html>
 <html>
 <head>
 <title>DLab1 주간업무</title>
 <style>
+  @page { size:A4; margin:14mm 16mm; }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family:'Malgun Gothic','맑은 고딕',sans-serif; padding:28px; color:#1e293b; line-height:1.6; font-size:14px; }
+  body { font:11px/1.55 'Malgun Gothic','맑은 고딕',sans-serif; color:#222; }
 
-  .header { display:flex; align-items:baseline; justify-content:space-between; padding-bottom:10px; margin-bottom:24px; border-bottom:3px solid #f97316; }
-  .header h1 { font-size:24px; font-weight:800; color:#0f172a; }
-  .header .week { font-size:14px; color:#64748b; }
+  /* Header */
+  .hd { display:flex; align-items:baseline; justify-content:space-between; padding-bottom:6px; margin-bottom:14px; border-bottom:2px solid #f97316; }
+  .hd h1 { font-size:14px; font-weight:800; color:#111; letter-spacing:-0.3px; }
+  .hd span { font-size:10px; color:#888; }
 
-  .section { margin-bottom:20px; break-inside:avoid; }
-  .section-header { background:#f1f5f9; border-left:3px solid #f97316; padding:7px 14px; font-weight:700; font-size:15px; color:#0f172a; margin-bottom:10px; }
+  /* Section */
+  .sec { margin-bottom:12px; break-inside:avoid; }
+  .sec-t { font-size:11px; font-weight:700; color:#333; padding:3px 0; margin-bottom:4px; border-bottom:1.5px solid #333; }
+  .sec-t::before { content:''; display:inline-block; width:3px; height:10px; background:#f97316; margin-right:6px; vertical-align:-1px; }
 
-  .item { display:flex; align-items:center; gap:10px; padding:7px 4px; border-bottom:1px solid #e2e8f0; }
-  .item:last-child { border-bottom:none; }
-  .item strong { font-weight:700; color:#0f172a; }
-  .item .title { flex:1; }
-  .item .date { color:#64748b; font-size:13px; min-width:90px; }
-  .item .time { color:#f97316; font-weight:600; font-size:13px; }
-  .item .members { color:#f97316; font-size:13px; }
-  .item .name { flex:1; }
-  .item .muted { color:#94a3b8; font-size:13px; }
+  /* Tables */
+  table { width:100%; border-collapse:collapse; font-size:10px; }
+  td { padding:3px 4px; border-bottom:1px solid #eee; vertical-align:top; }
+  tr:last-child td { border-bottom:none; }
+  .bold { font-weight:700; }
+  .r { text-align:right; }
+  .c { text-align:center; }
+  .mono { font-family:'Consolas','Courier New',monospace; font-size:9.5px; }
+  .accent { color:#f97316; }
+  .muted { color:#aaa; }
+  .empty { text-align:center; color:#bbb; padding:8px; }
 
-  .badge { display:inline-block; padding:1px 10px; border-radius:12px; font-size:12px; font-weight:500; }
-  .badge.type { background:#fff7ed; color:#ea580c; }
-  .badge.leave-full { background:#ffe4e6; color:#e11d48; }
-  .badge.leave-half { background:#fef3c7; color:#d97706; }
-  .badge.leave-quarter { background:#ede9fe; color:#7c3aed; }
+  /* Project table columns */
+  .proj-table td:nth-child(1) { width:30%; }
+  .proj-table td:nth-child(2) { width:15%; text-align:left; }
+  .proj-table td:nth-child(3) { width:25%; }
+  .proj-table td:nth-child(4) { width:30%; text-align:right; white-space:nowrap; }
+  .proj-table thead td { font-weight:700; color:#666; font-size:9px; border-bottom:1.5px solid #ddd; background:#fafafa; }
+  .proj-row td { border-bottom:1px solid #ddd; }
+  .type-col { color:#555; font-size:9.5px; text-align:left; }
+  tr.sub td { color:#666; font-size:9.5px; padding-top:1.5px; padding-bottom:1.5px; border-bottom:1px solid #f5f5f5; }
+  .sub-name { padding-left:1.2em; }
 
-  .task { padding:4px 0 4px 20px; color:#64748b; font-size:13px; border-bottom:1px solid #f0f0f0; display:flex; align-items:center; gap:8px; }
-  .task .date { margin-left:auto; font-size:12px; color:#94a3b8; font-family:monospace; }
+  /* Tags (leaves) */
+  .tag { display:inline-block; padding:0 5px; border-radius:3px; font-size:9px; font-weight:600; background:#fff7ed; color:#c2410c; border:1px solid #fed7aa; }
+  .tag-red { background:#fff1f2; color:#be123c; border-color:#fecdd3; }
+  .tag-amber { background:#fffbeb; color:#b45309; border-color:#fde68a; }
+  .tag-purple { background:#f5f3ff; color:#6d28d9; border-color:#ddd6fe; }
 
-  .balance-row { display:flex; align-items:center; gap:10px; padding:6px 4px 2px; }
-  .balance-row .name { flex:1; font-weight:500; }
-  .balance-row .muted { color:#64748b; font-size:13px; font-family:monospace; }
-  .bar { height:8px; background:#e2e8f0; border-radius:4px; overflow:hidden; margin:0 4px 8px; }
-  .bar-fill { height:100%; border-radius:4px; }
+  /* Balance table */
+  .bal-table td { padding:2.5px 6px; }
+  .bal-table thead td { font-weight:700; color:#666; font-size:9px; border-bottom:1.5px solid #ddd; background:#fafafa; }
 
-  .empty { padding:12px; color:#94a3b8; text-align:center; font-size:13px; }
-
-  .footer { margin-top:28px; padding-top:8px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; font-size:10px; color:#94a3b8; }
+  /* Footer */
+  .ft { margin-top:14px; padding-top:4px; border-top:1px solid #ddd; display:flex; justify-content:space-between; font-size:8px; color:#bbb; }
 </style>
 </head>
 <body>
-  <div class="header">
+  <div class="hd">
     <h1>DLab1 주간업무</h1>
-    <span class="week">${getWeekLabel()}</span>
+    <span>${getWeekLabel()}</span>
   </div>
 
-  <div class="section">
-    <div class="section-header">프로젝트 현황</div>
-    ${projectsHtml}
+  <div class="sec">
+    <div class="sec-t">프로젝트 현황</div>
+    <table class="proj-table">
+      <thead><tr><td>프로젝트명</td><td>타입</td><td>담당자</td><td class="r">건수/기간</td></tr></thead>
+      <tbody>${projectsHtml}</tbody>
+    </table>
   </div>
 
-  <div class="section">
-    <div class="section-header">This Week</div>
-    ${eventsHtml}
+  <div class="sec">
+    <div class="sec-t">주간 일정</div>
+    <table>${eventsHtml}</table>
   </div>
 
-  <div class="section">
-    <div class="section-header">Leaves</div>
-    ${leavesHtml}
+  <div class="sec">
+    <div class="sec-t">연차/휴가</div>
+    <table>${leavesHtml}</table>
   </div>
 
-  <div class="section">
-    <div class="section-header">팀원 연차 현황</div>
-    ${balancesHtml}
+  <div class="sec">
+    <div class="sec-t">팀원 연차 현황</div>
+    <table class="bal-table">
+      <thead><tr><td>이름</td><td class="c">총 연차</td><td class="c">사용</td><td class="c">잔여</td></tr></thead>
+      <tbody>${balanceRows}</tbody>
+    </table>
   </div>
 
-  <div class="footer">
-    <span>출력일: ${new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+  <div class="ft">
+    <span>출력일 ${new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
     <span>DLab Architecture</span>
   </div>
 </body>
 </html>`);
-    printWindow.document.close();
-    setTimeout(() => printWindow.print(), 300);
+    w.document.close();
+    setTimeout(() => w.print(), 300);
   };
 
   return (
     <div id="work-dashboard" className="space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-4 pb-3 border-b border-border print-header">
-        <h2 className="text-xl font-bold text-foreground flex-1">DLab1 주간업무</h2>
+      <div className="flex items-center gap-3 pb-3 border-b border-border print-header">
+        <h2 className="text-xl font-bold text-foreground flex-1">
+          DLab1 주간업무
+          {isReadOnly && <span className="text-sm font-normal text-muted-foreground ml-2">(히스토리)</span>}
+        </h2>
         <span className="text-sm text-muted-foreground font-mono">{getWeekLabel()}</span>
+
+        {/* History dropdown */}
+        <div className="relative">
+          <button
+            onClick={() => setShowHistory(!showHistory)}
+            className={cn("shrink-0 transition-colors", isReadOnly ? "text-primary" : "text-muted-foreground hover:text-primary")}
+            title="주간 히스토리"
+          >
+            <History className="h-5 w-5" />
+          </button>
+          {showHistory && (
+            <div className="absolute right-0 top-8 z-50 w-56 rounded-lg border bg-popover shadow-lg py-1">
+              <button
+                onClick={() => { viewSnapshot(null); setShowHistory(false); }}
+                className={cn("w-full text-left px-3 py-1.5 text-sm hover:bg-secondary/50", !viewingSnapshot && "font-bold text-primary")}
+              >
+                이번 주
+              </button>
+              {snapshots.length > 0 && <div className="border-t my-1" />}
+              {snapshots.map(s => (
+                <button
+                  key={s.id}
+                  onClick={() => { viewSnapshot(s); setShowHistory(false); }}
+                  className={cn("w-full text-left px-3 py-1.5 text-sm hover:bg-secondary/50", viewingSnapshot?.id === s.id && "font-bold text-primary")}
+                >
+                  {getSnapshotLabel(s)}
+                </button>
+              ))}
+              {snapshots.length === 0 && <p className="px-3 py-2 text-xs text-muted-foreground">저장된 히스토리 없음</p>}
+            </div>
+          )}
+        </div>
+
         <button onClick={handlePrint} className="text-muted-foreground hover:text-primary shrink-0 print-hide" title="인쇄">
           <Printer className="h-5 w-5" />
         </button>
       </div>
+
+      {/* Read-only banner */}
+      {isReadOnly && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
+          <span className="text-sm text-amber-600 flex-1">과거 주간 데이터를 보고 있습니다 (읽기 전용)</span>
+          <button onClick={() => viewSnapshot(null)} className="text-sm text-primary font-medium hover:underline">이번 주로 돌아가기</button>
+        </div>
+      )}
 
       {/* 1. 프로젝트 현황 */}
       <Section icon={<Briefcase className="h-5 w-5" />} title="프로젝트 현황" count={projects.length} collapsed={!!collapsed.projects} onToggle={() => toggle('projects')}>
@@ -367,8 +449,8 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                       {p.members.map(m => [m.position, m.name].filter(Boolean).join(' ')).join(' · ')}
                     </span>
                   )}
-                  <button onClick={() => openEditProject(p)} className="text-muted-foreground hover:text-primary shrink-0"><Pencil className="h-4 w-4" /></button>
-                  <button onClick={() => deleteProject(p.id)} className="text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="h-4 w-4" /></button>
+                  {!isReadOnly && <button onClick={() => openEditProject(p)} className="text-muted-foreground hover:text-primary shrink-0"><Pencil className="h-4 w-4" /></button>}
+                  {!isReadOnly && <button onClick={() => deleteProject(p.id)} className="text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="h-4 w-4" /></button>}
                 </div>
                 {p.tasks.length > 0 && (
                   <div className="ml-4 space-y-1.5 border-l-2 border-primary/20 pl-4">
@@ -376,7 +458,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                       <div key={t.id} className="flex items-center gap-3 group">
                         <span className="text-sm flex-1 text-muted-foreground">{t.title}</span>
                         <span className="text-sm text-muted-foreground font-mono shrink-0">{formatShortDate(t.start_date)} ~ {formatShortDate(t.end_date)}</span>
-                        <button onClick={() => deleteProjectTask(t.id)} className="text-muted-foreground hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-3.5 w-3.5" /></button>
+                        {!isReadOnly && <button onClick={() => deleteProjectTask(t.id)} className="text-muted-foreground hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-3.5 w-3.5" /></button>}
                       </div>
                     ))}
                   </div>
@@ -385,7 +467,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
             ))}
           </div>
         )}
-        <AddButton label="Add Project" onClick={() => openForm('project')} />
+        {!isReadOnly && <AddButton label="Add Project" onClick={() => openForm('project')} />}
       </Section>
 
       {/* 2. This Week */}
@@ -400,14 +482,14 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                   {e.event_time && <span className="text-sm text-primary font-medium shrink-0 whitespace-nowrap">{e.event_time}</span>}
                   <span className="text-sm font-medium flex-1 whitespace-nowrap truncate">{e.title}</span>
                   <div className="flex items-center gap-1 ml-auto shrink-0">
-                    <button onClick={() => openEditEvent(e)} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button>
-                    <button onClick={() => deleteEvent(e.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                    {!isReadOnly && <button onClick={() => openEditEvent(e)} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button>}
+                    {!isReadOnly && <button onClick={() => deleteEvent(e.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
                   </div>
                 </div>
               ))}
             </div>
           )}
-          <AddButton label="Add Event" onClick={() => openForm('event')} />
+          {!isReadOnly && <AddButton label="Add Event" onClick={() => openForm('event')} />}
         </Section>
 
       {/* 3. Leaves */}
@@ -427,14 +509,14 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                   )}>{leaveLabel(l.type)}</span>
                   <span className="text-sm font-medium flex-1 whitespace-nowrap truncate">{l.profile?.display_name || l.profile?.name || 'Unknown'}</span>
                   <div className="flex items-center gap-1 ml-auto shrink-0">
-                    <button onClick={() => openEditLeave(l)} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button>
-                    <button onClick={() => deleteLeave(l.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                    {!isReadOnly && <button onClick={() => openEditLeave(l)} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button>}
+                    {!isReadOnly && <button onClick={() => deleteLeave(l.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
                   </div>
                 </div>
               ))}
             </div>
           )}
-          <AddButton label="Add Leave" onClick={() => openForm('leave')} />
+          {!isReadOnly && <AddButton label="Add Leave" onClick={() => openForm('leave')} />}
       </Section>
 
       {/* 4. 팀원 연차 현황 */}

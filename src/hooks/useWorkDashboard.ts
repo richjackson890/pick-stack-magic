@@ -2,6 +2,26 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
+// KST 기준 오늘 날짜 (YYYY-MM-DD)
+const getTodayKST = () => {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return kst.toISOString().split('T')[0];
+};
+
+// KST 기준 현재 연도
+const getYearKST = () => {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return kst.getUTCFullYear();
+};
+
+// KST 기준 Date를 YYYY-MM-DD로 변환
+const toDateStrKST = (d: Date) => {
+  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
+  return kst.toISOString().split('T')[0];
+};
+
 export interface ProjectTask {
   id: string;
   project_id: string;
@@ -52,6 +72,14 @@ export interface ProjectType {
   created_by: string | null;
 }
 
+export interface WeekSnapshot {
+  id: string;
+  week_start: string;
+  week_end: string;
+  snapshot: { projects: Project[]; events: TeamEvent[]; leaves: Leave[]; balances: LeaveBalance[] };
+  created_at: string;
+}
+
 export function useWorkDashboard(teamId: string | undefined) {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
@@ -60,15 +88,17 @@ export function useWorkDashboard(teamId: string | undefined) {
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
   const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
   const [loading, setLoading] = useState(true);
+  const [snapshots, setSnapshots] = useState<WeekSnapshot[]>([]);
+  const [viewingSnapshot, setViewingSnapshot] = useState<WeekSnapshot | null>(null);
 
-  // Date range: this week Mon ~ next week Sun (14 days)
+  // Date range: this week Mon ~ next week Sun (14 days), KST
   const getWeekRange = () => {
-    const now = new Date();
-    const day = now.getDay();
+    const today = getTodayKST();
+    const d = new Date(today + 'T00:00:00');
+    const day = d.getDay();
     const diff = day === 0 ? -6 : 1 - day;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() + diff);
-    monday.setHours(0, 0, 0, 0);
+    const monday = new Date(d);
+    monday.setDate(d.getDate() + diff);
     const nextSunday = new Date(monday);
     nextSunday.setDate(monday.getDate() + 13);
     return {
@@ -162,7 +192,7 @@ export function useWorkDashboard(teamId: string | undefined) {
       setLeaves([...rawLeaves]);
 
       // Leave balances (current year)
-      const currentYear = new Date().getFullYear();
+      const currentYear = getYearKST();
       const { data: balData } = await (supabase.from('leave_balance' as any).select('*').eq('year', currentYear) as any);
       const rawBal: LeaveBalance[] = balData || [];
       if (rawBal.length > 0) {
@@ -179,6 +209,30 @@ export function useWorkDashboard(teamId: string | undefined) {
         .select('*')
         .order('is_default', { ascending: false }) as any);
       setProjectTypes(typesData || []);
+
+      // Sync pending balance deductions (leave_date <= today AND not yet deducted)
+      const todayStr = getTodayKST();
+      const { data: pendingLeaves } = await (supabase.from('leaves' as any)
+        .select('id, user_id, type')
+        .eq('balance_deducted', false)
+        .lte('leave_date', todayStr) as any);
+
+      if (pendingLeaves && pendingLeaves.length > 0) {
+        console.log('[WorkDashboard] syncing pending deductions:', pendingLeaves.length);
+        for (const pl of pendingLeaves) {
+          const ded = leaveDeduction(pl.type);
+          if (ded > 0) {
+            const yr = getYearKST();
+            const { data: bal } = await (supabase.from('leave_balance' as any)
+              .select('used_days').eq('user_id', pl.user_id).eq('year', yr).single() as any);
+            if (bal) {
+              await (supabase.from('leave_balance' as any)
+                .update({ used_days: bal.used_days + ded }).eq('user_id', pl.user_id).eq('year', yr) as any);
+            }
+          }
+          await (supabase.from('leaves' as any).update({ balance_deducted: true }).eq('id', pl.id) as any);
+        }
+      }
 
     } catch {
       // Silently handle — tables may not exist yet
@@ -251,38 +305,40 @@ export function useWorkDashboard(teamId: string | undefined) {
     return 0;
   };
 
+  const deductBalance = async (uid: string, type: string) => {
+    const deduction = leaveDeduction(type);
+    if (deduction <= 0) return;
+    const currentYear = getYearKST();
+    const { data: bal, error: balFetchErr } = await (supabase.from('leave_balance' as any)
+      .select('used_days').eq('user_id', uid).eq('year', currentYear).single() as any);
+    if (balFetchErr) { console.error('[deductBalance] fetch error:', balFetchErr); return; }
+    if (!bal) return;
+    const { error: balUpdateErr } = await (supabase.from('leave_balance' as any)
+      .update({ used_days: bal.used_days + deduction }).eq('user_id', uid).eq('year', currentYear) as any);
+    if (balUpdateErr) console.error('[deductBalance] update error:', balUpdateErr);
+    else console.log('[deductBalance] deducted:', deduction, 'new used_days:', bal.used_days + deduction);
+  };
+
   const addLeave = async (leaveDate: string, type: '연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차', targetUserId?: string) => {
     if (!user) return;
     const uid = targetUserId || user.id;
+    const todayKST = getTodayKST();
+    const shouldDeduct = leaveDate <= todayKST;
     const payload = {
       user_id: uid,
       leave_date: leaveDate,
       type,
+      balance_deducted: shouldDeduct,
     };
     console.log('[WorkDashboard] addLeave payload:', payload);
     const { data, error } = await (supabase.from('leaves' as any).insert(payload).select('id').single() as any);
     if (error) { console.error('[WorkDashboard] addLeave error:', error); return; }
     console.log('[WorkDashboard] addLeave success:', data);
 
-    // Auto-deduct from leave_balance (only after successful insert)
-    const deduction = leaveDeduction(type);
-    if (deduction > 0) {
-      const currentYear = new Date().getFullYear();
-      const { data: bal, error: balFetchErr } = await (supabase.from('leave_balance' as any)
-        .select('used_days')
-        .eq('user_id', uid)
-        .eq('year', currentYear)
-        .single() as any);
-      if (balFetchErr) {
-        console.error('[WorkDashboard] addLeave - balance fetch error:', balFetchErr);
-      } else if (bal) {
-        const { error: balUpdateErr } = await (supabase.from('leave_balance' as any)
-          .update({ used_days: bal.used_days + deduction })
-          .eq('user_id', uid)
-          .eq('year', currentYear) as any);
-        if (balUpdateErr) console.error('[WorkDashboard] addLeave - balance update error:', balUpdateErr);
-        else console.log('[WorkDashboard] addLeave - balance deducted:', deduction, 'new used_days:', bal.used_days + deduction);
-      }
+    if (shouldDeduct) {
+      await deductBalance(uid, type);
+    } else {
+      console.log('[WorkDashboard] addLeave - future date, deduction deferred');
     }
     await fetchAll();
   };
@@ -371,17 +427,17 @@ export function useWorkDashboard(teamId: string | undefined) {
 
   const deleteLeave = async (id: string) => {
     console.log('[deleteLeave] id:', id);
-    // Fetch leave first to know type and user for balance restore
-    const { data: leaveRow } = await (supabase.from('leaves' as any).select('user_id, type').eq('id', id).single() as any);
+    // Fetch leave first to know type, user, and deduction status
+    const { data: leaveRow } = await (supabase.from('leaves' as any).select('user_id, type, balance_deducted').eq('id', id).single() as any);
     const { data, error } = await (supabase.from('leaves' as any).delete().eq('id', id).select() as any);
     console.log('[deleteLeave] result:', data, error);
     if (error) { console.error('[WorkDashboard] deleteLeave error:', error); return; }
 
-    // Restore leave_balance
-    if (leaveRow) {
+    // Restore leave_balance only if it was already deducted
+    if (leaveRow && leaveRow.balance_deducted) {
       const deduction = leaveDeduction(leaveRow.type);
       if (deduction > 0) {
-        const currentYear = new Date().getFullYear();
+        const currentYear = getYearKST();
         const { data: bal } = await (supabase.from('leave_balance' as any)
           .select('used_days')
           .eq('user_id', leaveRow.user_id)
@@ -392,6 +448,7 @@ export function useWorkDashboard(teamId: string | undefined) {
             .update({ used_days: Math.max(0, bal.used_days - deduction) })
             .eq('user_id', leaveRow.user_id)
             .eq('year', currentYear) as any);
+          console.log('[deleteLeave] balance restored:', deduction);
         }
       }
     }
@@ -411,7 +468,7 @@ export function useWorkDashboard(teamId: string | undefined) {
 
   const upsertLeaveBalance = async (totalDays: number, usedDays: number, targetUserId?: string) => {
     if (!user) return;
-    const currentYear = new Date().getFullYear();
+    const currentYear = getYearKST();
     const uid = targetUserId || user.id;
     const payload = { user_id: uid, total_days: totalDays, used_days: usedDays, year: currentYear };
     console.log('[upsertLeaveBalance] payload:', payload);
@@ -423,13 +480,74 @@ export function useWorkDashboard(teamId: string | undefined) {
     await fetchAll();
   };
 
+  // --- Weekly snapshot ---
+  const getMonday = (d: Date) => {
+    const dt = new Date(d);
+    const day = dt.getDay();
+    dt.setDate(dt.getDate() - (day === 0 ? 6 : day - 1));
+    dt.setHours(0, 0, 0, 0);
+    return dt;
+  };
+
+  // Auto-save last week's snapshot on app load
+  useEffect(() => {
+    if (!user || loading) return;
+    const todayDate = new Date(getTodayKST() + 'T00:00:00');
+    const thisMonday = getMonday(todayDate);
+    const thisMondayStr = thisMonday.toISOString().slice(0, 10);
+    const lastSaved = localStorage.getItem(`snapshot_week_${user.id}`);
+    if (lastSaved && lastSaved >= thisMondayStr) return; // already saved this week
+
+    // Save last week's data
+    const lastMonday = new Date(thisMonday);
+    lastMonday.setDate(lastMonday.getDate() - 7);
+    const lastFriday = new Date(lastMonday);
+    lastFriday.setDate(lastMonday.getDate() + 4);
+
+    const snap = { projects, events, leaves, balances };
+    if (projects.length === 0 && events.length === 0 && leaves.length === 0) return; // nothing to save
+
+    (async () => {
+      const { error } = await (supabase.from('weekly_snapshots' as any).upsert({
+        user_id: user.id,
+        week_start: lastMonday.toISOString().slice(0, 10),
+        week_end: lastFriday.toISOString().slice(0, 10),
+        snapshot: snap,
+      }, { onConflict: 'user_id,week_start' }) as any);
+      if (!error) {
+        localStorage.setItem(`snapshot_week_${user.id}`, thisMondayStr);
+        console.log('[snapshot] saved last week');
+      }
+    })();
+  }, [user, loading, projects, events, leaves, balances]);
+
+  // Fetch snapshot list
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      const { data } = await (supabase.from('weekly_snapshots' as any)
+        .select('*')
+        .eq('user_id', user.id)
+        .order('week_start', { ascending: false })
+        .limit(12) as any);
+      setSnapshots(data || []);
+    })();
+  }, [user, loading]);
+
+  const viewSnapshot = (snap: WeekSnapshot | null) => setViewingSnapshot(snap);
+
   return {
-    projects, events, leaves, balances, projectTypes, loading,
+    projects: viewingSnapshot ? viewingSnapshot.snapshot.projects : projects,
+    events: viewingSnapshot ? viewingSnapshot.snapshot.events : events,
+    leaves: viewingSnapshot ? viewingSnapshot.snapshot.leaves : leaves,
+    balances: viewingSnapshot ? viewingSnapshot.snapshot.balances : balances,
+    projectTypes, loading,
     addProject, addEvent, addLeave,
     updateProject, updateEvent, updateLeave,
     deleteProject, deleteEvent, deleteLeave, deleteProjectTask,
     addProjectType, deleteProjectType,
     upsertLeaveBalance,
     refetch: fetchAll,
+    snapshots, viewingSnapshot, viewSnapshot,
   };
 }
