@@ -39,7 +39,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
 
   // Leave form
   const [leaveDate, setLeaveDate] = useState('');
-  const [leaveType, setLeaveType] = useState<'연차' | '반차' | '병가' | '기타'>('연차');
+  const [leaveType, setLeaveType] = useState<'연차' | '반차' | '반반차'>('연차');
 
   // Custom type
   const [newTypeName, setNewTypeName] = useState('');
@@ -214,8 +214,8 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                 <span className={cn(
                   "text-[9px] px-1.5 py-0.5 rounded-full font-medium",
                   l.type === '연차' ? 'bg-rose-500/15 text-rose-400' :
-                  l.type === '병가' ? 'bg-cyan-500/15 text-cyan-400' :
-                  'bg-amber-500/15 text-amber-400'
+                  l.type === '반차' ? 'bg-amber-500/15 text-amber-400' :
+                  'bg-violet-500/15 text-violet-400'
                 )}>
                   {leaveLabel(l.type)}
                 </span>
@@ -442,7 +442,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                   <div>
                     <label className="text-[11px] text-muted-foreground font-medium mb-1.5 block">Type</label>
                     <div className="flex gap-2">
-                      {([['연차', '연차'], ['반차', '반차'], ['병가', '병가'], ['기타', '기타']] as const).map(([val, label]) => (
+                      {([['연차', '연차'], ['반차', '반차'], ['반반차', '반반차']] as const).map(([val, label]) => (
                         <button
                           key={val}
                           onClick={() => setLeaveType(val)}

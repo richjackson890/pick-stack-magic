@@ -24,7 +24,7 @@ export interface Leave {
   id: string;
   user_id: string;
   leave_date: string;
-  type: '연차' | '반차' | '병가' | '기타';
+  type: '연차' | '반차' | '반반차';
   profile?: { name: string | null; avatar_url: string | null };
 }
 
@@ -203,7 +203,7 @@ export function useWorkDashboard(teamId: string | undefined) {
     await fetchAll();
   };
 
-  const addLeave = async (leaveDate: string, type: '연차' | '반차' | '병가' | '기타') => {
+  const addLeave = async (leaveDate: string, type: '연차' | '반차' | '반반차') => {
     if (!user) return;
     const payload = {
       user_id: user.id,
@@ -217,18 +217,27 @@ export function useWorkDashboard(teamId: string | undefined) {
   };
 
   const deleteProject = async (id: string) => {
-    await (supabase.from('projects' as any).delete().eq('id', id) as any);
-    fetchAll();
+    // Delete members first, then project
+    await (supabase.from('project_members' as any).delete().eq('project_id', id) as any);
+    const { error } = await (supabase.from('projects' as any).delete().eq('id', id) as any);
+    if (error) { console.error('[WorkDashboard] deleteProject error:', error); return; }
+    await fetchAll();
   };
 
   const deleteEvent = async (id: string) => {
-    await (supabase.from('team_events' as any).delete().eq('id', id) as any);
-    fetchAll();
+    console.log('[deleteEvent] id:', id);
+    const { data, error } = await (supabase.from('team_events' as any).delete().eq('id', id).select() as any);
+    console.log('[deleteEvent] result:', data, error);
+    if (error) { console.error('[WorkDashboard] deleteEvent error:', error); return; }
+    await fetchAll();
   };
 
   const deleteLeave = async (id: string) => {
-    await (supabase.from('leaves' as any).delete().eq('id', id) as any);
-    fetchAll();
+    console.log('[deleteLeave] id:', id);
+    const { data, error } = await (supabase.from('leaves' as any).delete().eq('id', id).select() as any);
+    console.log('[deleteLeave] result:', data, error);
+    if (error) { console.error('[WorkDashboard] deleteLeave error:', error); return; }
+    await fetchAll();
   };
 
   const addProjectType = async (name: string) => {

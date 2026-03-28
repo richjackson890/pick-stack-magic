@@ -24,7 +24,8 @@
       "Bash(grep -r \"glass-card\\\\|glass-button\\\\|glass-dock\" /d/Users/SYlee/pick-stack-magic/src --include=*.css)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(git pull:*)"
     ]
   }
 }
