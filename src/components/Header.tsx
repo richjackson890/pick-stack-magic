@@ -128,7 +128,7 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
                       </div>
                     ) : (
                       notifications.slice(0, 10).map((n) => {
-                        const fromName = n.from_profile?.name || n.from_profile?.email?.split('@')[0] || 'Someone';
+                        const fromName = n.from_profile?.display_name || n.from_profile?.name || n.from_profile?.email?.split('@')[0] || 'Someone';
                         const tipTitle = n.tip?.title || 'a tip';
                         const isComment = n.type === 'comment';
 

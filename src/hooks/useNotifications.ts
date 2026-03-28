@@ -47,7 +47,7 @@ export function useNotifications() {
     const tipIds = [...new Set(data.map((n: any) => n.tip_id))];
 
     const [profilesRes, tipsRes] = await Promise.all([
-      (supabase.from('profiles' as any).select('id, name, avatar_url, email').in('id', fromUserIds) as any),
+      (supabase.from('profiles' as any).select('id, name, display_name, avatar_url, email').in('id', fromUserIds) as any),
       (supabase.from('tips' as any).select('id, title').in('id', tipIds) as any),
     ]);
 

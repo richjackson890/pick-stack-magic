@@ -40,7 +40,7 @@ export function useTipComments() {
       if (userIds.length > 0) {
         const { data: profiles } = await (supabase
           .from('profiles' as any)
-          .select('id, name, avatar_url, email')
+          .select('id, name, display_name, avatar_url, email')
           .in('id', userIds) as any);
 
         if (profiles) {

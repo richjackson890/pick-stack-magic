@@ -173,7 +173,7 @@ export function TipDetailModal({ tip, isOpen, onClose, onCommentAdded, onTipUpda
 }
 
 function CommentItem({ comment, isOwn, onDelete }: { comment: TipComment; isOwn: boolean; onDelete: () => void }) {
-  const name = comment.profiles?.name || comment.profiles?.email?.split('@')[0] || 'Unknown';
+  const name = comment.profiles?.display_name || comment.profiles?.name || comment.profiles?.email?.split('@')[0] || 'Unknown';
 
   const Avatar = () => (
     comment.profiles?.avatar_url ? (

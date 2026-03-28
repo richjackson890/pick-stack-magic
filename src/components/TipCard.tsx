@@ -34,7 +34,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
 
 export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, onBookmark, isLiked, isBookmarked, likeCount, commentCount, isAnalyzing, viewMode = 'grid' }: TipCardProps) {
   const [showAiSection, setShowAiSection] = useState(false);
-  const authorName = tip.profiles?.name || tip.profiles?.email?.split('@')[0] || 'Unknown';
+  const authorName = tip.profiles?.display_name || tip.profiles?.name || tip.profiles?.email?.split('@')[0] || 'Unknown';
   const hasAiData = tip.ai_status === 'done' && (tip.ai_summary || tip.ai_tags?.length > 0);
 
   if (viewMode === 'list') {

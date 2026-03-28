@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useWorkDashboard } from '@/hooks/useWorkDashboard';
+import { useWorkDashboard, Project, TeamEvent, Leave } from '@/hooks/useWorkDashboard';
+import { useAuth } from '@/contexts/AuthContext';
 import { TeamMember } from '@/hooks/useTeam';
-import { ChevronDown, Plus, Briefcase, Calendar, PalmtreeIcon as Palmtree, BarChart3, Trash2, User, Loader2, X, Check } from 'lucide-react';
+import { ChevronDown, Plus, Briefcase, Calendar, PalmtreeIcon as Palmtree, Trash2, Loader2, X, Check, Pencil, Users, Printer } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -14,23 +15,46 @@ interface WorkDashboardProps {
 
 type FormType = 'project' | 'event' | 'leave' | null;
 
+const getDisplayName = (profiles?: { display_name?: string | null; name?: string | null; email?: string }) =>
+  profiles?.display_name || profiles?.name || profiles?.email?.split('@')[0] || '?';
+
+interface TaskDraft {
+  id?: string;
+  title: string;
+  start_date: string;
+  end_date: string;
+}
+
 export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
+  const { user } = useAuth();
   const {
     projects, events, leaves, balances, projectTypes, loading,
     addProject, addEvent, addLeave,
-    deleteProject, deleteEvent, deleteLeave,
+    updateProject, updateEvent, updateLeave,
+    deleteProject, deleteEvent, deleteLeave, deleteProjectTask,
     addProjectType, deleteProjectType,
+    upsertLeaveBalance,
   } = useWorkDashboard(teamId);
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [activeForm, setActiveForm] = useState<FormType>(null);
   const [saving, setSaving] = useState(false);
 
+  // Leave balance edit
+  const [editBalanceUserId, setEditBalanceUserId] = useState<string | null>(null);
+  const [editTotal, setEditTotal] = useState('');
+  const [editUsed, setEditUsed] = useState('');
+
+  // Edit target IDs (null = create mode)
+  const [editProjectId, setEditProjectId] = useState<string | null>(null);
+  const [editEventId, setEditEventId] = useState<string | null>(null);
+  const [editLeaveId, setEditLeaveId] = useState<string | null>(null);
+
   // Project form
   const [projectName, setProjectName] = useState('');
   const [projectType, setProjectType] = useState('');
-  const [projectDeadline, setProjectDeadline] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<Set<string>>(new Set());
+  const [taskDrafts, setTaskDrafts] = useState<TaskDraft[]>([]);
 
   // Event form
   const [eventTitle, setEventTitle] = useState('');
@@ -39,19 +63,53 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
 
   // Leave form
   const [leaveDate, setLeaveDate] = useState('');
-  const [leaveType, setLeaveType] = useState<'연차' | '반차' | '반반차'>('연차');
+  const [leaveType, setLeaveType] = useState<'연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차'>('연차');
+  const [leaveUserId, setLeaveUserId] = useState('');
 
   // Custom type
   const [newTypeName, setNewTypeName] = useState('');
 
   const toggle = (key: string) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
 
+  const resetForm = () => {
+    setEditProjectId(null); setEditEventId(null); setEditLeaveId(null);
+  };
+
   const openForm = (type: FormType) => {
     const today = new Date().toISOString().slice(0, 10);
-    setProjectName(''); setProjectType(''); setProjectDeadline(today); setSelectedMembers(new Set());
+    resetForm();
+    setProjectName(''); setProjectType(''); setSelectedMembers(new Set()); setTaskDrafts([]);
     setEventTitle(''); setEventDate(today); setEventTime('');
-    setLeaveDate(today); setLeaveType('연차');
+    setLeaveDate(today); setLeaveType('연차'); setLeaveUserId(user?.id || '');
     setActiveForm(type);
+  };
+
+  // Edit openers
+  const openEditProject = (p: Project) => {
+    resetForm();
+    setEditProjectId(p.id);
+    setProjectName(p.name);
+    setProjectType(p.type || '');
+    setSelectedMembers(new Set(p.members.map(m => m.user_id)));
+    setTaskDrafts(p.tasks.map(t => ({ id: t.id, title: t.title, start_date: t.start_date, end_date: t.end_date })));
+    setActiveForm('project');
+  };
+
+  const openEditEvent = (e: TeamEvent) => {
+    resetForm();
+    setEditEventId(e.id);
+    setEventTitle(e.title);
+    setEventDate(e.event_date);
+    setEventTime(e.event_time || '');
+    setActiveForm('event');
+  };
+
+  const openEditLeave = (l: Leave) => {
+    resetForm();
+    setEditLeaveId(l.id);
+    setLeaveDate(l.leave_date);
+    setLeaveType(l.type);
+    setActiveForm('leave');
   };
 
   const toggleMember = (uid: string) => {
@@ -62,26 +120,53 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     });
   };
 
-  const handleAddProject = async () => {
+  // Task draft helpers
+  const addTaskDraft = () => {
+    const today = new Date().toISOString().slice(0, 10);
+    setTaskDrafts(prev => [...prev, { title: '', start_date: today, end_date: today }]);
+  };
+
+  const updateTaskDraft = (idx: number, field: keyof TaskDraft, value: string) => {
+    setTaskDrafts(prev => prev.map((t, i) => i === idx ? { ...t, [field]: value } : t));
+  };
+
+  const removeTaskDraft = (idx: number) => {
+    setTaskDrafts(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleSubmitProject = async () => {
     if (!projectName.trim()) return;
     setSaving(true);
-    await addProject(projectName, projectType, projectDeadline, [...selectedMembers]);
+    const validTasks = taskDrafts.filter(t => t.title.trim() && t.start_date && t.end_date);
+    if (editProjectId) {
+      await updateProject(editProjectId, projectName, projectType, [...selectedMembers], validTasks);
+    } else {
+      await addProject(projectName, projectType, [...selectedMembers], validTasks.length > 0 ? validTasks : undefined);
+    }
     setSaving(false);
     setActiveForm(null);
   };
 
-  const handleAddEvent = async () => {
+  const handleSubmitEvent = async () => {
     if (!eventTitle.trim() || !eventDate) return;
     setSaving(true);
-    await addEvent(eventTitle, eventDate, eventTime);
+    if (editEventId) {
+      await updateEvent(editEventId, eventTitle, eventDate, eventTime);
+    } else {
+      await addEvent(eventTitle, eventDate, eventTime);
+    }
     setSaving(false);
     setActiveForm(null);
   };
 
-  const handleAddLeave = async () => {
+  const handleSubmitLeave = async () => {
     if (!leaveDate) return;
     setSaving(true);
-    await addLeave(leaveDate, leaveType);
+    if (editLeaveId) {
+      await updateLeave(editLeaveId, leaveDate, leaveType);
+    } else {
+      await addLeave(leaveDate, leaveType, leaveUserId || undefined);
+    }
     setSaving(false);
     setActiveForm(null);
   };
@@ -90,7 +175,13 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
 
   const formatDate = (d: string) => {
     const date = new Date(d + 'T00:00:00');
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
+    return `${date.getMonth() + 1}/${date.getDate()} (${days[date.getDay()]})`;
+  };
+
+  const formatShortDate = (d: string) => {
+    const date = new Date(d + 'T00:00:00');
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
     return `${date.getMonth() + 1}/${date.getDate()} (${days[date.getDay()]})`;
   };
 
@@ -102,54 +193,194 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     );
   }
 
+  const isAdmin = user?.email === 'believe0me77@gmail.com';
+
+  // 이번 주 월~금 계산
+  const getWeekLabel = () => {
+    const now = new Date();
+    const day = now.getDay();
+    const diffMon = day === 0 ? -6 : 1 - day;
+    const mon = new Date(now);
+    mon.setDate(now.getDate() + diffMon);
+    const fri = new Date(mon);
+    fri.setDate(mon.getDate() + 4);
+    const days = ['일', '월', '화', '수', '목', '금', '토'];
+    const fmt = (d: Date) => `${d.getMonth() + 1}월 ${d.getDate()}일(${days[d.getDay()]})`;
+    return `${fmt(mon)} ~ ${fmt(fri)}`;
+  };
+
+  const handlePrint = () => {
+    const esc = (s: string) => s.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    const projectsHtml = projects.map(p => {
+      const memberNames = p.members.map(m => [m.position, m.name].filter(Boolean).join(' ')).join(', ');
+      const tasksHtml = (p.tasks || []).map(t =>
+        `<div class="task">• ${esc(t.title)} <span class="date">${formatShortDate(t.start_date)} ~ ${formatShortDate(t.end_date)}</span></div>`
+      ).join('');
+      return `<div class="item">
+        <strong>${esc(p.name)}</strong>
+        ${p.type ? `<span class="badge type">${esc(p.type)}</span>` : ''}
+        ${memberNames ? `<span class="members">${esc(memberNames)}</span>` : ''}
+      </div>${tasksHtml}`;
+    }).join('') || '<div class="empty">등록된 프로젝트가 없습니다</div>';
+
+    const eventsHtml = events.map(e =>
+      `<div class="item">
+        <span class="date">${formatDate(e.event_date)}</span>
+        ${e.event_time ? `<span class="time">${esc(e.event_time)}</span>` : ''}
+        <span class="title">${esc(e.title)}</span>
+      </div>`
+    ).join('') || '<div class="empty">일정 없음</div>';
+
+    const leavesHtml = leaves.map(l => {
+      const lname = l.profile?.display_name || l.profile?.name || '';
+      return `<div class="item">
+        <span class="date">${formatDate(l.leave_date)}</span>
+        <span class="badge leave-${l.type === '연차' ? 'full' : l.type.includes('반반') ? 'quarter' : 'half'}">${esc(l.type)}</span>
+        <span class="title">${esc(lname)}</span>
+      </div>`;
+    }).join('') || '<div class="empty">연차 없음</div>';
+
+    const balancesHtml = teamMembers.map(m => {
+      const bal = balances.find(b => b.user_id === m.user_id);
+      const name = getDisplayName(m.profiles);
+      const pos = m.profiles?.position || '';
+      if (!bal) return `<div class="item"><span class="name">${pos ? esc(pos) + ' ' : ''}${esc(name)}</span><span class="muted">미등록</span></div>`;
+      const remaining = bal.total_days - bal.used_days;
+      const color = remaining <= 2 ? '#ef4444' : remaining <= 5 ? '#f59e0b' : '#10b981';
+      const pct = bal.total_days > 0 ? (remaining / bal.total_days) * 100 : 0;
+      return `<div class="balance-row">
+        <span class="name">${pos ? esc(pos) + ' ' : ''}${esc(name)}</span>
+        <span class="muted">사용 ${bal.used_days} / ${bal.total_days}</span>
+        <strong style="color:${color}; min-width:60px; text-align:right">잔여 ${remaining}</strong>
+      </div>
+      <div class="bar"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div>`;
+    }).join('') || '<div class="empty">데이터 없음</div>';
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(`<!DOCTYPE html>
+<html>
+<head>
+<title>DLab1 주간업무</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Malgun Gothic','맑은 고딕',sans-serif; padding:28px; color:#1e293b; line-height:1.6; font-size:14px; }
+
+  .header { display:flex; align-items:baseline; justify-content:space-between; padding-bottom:10px; margin-bottom:24px; border-bottom:3px solid #f97316; }
+  .header h1 { font-size:24px; font-weight:800; color:#0f172a; }
+  .header .week { font-size:14px; color:#64748b; }
+
+  .section { margin-bottom:20px; break-inside:avoid; }
+  .section-header { background:#f1f5f9; border-left:3px solid #f97316; padding:7px 14px; font-weight:700; font-size:15px; color:#0f172a; margin-bottom:10px; }
+
+  .item { display:flex; align-items:center; gap:10px; padding:7px 4px; border-bottom:1px solid #e2e8f0; }
+  .item:last-child { border-bottom:none; }
+  .item strong { font-weight:700; color:#0f172a; }
+  .item .title { flex:1; }
+  .item .date { color:#64748b; font-size:13px; min-width:90px; }
+  .item .time { color:#f97316; font-weight:600; font-size:13px; }
+  .item .members { color:#f97316; font-size:13px; }
+  .item .name { flex:1; }
+  .item .muted { color:#94a3b8; font-size:13px; }
+
+  .badge { display:inline-block; padding:1px 10px; border-radius:12px; font-size:12px; font-weight:500; }
+  .badge.type { background:#fff7ed; color:#ea580c; }
+  .badge.leave-full { background:#ffe4e6; color:#e11d48; }
+  .badge.leave-half { background:#fef3c7; color:#d97706; }
+  .badge.leave-quarter { background:#ede9fe; color:#7c3aed; }
+
+  .task { padding:4px 0 4px 20px; color:#64748b; font-size:13px; border-bottom:1px solid #f0f0f0; display:flex; align-items:center; gap:8px; }
+  .task .date { margin-left:auto; font-size:12px; color:#94a3b8; font-family:monospace; }
+
+  .balance-row { display:flex; align-items:center; gap:10px; padding:6px 4px 2px; }
+  .balance-row .name { flex:1; font-weight:500; }
+  .balance-row .muted { color:#64748b; font-size:13px; font-family:monospace; }
+  .bar { height:8px; background:#e2e8f0; border-radius:4px; overflow:hidden; margin:0 4px 8px; }
+  .bar-fill { height:100%; border-radius:4px; }
+
+  .empty { padding:12px; color:#94a3b8; text-align:center; font-size:13px; }
+
+  .footer { margin-top:28px; padding-top:8px; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; font-size:10px; color:#94a3b8; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>DLab1 주간업무</h1>
+    <span class="week">${getWeekLabel()}</span>
+  </div>
+
+  <div class="section">
+    <div class="section-header">프로젝트 현황</div>
+    ${projectsHtml}
+  </div>
+
+  <div class="section">
+    <div class="section-header">This Week</div>
+    ${eventsHtml}
+  </div>
+
+  <div class="section">
+    <div class="section-header">Leaves</div>
+    ${leavesHtml}
+  </div>
+
+  <div class="section">
+    <div class="section-header">팀원 연차 현황</div>
+    ${balancesHtml}
+  </div>
+
+  <div class="footer">
+    <span>출력일: ${new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+    <span>DLab Architecture</span>
+  </div>
+</body>
+</html>`);
+    printWindow.document.close();
+    setTimeout(() => printWindow.print(), 300);
+  };
+
   return (
-    <div className="space-y-3">
-      {/* 1. Projects */}
-      <Section
-        icon={<Briefcase className="h-4 w-4" />}
-        title="Projects"
-        count={projects.length}
-        collapsed={!!collapsed.projects}
-        onToggle={() => toggle('projects')}
-      >
+    <div id="work-dashboard" className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center gap-4 pb-3 border-b border-border print-header">
+        <h2 className="text-xl font-bold text-foreground flex-1">DLab1 주간업무</h2>
+        <span className="text-sm text-muted-foreground font-mono">{getWeekLabel()}</span>
+        <button onClick={handlePrint} className="text-muted-foreground hover:text-primary shrink-0 print-hide" title="인쇄">
+          <Printer className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* 1. 프로젝트 현황 */}
+      <Section icon={<Briefcase className="h-5 w-5" />} title="프로젝트 현황" count={projects.length} collapsed={!!collapsed.projects} onToggle={() => toggle('projects')}>
         {projects.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-3 text-center">No active projects</p>
+          <p className="text-base text-muted-foreground py-4 text-center">등록된 프로젝트가 없습니다</p>
         ) : (
-          <div className="space-y-2">
+          <div className="divide-y divide-border/30">
             {projects.map(p => (
-              <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-xl bg-secondary/30">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium line-clamp-1">{p.name}</p>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {p.type && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
-                        {p.type}
-                      </span>
-                    )}
-                    {p.deadline && (
-                      <span className="text-[10px] text-muted-foreground">
-                        ~ {formatDate(p.deadline)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center -space-x-1.5 shrink-0">
-                  {p.members.slice(0, 3).map(m => (
-                    m.avatar_url ? (
-                      <img key={m.user_id} src={m.avatar_url} className="w-6 h-6 rounded-full border-2 border-background object-cover" />
-                    ) : (
-                      <div key={m.user_id} className="w-6 h-6 rounded-full border-2 border-background bg-muted flex items-center justify-center">
-                        <User className="h-3 w-3" />
-                      </div>
-                    )
-                  ))}
-                  {p.members.length > 3 && (
-                    <span className="text-[9px] text-muted-foreground ml-1.5">+{p.members.length - 3}</span>
+              <div key={p.id} className="py-4 first:pt-0 last:pb-0 space-y-2">
+                <div className="flex items-center gap-3">
+                  <span className="text-base font-semibold flex-1">{p.name}</span>
+                  {p.type && <span className="text-sm px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0">{p.type}</span>}
+                  {p.members.length > 0 && (
+                    <span className="text-sm text-primary font-medium shrink-0">
+                      {p.members.map(m => [m.position, m.name].filter(Boolean).join(' ')).join(' · ')}
+                    </span>
                   )}
+                  <button onClick={() => openEditProject(p)} className="text-muted-foreground hover:text-primary shrink-0"><Pencil className="h-4 w-4" /></button>
+                  <button onClick={() => deleteProject(p.id)} className="text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="h-4 w-4" /></button>
                 </div>
-                <button onClick={() => deleteProject(p.id)} className="text-muted-foreground hover:text-destructive shrink-0">
-                  <Trash2 className="h-3 w-3" />
-                </button>
+                {p.tasks.length > 0 && (
+                  <div className="ml-4 space-y-1.5 border-l-2 border-primary/20 pl-4">
+                    {p.tasks.map(t => (
+                      <div key={t.id} className="flex items-center gap-3 group">
+                        <span className="text-sm flex-1 text-muted-foreground">{t.title}</span>
+                        <span className="text-sm text-muted-foreground font-mono shrink-0">{formatShortDate(t.start_date)} ~ {formatShortDate(t.end_date)}</span>
+                        <button onClick={() => deleteProjectTask(t.id)} className="text-muted-foreground hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-3.5 w-3.5" /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -157,121 +388,136 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
         <AddButton label="Add Project" onClick={() => openForm('project')} />
       </Section>
 
-      {/* 2. Schedule */}
-      <Section
-        icon={<Calendar className="h-4 w-4" />}
-        title="This Week"
-        count={events.length}
-        collapsed={!!collapsed.events}
-        onToggle={() => toggle('events')}
-      >
-        {events.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-3 text-center">No events this week</p>
-        ) : (
-          <div className="space-y-1.5">
-            {events.map(e => (
-              <div key={e.id} className="flex items-center gap-3 p-2 rounded-lg bg-secondary/20">
-                <span className="text-[11px] text-muted-foreground font-mono shrink-0 w-16">
-                  {formatDate(e.event_date)}
-                </span>
-                {e.event_time && (
-                  <span className="text-[10px] text-primary font-medium shrink-0">{e.event_time}</span>
-                )}
-                <span className="text-sm flex-1 line-clamp-1">{e.title}</span>
-                <button onClick={() => deleteEvent(e.id)} className="text-muted-foreground hover:text-destructive shrink-0">
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        <AddButton label="Add Event" onClick={() => openForm('event')} />
-      </Section>
-
-      {/* 3. Leaves this week */}
-      <Section
-        icon={<Palmtree className="h-4 w-4" />}
-        title="Leaves"
-        count={leaves.length}
-        collapsed={!!collapsed.leaves}
-        onToggle={() => toggle('leaves')}
-      >
-        {leaves.length === 0 ? (
-          <p className="text-xs text-muted-foreground py-3 text-center">No leaves this week</p>
-        ) : (
-          <div className="space-y-1.5">
-            {leaves.map(l => (
-              <div key={l.id} className="flex items-center gap-2.5 p-2 rounded-lg bg-secondary/20">
-                {l.profile?.avatar_url ? (
-                  <img src={l.profile.avatar_url} className="w-6 h-6 rounded-full object-cover shrink-0" />
-                ) : (
-                  <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-                    <User className="h-3 w-3" />
+      {/* 2. This Week */}
+      <Section icon={<Calendar className="h-5 w-5" />} title="This Week" count={events.length} collapsed={!!collapsed.events} onToggle={() => toggle('events')}>
+          {events.length === 0 ? (
+            <p className="text-base text-muted-foreground py-4 text-center">No events</p>
+          ) : (
+            <div className="space-y-2">
+              {events.map(e => (
+                <div key={e.id} className="flex items-center gap-2 py-2 px-3 rounded-lg bg-secondary/20">
+                  <span className="text-sm text-muted-foreground font-mono min-w-[80px] shrink-0">{formatDate(e.event_date)}</span>
+                  {e.event_time && <span className="text-sm text-primary font-medium shrink-0 whitespace-nowrap">{e.event_time}</span>}
+                  <span className="text-sm font-medium flex-1 whitespace-nowrap truncate">{e.title}</span>
+                  <div className="flex items-center gap-1 ml-auto shrink-0">
+                    <button onClick={() => openEditEvent(e)} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button>
+                    <button onClick={() => deleteEvent(e.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
                   </div>
-                )}
-                <span className="text-sm flex-1">{l.profile?.name || 'Unknown'}</span>
-                <span className="text-[10px] text-muted-foreground">{formatDate(l.leave_date)}</span>
-                <span className={cn(
-                  "text-[9px] px-1.5 py-0.5 rounded-full font-medium",
-                  l.type === '연차' ? 'bg-rose-500/15 text-rose-400' :
-                  l.type === '반차' ? 'bg-amber-500/15 text-amber-400' :
-                  'bg-violet-500/15 text-violet-400'
-                )}>
-                  {leaveLabel(l.type)}
-                </span>
-                <button onClick={() => deleteLeave(l.id)} className="text-muted-foreground hover:text-destructive shrink-0">
-                  <Trash2 className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        <AddButton label="Add Leave" onClick={() => openForm('leave')} />
+                </div>
+              ))}
+            </div>
+          )}
+          <AddButton label="Add Event" onClick={() => openForm('event')} />
+        </Section>
+
+      {/* 3. Leaves */}
+      <Section icon={<Palmtree className="h-5 w-5" />} title="Leaves" count={leaves.length} collapsed={!!collapsed.leaves} onToggle={() => toggle('leaves')}>
+          {leaves.length === 0 ? (
+            <p className="text-base text-muted-foreground py-4 text-center">No leaves</p>
+          ) : (
+            <div className="space-y-2">
+              {leaves.map(l => (
+                <div key={l.id} className="flex items-center gap-2 py-2 px-3 rounded-lg bg-secondary/20">
+                  <span className="text-sm text-muted-foreground font-mono min-w-[80px] shrink-0">{formatDate(l.leave_date)}</span>
+                  <span className={cn(
+                    "text-sm px-2 py-0.5 rounded-full font-medium shrink-0 whitespace-nowrap",
+                    l.type === '연차' ? 'bg-rose-500/15 text-rose-400' :
+                    (l.type === '오전반차' || l.type === '오후반차') ? 'bg-amber-500/15 text-amber-400' :
+                    'bg-violet-500/15 text-violet-400'
+                  )}>{leaveLabel(l.type)}</span>
+                  <span className="text-sm font-medium flex-1 whitespace-nowrap truncate">{l.profile?.display_name || l.profile?.name || 'Unknown'}</span>
+                  <div className="flex items-center gap-1 ml-auto shrink-0">
+                    <button onClick={() => openEditLeave(l)} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button>
+                    <button onClick={() => deleteLeave(l.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <AddButton label="Add Leave" onClick={() => openForm('leave')} />
       </Section>
 
-      {/* 4. Leave balance */}
-      {balances.length > 0 && (
-        <Section
-          icon={<BarChart3 className="h-4 w-4" />}
-          title="Leave Balance"
-          count={balances.length}
-          collapsed={!!collapsed.balance}
-          onToggle={() => toggle('balance')}
-        >
+      {/* 4. 팀원 연차 현황 */}
+      <Section icon={<Users className="h-5 w-5" />} title="팀원 연차 현황" count={teamMembers.length} collapsed={!!collapsed.teamLeave} onToggle={() => toggle('teamLeave')}>
+        {teamMembers.length === 0 ? (
+          <p className="text-base text-muted-foreground py-4 text-center">팀원이 없습니다</p>
+        ) : (
           <div className="space-y-2">
-            {balances.map(b => {
-              const remaining = b.total_days - b.used_days;
-              const pct = b.total_days > 0 ? (remaining / b.total_days) * 100 : 0;
-              return (
-                <div key={b.user_id} className="flex items-center gap-2.5">
-                  {b.profile?.avatar_url ? (
-                    <img src={b.profile.avatar_url} className="w-6 h-6 rounded-full object-cover shrink-0" />
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-                      <User className="h-3 w-3" />
+            {teamMembers.map(m => {
+              const bal = balances.find(b => b.user_id === m.user_id);
+              const isMe = user?.id === m.user_id;
+              const canEdit = isMe || isAdmin;
+              const isEditing = editBalanceUserId === m.user_id;
+              const name = getDisplayName(m.profiles);
+              const pos = m.profiles?.position;
+
+              if (isEditing) {
+                return (
+                  <div key={m.user_id} className="p-3 rounded-xl bg-primary/5 border border-primary/20 space-y-3">
+                    <div className="flex items-center gap-3">
+                      <span className="text-base font-medium flex-1 truncate">{pos && <span className="text-muted-foreground text-sm">{pos}</span>} {name}</span>
+                      <button onClick={() => setEditBalanceUserId(null)} className="text-muted-foreground hover:text-foreground shrink-0"><X className="h-4 w-4" /></button>
                     </div>
-                  )}
-                  <span className="text-xs w-16 truncate shrink-0">{b.profile?.name || '?'}</span>
-                  <div className="flex-1 h-2 rounded-full bg-secondary/50 overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all"
-                      style={{
-                        width: `${pct}%`,
-                        background: pct > 50 ? 'hsl(142, 71%, 45%)' : pct > 20 ? 'hsl(47, 96%, 53%)' : 'hsl(0, 72%, 51%)',
-                      }}
-                    />
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
+                        <label className="text-sm text-muted-foreground block mb-1">총 연차</label>
+                        <Input type="number" value={editTotal} onChange={e => setEditTotal(e.target.value)} className="h-9 text-base" step="0.5" min="0" />
+                      </div>
+                      <div className="flex-1">
+                        <label className="text-sm text-muted-foreground block mb-1">사용</label>
+                        <Input type="number" value={editUsed} onChange={e => setEditUsed(e.target.value)} className="h-9 text-base" step="0.5" min="0" />
+                      </div>
+                      <Button className="h-9 px-5 mt-6" disabled={saving} onClick={async () => {
+                        setSaving(true);
+                        await upsertLeaveBalance(parseFloat(editTotal) || 0, parseFloat(editUsed) || 0, m.user_id);
+                        setSaving(false);
+                        setEditBalanceUserId(null);
+                      }}>
+                        {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : '저장'}
+                      </Button>
+                    </div>
                   </div>
-                  <span className="text-[10px] text-muted-foreground font-mono shrink-0 w-10 text-right">
-                    {remaining}/{b.total_days}
-                  </span>
+                );
+              }
+
+              if (!bal) {
+                return (
+                  <div key={m.user_id} className="flex items-center gap-3 py-2.5 px-3 rounded-xl bg-secondary/20">
+                    <span className="text-base font-medium flex-1 truncate">{pos && <span className="text-muted-foreground text-sm">{pos}</span>} {name}</span>
+                    <span className="text-sm text-muted-foreground">미등록</span>
+                    {canEdit && (
+                      <button onClick={() => { setEditBalanceUserId(m.user_id); setEditTotal('15'); setEditUsed('0'); }} className="text-sm text-primary font-medium hover:underline shrink-0">등록</button>
+                    )}
+                  </div>
+                );
+              }
+
+              const remaining = bal.total_days - bal.used_days;
+              const pct = bal.total_days > 0 ? (remaining / bal.total_days) * 100 : 0;
+              const colorClass = remaining <= 2 ? 'text-red-400' : remaining <= 5 ? 'text-amber-400' : 'text-emerald-400';
+              const barColor = remaining <= 2 ? 'hsl(0, 72%, 51%)' : remaining <= 5 ? 'hsl(38, 92%, 50%)' : 'hsl(142, 71%, 45%)';
+
+              return (
+                <div key={m.user_id} className="py-2.5 px-3 rounded-xl bg-secondary/20 space-y-1.5">
+                  <div className="flex items-center gap-3">
+                    <span className="text-base font-medium flex-1 truncate">{pos && <span className="text-muted-foreground text-sm">{pos}</span>} {name}</span>
+                    <span className="text-sm text-muted-foreground font-mono">{bal.used_days}/{bal.total_days}</span>
+                    <span className={cn("text-base font-bold font-mono w-9 text-right", colorClass)}>{remaining}</span>
+                    {canEdit && (
+                      <button onClick={() => { setEditBalanceUserId(m.user_id); setEditTotal(String(bal.total_days)); setEditUsed(String(bal.used_days)); }} className="text-muted-foreground hover:text-primary shrink-0"><Pencil className="h-4 w-4" /></button>
+                    )}
+                  </div>
+                  <div className="h-3 rounded-full bg-secondary/50 overflow-hidden">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: barColor }} />
+                  </div>
                 </div>
               );
             })}
           </div>
-        </Section>
-      )}
+        )}
+      </Section>
 
-      {/* ====== Modal forms ====== */}
+      {/* ====== Modal forms (create & edit) ====== */}
       <AnimatePresence>
         {activeForm && (
           <motion.div
@@ -286,15 +532,15 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 60, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              className="glass-card rounded-t-2xl sm:rounded-2xl p-5 w-full sm:max-w-sm space-y-4"
+              className="glass-card rounded-t-2xl sm:rounded-2xl p-5 w-full sm:max-w-sm space-y-4 max-h-[85vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold">
-                  {activeForm === 'project' && 'New Project'}
-                  {activeForm === 'event' && 'New Event'}
-                  {activeForm === 'leave' && 'Request Leave'}
+                  {activeForm === 'project' && (editProjectId ? 'Edit Project' : 'New Project')}
+                  {activeForm === 'event' && (editEventId ? 'Edit Event' : 'New Event')}
+                  {activeForm === 'leave' && (editLeaveId ? 'Edit Leave' : 'Request Leave')}
                 </h3>
                 <button onClick={() => setActiveForm(null)} className="text-muted-foreground hover:text-foreground">
                   <X className="h-4 w-4" />
@@ -358,10 +604,55 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                       </Button>
                     </div>
                   </div>
+
+                  {/* Task drafts */}
                   <div>
-                    <label className="text-[11px] text-muted-foreground font-medium mb-1 block">Deadline</label>
-                    <Input type="date" value={projectDeadline} onChange={e => setProjectDeadline(e.target.value)} />
+                    <label className="text-[11px] text-muted-foreground font-medium mb-1.5 block">
+                      업무 항목 ({taskDrafts.length})
+                    </label>
+                    {taskDrafts.length > 0 && (
+                      <div className="space-y-2 mb-2">
+                        {taskDrafts.map((td, idx) => (
+                          <div key={idx} className="p-2.5 rounded-lg border border-border/30 space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <Input
+                                placeholder="업무 제목"
+                                value={td.title}
+                                onChange={e => updateTaskDraft(idx, 'title', e.target.value)}
+                                className="flex-1 h-7 text-xs"
+                              />
+                              <button onClick={() => removeTaskDraft(idx)} className="text-muted-foreground hover:text-destructive shrink-0">
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                              <Input
+                                type="date"
+                                value={td.start_date}
+                                onChange={e => updateTaskDraft(idx, 'start_date', e.target.value)}
+                                className="flex-1 h-7 text-xs"
+                              />
+                              <span className="text-[10px] text-muted-foreground">~</span>
+                              <Input
+                                type="date"
+                                value={td.end_date}
+                                onChange={e => updateTaskDraft(idx, 'end_date', e.target.value)}
+                                className="flex-1 h-7 text-xs"
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      onClick={addTaskDraft}
+                      className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-border/50 text-[11px] text-muted-foreground hover:text-primary hover:border-primary/30 transition-colors"
+                    >
+                      <Plus className="h-3 w-3" />
+                      업무 추가
+                    </button>
                   </div>
+
                   {teamMembers.length > 0 && (
                     <div>
                       <label className="text-[11px] text-muted-foreground font-medium mb-1.5 block">
@@ -369,7 +660,8 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                       </label>
                       <div className="max-h-32 overflow-y-auto space-y-1 rounded-lg border border-border/30 p-2">
                         {teamMembers.map(m => {
-                          const name = m.profiles?.name || m.profiles?.email?.split('@')[0] || 'Unknown';
+                          const name = getDisplayName(m.profiles);
+                          const mPos = m.profiles?.position;
                           const checked = selectedMembers.has(m.user_id);
                           return (
                             <button
@@ -380,14 +672,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                                 checked ? 'bg-primary/10' : 'hover:bg-secondary/40'
                               )}
                             >
-                              {m.profiles?.avatar_url ? (
-                                <img src={m.profiles.avatar_url} className="w-6 h-6 rounded-full object-cover shrink-0" />
-                              ) : (
-                                <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center shrink-0">
-                                  <User className="h-3 w-3" />
-                                </div>
-                              )}
-                              <span className="text-xs flex-1">{name}</span>
+                              <span className="text-sm flex-1">{mPos && <span className="text-muted-foreground">{mPos} </span>}{name}</span>
                               <div className={cn(
                                 'w-4 h-4 rounded border flex items-center justify-center shrink-0',
                                 checked ? 'bg-primary border-primary' : 'border-border'
@@ -400,8 +685,8 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                       </div>
                     </div>
                   )}
-                  <Button className="w-full" onClick={handleAddProject} disabled={!projectName.trim() || saving}>
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add Project'}
+                  <Button className="w-full" onClick={handleSubmitProject} disabled={!projectName.trim() || saving}>
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editProjectId ? 'Save Changes' : 'Add Project'}
                   </Button>
                 </div>
               )}
@@ -426,8 +711,8 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                     <label className="text-[11px] text-muted-foreground font-medium mb-1 block">Time</label>
                     <Input type="time" value={eventTime} onChange={e => setEventTime(e.target.value)} />
                   </div>
-                  <Button className="w-full" onClick={handleAddEvent} disabled={!eventTitle.trim() || !eventDate || saving}>
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add Event'}
+                  <Button className="w-full" onClick={handleSubmitEvent} disabled={!eventTitle.trim() || !eventDate || saving}>
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editEventId ? 'Save Changes' : 'Add Event'}
                   </Button>
                 </div>
               )}
@@ -435,19 +720,39 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
               {/* ---- Leave Form ---- */}
               {activeForm === 'leave' && (
                 <div className="space-y-3">
+                  {!editLeaveId && (
+                    <div>
+                      <label className="text-[11px] text-muted-foreground font-medium mb-1 block">대상 팀원</label>
+                      <select
+                        value={leaveUserId}
+                        onChange={e => setLeaveUserId(e.target.value)}
+                        className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
+                      >
+                        {isAdmin ? (
+                          teamMembers.map(m => (
+                            <option key={m.user_id} value={m.user_id}>
+                              {m.profiles?.position ? `${m.profiles.position} ` : ''}{getDisplayName(m.profiles)}
+                            </option>
+                          ))
+                        ) : (
+                          <option value={user?.id || ''}>{getDisplayName(teamMembers.find(m => m.user_id === user?.id)?.profiles)}</option>
+                        )}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label className="text-[11px] text-muted-foreground font-medium mb-1 block">Date *</label>
                     <Input type="date" value={leaveDate} onChange={e => setLeaveDate(e.target.value)} autoFocus />
                   </div>
                   <div>
                     <label className="text-[11px] text-muted-foreground font-medium mb-1.5 block">Type</label>
-                    <div className="flex gap-2">
-                      {([['연차', '연차'], ['반차', '반차'], ['반반차', '반반차']] as const).map(([val, label]) => (
+                    <div className="flex flex-wrap gap-2">
+                      {([['연차', '연차'], ['오전반차', '오전반차'], ['오후반차', '오후반차'], ['오전반반차', '오전반반차'], ['오후반반차', '오후반반차']] as const).map(([val, label]) => (
                         <button
                           key={val}
                           onClick={() => setLeaveType(val)}
                           className={cn(
-                            'flex-1 py-2 rounded-lg text-xs font-medium transition-colors border',
+                            'flex-1 min-w-[calc(33%-8px)] py-2 rounded-lg text-xs font-medium transition-colors border',
                             leaveType === val
                               ? 'bg-primary text-primary-foreground border-primary'
                               : 'border-border/50 text-muted-foreground hover:border-primary/50'
@@ -458,8 +763,8 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                       ))}
                     </div>
                   </div>
-                  <Button className="w-full" onClick={handleAddLeave} disabled={!leaveDate || saving}>
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Request Leave'}
+                  <Button className="w-full" onClick={handleSubmitLeave} disabled={!leaveDate || saving}>
+                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editLeaveId ? 'Save Changes' : 'Request Leave'}
                   </Button>
                 </div>
               )}
@@ -467,6 +772,14 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Print-only footer */}
+      <div className="hidden print-footer">
+        <div className="flex items-center justify-between pt-4 mt-6 border-t border-border">
+          <span className="text-xs text-gray-400">출력일: {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+          <span className="text-xs text-gray-400">DLab Architecture</span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -474,21 +787,22 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
 // --- Sub-components ---
 
 function Section({
-  icon, title, count, collapsed, onToggle, children,
+  icon, title, count, collapsed, onToggle, children, maxHeight,
 }: {
   icon: React.ReactNode; title: string; count: number;
   collapsed: boolean; onToggle: () => void; children: React.ReactNode;
+  maxHeight?: string;
 }) {
   return (
     <div className="glass-card rounded-xl overflow-hidden">
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-secondary/20 transition-colors"
+        className="w-full flex items-center gap-2.5 px-4 py-3 text-left hover:bg-secondary/20 transition-colors"
       >
         <span className="text-primary">{icon}</span>
-        <span className="text-sm font-semibold flex-1">{title}</span>
-        <span className="text-[10px] text-muted-foreground bg-secondary/50 px-1.5 py-0.5 rounded-full">{count}</span>
-        <ChevronDown className={cn("h-3.5 w-3.5 text-muted-foreground transition-transform", !collapsed && "rotate-180")} />
+        <span className="text-base font-semibold flex-1">{title}</span>
+        <span className="text-xs text-muted-foreground bg-secondary/50 px-2 py-0.5 rounded-full">{count}</span>
+        <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", !collapsed && "rotate-180")} />
       </button>
       <AnimatePresence initial={false}>
         {!collapsed && (
@@ -499,7 +813,7 @@ function Section({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="px-4 pb-3 space-y-2">
+            <div className={cn("px-4 pb-4 space-y-2 overflow-y-auto", maxHeight)}>
               {children}
             </div>
           </motion.div>
@@ -513,7 +827,7 @@ function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg border border-dashed border-border/50 text-xs text-muted-foreground hover:text-primary hover:border-primary/30 transition-colors"
+      className="w-full flex items-center justify-center gap-2 py-2 rounded-lg border border-dashed border-border/50 text-sm text-muted-foreground hover:text-primary hover:border-primary/30 transition-colors"
     >
       <Plus className="h-3 w-3" />
       {label}

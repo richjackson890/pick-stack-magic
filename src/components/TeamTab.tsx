@@ -129,11 +129,14 @@ export function TeamTab() {
                 <img src={m.profiles.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
               ) : (
                 <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs">
-                  {(m.profiles?.name || '?')[0]}
+                  {(m.profiles?.display_name || m.profiles?.name || '?')[0]}
                 </div>
               )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{m.profiles?.name || m.profiles?.email}</p>
+                <p className="text-sm font-medium truncate">
+                  {m.profiles?.position && <span className="text-muted-foreground text-xs mr-1">{m.profiles.position}</span>}
+                  {m.profiles?.display_name || m.profiles?.name || m.profiles?.email}
+                </p>
                 <p className="text-[10px] text-muted-foreground">{m.role === 'owner' ? 'Owner' : 'Member'}</p>
               </div>
               {m.role === 'owner' && <Crown className="h-3.5 w-3.5 text-yellow-500" />}

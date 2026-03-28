@@ -125,7 +125,6 @@ INSERT INTO public.project_types (name, is_default) VALUES
   ('현상설계', true),
   ('실시설계', true),
   ('계획설계', true),
-  ('감리', true),
   ('인허가', true),
   ('기타', true)
 ON CONFLICT DO NOTHING;

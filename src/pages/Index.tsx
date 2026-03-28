@@ -25,6 +25,7 @@ import { AIReportTab } from '@/components/AIReportTab';
 import { TipDetailModal } from '@/components/TipDetailModal';
 import { InstallBanner } from '@/components/InstallBanner';
 import { WorkDashboard } from '@/components/WorkDashboard';
+import { OnboardingModal } from '@/components/OnboardingModal';
 import { RefreshCw, Search, X, LayoutGrid, List, ArrowUpDown, Bookmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -425,14 +426,14 @@ const Index = () => {
       </div>
 
       {/* Desktop: side-by-side layout */}
-      <div className="hidden lg:flex container gap-4 pt-3">
+      <div id="desktop-layout" className="hidden lg:flex container gap-4 pt-3">
         {/* Left: Tips feed 60% */}
-        <main className="w-[60%] min-w-0">
+        <main id="tips-feed" className="w-[60%] min-w-0">
           {tipsFeed}
         </main>
 
         {/* Right: Work dashboard 40% */}
-        <aside className="w-[40%] min-w-0 pt-1">
+        <aside id="dashboard-aside" className="w-[40%] min-w-0 pt-1">
           <div className="sticky top-14">
             <WorkDashboard teamId={team?.id} teamMembers={teamMembers} />
           </div>
@@ -495,6 +496,7 @@ const Index = () => {
       />
 
       <InstallBanner />
+      <OnboardingModal />
     </div>
   );
 };
