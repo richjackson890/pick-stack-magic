@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useTeam } from '@/hooks/useTeam';
 import { LiquidSpinner } from '@/components/LiquidSpinner';
@@ -9,8 +9,12 @@ export default function Invite() {
   const { acceptInvite } = useTeam();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
+  const hasAttempted = useRef(false);
 
   useEffect(() => {
+    if (hasAttempted.current) return;
+    hasAttempted.current = true;
+
     const token = searchParams.get('token');
     if (!token) {
       setStatus('error');
