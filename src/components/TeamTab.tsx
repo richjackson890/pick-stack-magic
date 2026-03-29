@@ -98,7 +98,8 @@ export function TeamTab() {
   const isOwner = members.some(m => m.user_id === user?.id && m.role === 'owner');
 
   const handleCopyToken = (token: string) => {
-    const link = `${window.location.origin}/invite?token=${token}`;
+    const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    const link = `${baseUrl}/invite?token=${token}`;
     navigator.clipboard.writeText(link);
     setCopiedToken(token);
     setTimeout(() => setCopiedToken(null), 2000);

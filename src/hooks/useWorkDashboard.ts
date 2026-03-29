@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -489,37 +489,63 @@ export function useWorkDashboard(teamId: string | undefined) {
     return dt;
   };
 
-  // Auto-save last week's snapshot on app load
+  // Auto-save last week's snapshot — 최초 로드 시 1회만 실행
+  const snapshotSaved = useRef(false);
   useEffect(() => {
-    if (!user || loading) return;
+    if (!user || loading || snapshotSaved.current) return;
+    snapshotSaved.current = true;
+
     const todayDate = new Date(getTodayKST() + 'T00:00:00');
     const thisMonday = getMonday(todayDate);
     const thisMondayStr = thisMonday.toISOString().slice(0, 10);
-    const lastSaved = localStorage.getItem(`snapshot_week_${user.id}`);
-    if (lastSaved && lastSaved >= thisMondayStr) return; // already saved this week
 
-    // Save last week's data
+    // localStorage 체크: 이미 이번 주에 저장했으면 스킵
+    const lastSaved = localStorage.getItem(`snapshot_week_${user.id}`);
+    if (lastSaved && lastSaved >= thisMondayStr) return;
+
     const lastMonday = new Date(thisMonday);
     lastMonday.setDate(lastMonday.getDate() - 7);
+    const lastMondayStr = lastMonday.toISOString().slice(0, 10);
     const lastFriday = new Date(lastMonday);
     lastFriday.setDate(lastMonday.getDate() + 4);
+    const lastFridayStr = lastFriday.toISOString().slice(0, 10);
 
-    const snap = { projects, events, leaves, balances };
-    if (projects.length === 0 && events.length === 0 && leaves.length === 0) return; // nothing to save
+    if (projects.length === 0 && events.length === 0 && leaves.length === 0) return;
 
     (async () => {
-      const { error } = await (supabase.from('weekly_snapshots' as any).upsert({
+      // DB에서 해당 week_start 레코드가 이미 있는지 확인
+      const { data: existing } = await (supabase.from('weekly_snapshots' as any)
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('week_start', lastMondayStr)
+        .maybeSingle() as any);
+
+      if (existing) {
+        // 이미 저장됨 → localStorage만 갱신하고 스킵
+        localStorage.setItem(`snapshot_week_${user.id}`, thisMondayStr);
+        console.log('[snapshot] already exists, skipped');
+        return;
+      }
+
+      // 없을 때만 INSERT
+      const snap = { projects, events, leaves, balances };
+      const { error } = await (supabase.from('weekly_snapshots' as any).insert({
         user_id: user.id,
-        week_start: lastMonday.toISOString().slice(0, 10),
-        week_end: lastFriday.toISOString().slice(0, 10),
+        week_start: lastMondayStr,
+        week_end: lastFridayStr,
         snapshot: snap,
-      }, { onConflict: 'user_id,week_start' }) as any);
+      }) as any);
+
       if (!error) {
         localStorage.setItem(`snapshot_week_${user.id}`, thisMondayStr);
         console.log('[snapshot] saved last week');
+      } else {
+        // 실패 시에도 localStorage 기록하여 무한 재시도 방지
+        localStorage.setItem(`snapshot_week_${user.id}`, thisMondayStr);
+        console.error('[snapshot] save failed:', error);
       }
     })();
-  }, [user, loading, projects, events, leaves, balances]);
+  }, [user, loading]);
 
   // Fetch snapshot list
   useEffect(() => {
