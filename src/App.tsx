@@ -52,6 +52,12 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     return <Navigate to="/auth" replace />;
   }
 
+  // After Google OAuth redirect, check for pending invite token
+  const pendingInvite = localStorage.getItem('pending_invite_token');
+  if (pendingInvite) {
+    return <Navigate to={`/invite?token=${encodeURIComponent(pendingInvite)}`} replace />;
+  }
+
   return <>{children}</>;
 }
 
@@ -99,11 +105,7 @@ function AppRoutes() {
           <ManualSaveTest />
         </ProtectedRoute>
       } />
-      <Route path="/invite" element={
-        <ProtectedRoute>
-          <Invite />
-        </ProtectedRoute>
-      } />
+      <Route path="/invite" element={<Invite />} />
       <Route path="/" element={
         <ProtectedRoute>
           <Index />

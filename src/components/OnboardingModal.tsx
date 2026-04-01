@@ -24,10 +24,11 @@ export function OnboardingModal() {
         .from('profiles' as any)
         .select('display_name, position, onboarding_completed')
         .eq('id', user.id)
-        .single() as any);
-      if (data && !data.onboarding_completed) {
-        setDisplayName(data.display_name || '');
-        setPosition(data.position || '');
+        .maybeSingle() as any);
+      // Show onboarding if profile doesn't exist yet or onboarding not completed
+      if (!data || !data.onboarding_completed) {
+        setDisplayName(data?.display_name || '');
+        setPosition(data?.position || '');
         setShow(true);
       }
       setLoading(false);
@@ -38,11 +39,13 @@ export function OnboardingModal() {
     if (!user || !displayName.trim()) return;
     if (!position) return;
     setSaving(true);
-    await (supabase.from('profiles' as any).update({
+    await (supabase.from('profiles' as any).upsert({
+      id: user.id,
+      email: user.email,
       display_name: displayName.trim(),
       position,
       onboarding_completed: true,
-    }).eq('id', user.id) as any);
+    }, { onConflict: 'id' }) as any);
     setSaving(false);
     setShow(false);
   };

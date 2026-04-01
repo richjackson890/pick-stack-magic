@@ -95,7 +95,7 @@ export function TeamTab() {
   }
 
   // Has team — show team info
-  const isOwner = members.some(m => m.user_id === user?.id && m.role === 'owner');
+  const isOwner = team.created_by === user?.id;
 
   const handleCopyToken = (token: string) => {
     const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
@@ -138,9 +138,9 @@ export function TeamTab() {
                   {m.profiles?.position && <span className="text-muted-foreground text-xs mr-1">{m.profiles.position}</span>}
                   {m.profiles?.display_name || m.profiles?.name || m.profiles?.email}
                 </p>
-                <p className="text-[10px] text-muted-foreground">{m.role === 'owner' ? 'Owner' : 'Member'}</p>
+                <p className="text-[10px] text-muted-foreground">{m.user_id === team.created_by ? 'Owner' : 'Member'}</p>
               </div>
-              {m.role === 'owner' && <Crown className="h-3.5 w-3.5 text-yellow-500" />}
+              {m.user_id === team.created_by && <Crown className="h-3.5 w-3.5 text-yellow-500" />}
             </div>
           ))}
         </div>
