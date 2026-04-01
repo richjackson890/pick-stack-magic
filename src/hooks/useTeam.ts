@@ -167,27 +167,9 @@ export function useTeam() {
   const acceptInvite = async (token: string): Promise<boolean> => {
     if (!user) return false;
     try {
-      // Find invite
-      const { data: invite, error: findErr } = await (supabase
-        .from('team_invites' as any)
-        .select('*')
-        .eq('token', token)
-        .eq('status', 'pending')
-        .single() as any);
+      const { error } = await supabase.rpc('accept_team_invite', { invite_token: token });
 
-      if (findErr || !invite) throw new Error('Invalid or expired invite');
-
-      // Add user to team
-      await (supabase.from('team_members_v2' as any).insert({
-        team_id: invite.team_id,
-        user_id: user.id,
-        role: 'member',
-      }) as any);
-
-      // Mark invite accepted
-      await (supabase.from('team_invites' as any)
-        .update({ status: 'accepted' })
-        .eq('id', invite.id) as any);
+      if (error) throw error;
 
       await fetchTeam();
       toast({ title: 'Team joined!' });

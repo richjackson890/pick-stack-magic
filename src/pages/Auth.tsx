@@ -36,7 +36,12 @@ const Auth = () => {
   // Redirect if already logged in
   useEffect(() => {
     if (user && !authLoading) {
-      navigate('/');
+      const pendingInvite = localStorage.getItem('pending_invite_token');
+      if (pendingInvite) {
+        navigate(`/invite?token=${encodeURIComponent(pendingInvite)}`, { replace: true });
+      } else {
+        navigate('/');
+      }
     }
   }, [user, authLoading, navigate]);
 
