@@ -26,11 +26,7 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(git pull:*)",
-      "Bash(taskkill //F //IM node.exe)",
-      "Bash(vercel --version)",
-      "Bash(npm i:*)",
-      "Bash(vercel whoami:*)",
-      "Bash(npx vercel:*)"
+      "Bash(git stash:*)"
     ]
   }
 }

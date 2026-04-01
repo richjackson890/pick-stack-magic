@@ -138,7 +138,7 @@ export function useTeam() {
         team_id: newTeam.id,
         user_id: user.id,
         invited_email: user.email,
-        status: 'accepted',
+        status: 'active',
       }) as any);
 
       await fetchTeam();
@@ -183,9 +183,15 @@ export function useTeam() {
   const acceptInvite = async (token: string): Promise<boolean> => {
     if (!user) return false;
     try {
-      const { error } = await supabase.rpc('accept_team_invite', { invite_token: token });
+      const { data, error } = await supabase.rpc('accept_team_invite', { invite_token: token });
 
       if (error) throw error;
+
+      // RPC returns json — check for application-level error
+      const result = typeof data === 'string' ? JSON.parse(data) : data;
+      if (result?.error) {
+        throw new Error(result.error);
+      }
 
       await fetchTeam();
       toast({ title: 'Team joined!' });

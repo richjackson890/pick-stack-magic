@@ -74,6 +74,11 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (user) {
+    // Check pending invite before redirecting to home
+    const pendingInvite = localStorage.getItem('pending_invite_token');
+    if (pendingInvite) {
+      return <Navigate to={`/invite?token=${encodeURIComponent(pendingInvite)}`} replace />;
+    }
     return <Navigate to="/" replace />;
   }
 

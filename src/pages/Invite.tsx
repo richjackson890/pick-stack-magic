@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTeam } from '@/hooks/useTeam';
+import { supabase } from '@/integrations/supabase/client';
 import { LiquidSpinner } from '@/components/LiquidSpinner';
 
 const PENDING_INVITE_KEY = 'pending_invite_token';
@@ -10,7 +10,6 @@ export default function Invite() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
-  const { acceptInvite } = useTeam();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const hasAttempted = useRef(false);
@@ -40,19 +39,29 @@ export default function Invite() {
     if (hasAttempted.current) return;
     hasAttempted.current = true;
 
+    // Clear pending token immediately
     localStorage.removeItem(PENDING_INVITE_KEY);
 
-    acceptInvite(token).then((success) => {
-      if (success) {
+    // Call RPC directly to avoid useTeam dependency issues
+    (async () => {
+      try {
+        const { data, error } = await supabase.rpc('accept_team_invite', { invite_token: token });
+
+        if (error) throw error;
+
+        const result = typeof data === 'string' ? JSON.parse(data) : data;
+        if (result?.error) throw new Error(result.error);
+
         setStatus('success');
         setMessage('Successfully joined the team!');
-        setTimeout(() => navigate('/'), 1500);
-      } else {
+        setTimeout(() => navigate('/', { replace: true }), 1500);
+      } catch (err: any) {
+        console.error('[Invite] accept error:', err);
         setStatus('error');
-        setMessage('Failed to join team. The invite may be expired.');
+        setMessage(err.message || 'Failed to join team. The invite may be expired.');
       }
-    });
-  }, [authLoading, user, searchParams, acceptInvite, navigate]);
+    })();
+  }, [authLoading, user, searchParams, navigate]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">
