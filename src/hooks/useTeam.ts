@@ -80,7 +80,7 @@ export function useTeam() {
         .from('team_members' as any)
         .select('*')
         .eq('team_id', currentTeam.id)
-        .eq('status', 'accepted')
+        .eq('status', 'active')
         .order('created_at') as any);
 
       const rawMembers: TeamMember[] = membersData || [];
