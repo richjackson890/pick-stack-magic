@@ -46,36 +46,23 @@ export function useTeam() {
   const fetchTeam = useCallback(async () => {
     if (!user) { setLoading(false); return; }
     try {
-      // Step 1: Find user's team
-      // Check as owner first
+      // Step 1: Find user's team via team_members
       let currentTeam: Team | null = null;
 
-      const { data: ownedTeam } = await (supabase
-        .from('teams' as any)
-        .select('*')
-        .eq('created_by', user.id)
+      const { data: memberRow } = await (supabase
+        .from('team_members' as any)
+        .select('team_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
         .maybeSingle() as any);
 
-      if (ownedTeam) {
-        currentTeam = ownedTeam;
-      } else {
-        // Check via accepted invite
-        const { data: myInvite } = await (supabase
-          .from('team_invites' as any)
-          .select('team_id')
-          .eq('email', user.email!)
-          .eq('status', 'accepted')
-          .limit(1)
+      if (memberRow?.team_id) {
+        const { data: teamData } = await (supabase
+          .from('teams' as any)
+          .select('*')
+          .eq('id', memberRow.team_id)
           .maybeSingle() as any);
-
-        if (myInvite) {
-          const { data: teamData } = await (supabase
-            .from('teams' as any)
-            .select('*')
-            .eq('id', myInvite.team_id)
-            .maybeSingle() as any);
-          currentTeam = teamData;
-        }
+        currentTeam = teamData;
       }
 
       if (!currentTeam) {
