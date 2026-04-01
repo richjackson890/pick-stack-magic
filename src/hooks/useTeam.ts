@@ -12,6 +12,7 @@ export interface Team {
 
 export interface TeamMember {
   id: string;
+  team_id: string;
   user_id: string;
   invited_email: string;
   status: string;
@@ -45,7 +46,8 @@ export function useTeam() {
   const fetchTeam = useCallback(async () => {
     if (!user) { setLoading(false); return; }
     try {
-      // Step 1: Find user's team — check as owner first
+      // Step 1: Find user's team
+      // Check as owner first
       let currentTeam: Team | null = null;
 
       const { data: ownedTeam } = await (supabase
@@ -57,7 +59,7 @@ export function useTeam() {
       if (ownedTeam) {
         currentTeam = ownedTeam;
       } else {
-        // Check if user was invited and accepted
+        // Check via accepted invite
         const { data: myInvite } = await (supabase
           .from('team_invites' as any)
           .select('team_id')
@@ -86,34 +88,17 @@ export function useTeam() {
 
       setTeam(currentTeam);
 
-      // Step 2: Collect all user_ids belonging to this team
-      const teamUserIds = new Set<string>([currentTeam.created_by]);
-
-      const { data: acceptedInvites } = await (supabase
-        .from('team_invites' as any)
-        .select('email')
-        .eq('team_id', currentTeam.id)
-        .eq('status', 'accepted') as any);
-
-      if (acceptedInvites && acceptedInvites.length > 0) {
-        const emails = acceptedInvites.map((i: any) => i.email);
-        const { data: invitedProfiles } = await (supabase
-          .from('profiles' as any)
-          .select('id')
-          .in('email', emails) as any);
-        (invitedProfiles || []).forEach((p: any) => teamUserIds.add(p.id));
-      }
-
-      // Step 3: Fetch team_members by user_ids
+      // Step 2: Fetch team_members by team_id
       const { data: membersData } = await (supabase
         .from('team_members' as any)
         .select('*')
-        .in('user_id', [...teamUserIds])
+        .eq('team_id', currentTeam.id)
+        .eq('status', 'accepted')
         .order('created_at') as any);
 
       const rawMembers: TeamMember[] = membersData || [];
 
-      // Step 4: Fetch profiles for display
+      // Step 3: Fetch profiles for display
       if (rawMembers.length > 0) {
         const userIds = [...new Set(rawMembers.map(m => m.user_id))];
         const { data: profiles } = await (supabase
@@ -132,7 +117,7 @@ export function useTeam() {
 
       setMembers(rawMembers);
 
-      // Step 5: Fetch pending invites (team_invites has team_id)
+      // Step 4: Fetch pending invites
       const { data: invitesData } = await (supabase
         .from('team_invites' as any)
         .select('*')
@@ -163,6 +148,7 @@ export function useTeam() {
 
       // Add self as member
       await (supabase.from('team_members' as any).insert({
+        team_id: newTeam.id,
         user_id: user.id,
         invited_email: user.email,
         status: 'accepted',
@@ -191,6 +177,7 @@ export function useTeam() {
 
       // Pre-create membership row (user_id=null until accepted)
       await (supabase.from('team_members' as any).insert({
+        team_id: team.id,
         user_id: null,
         invited_email: email,
         status: 'pending',
