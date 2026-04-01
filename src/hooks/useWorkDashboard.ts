@@ -113,11 +113,24 @@ export function useWorkDashboard(teamId: string | undefined) {
     console.log('[WorkDashboard] fetchAll - week:', week);
 
     try {
-      // Projects (active)
+      // Fetch team member user_ids
+      let teamUserIds: string[] = [user.id];
+      if (teamId) {
+        const { data: tmRows } = await (supabase
+          .from('team_members' as any)
+          .select('user_id')
+          .eq('team_id', teamId)
+          .eq('status', 'active') as any);
+        if (tmRows && tmRows.length > 0) {
+          teamUserIds = [...new Set(tmRows.map((r: any) => r.user_id).filter(Boolean))];
+        }
+      }
+
+      // Projects (active) — all team members
       const { data: projectsData } = await (supabase
         .from('projects') as any)
         .select('*')
-        .eq('created_by', user.id)
+        .in('created_by', teamUserIds)
         .eq('status', '진행중')
         .order('created_at', { ascending: false }) as any;
 
@@ -170,14 +183,14 @@ export function useWorkDashboard(teamId: string | undefined) {
       console.log('[WorkDashboard] fetched projects:', rawProjects.length);
       setProjects([...rawProjects]);
 
-      // Events this week
-      const eventQuery = (supabase.from('team_events' as any).select('*').eq('created_by', user.id).gte('event_date', week.start).lte('event_date', week.end).order('event_date') as any);
+      // Events this week — all team members
+      const eventQuery = (supabase.from('team_events' as any).select('*').in('created_by', teamUserIds).gte('event_date', week.start).lte('event_date', week.end).order('event_date') as any);
       const { data: eventsData } = await eventQuery;
       console.log('[WorkDashboard] fetched events:', (eventsData || []).length);
       setEvents([...(eventsData || [])]);
 
-      // Leaves this week
-      const leaveQuery = (supabase.from('leaves' as any).select('*').eq('user_id', user.id).gte('leave_date', week.start).lte('leave_date', week.end).order('leave_date') as any);
+      // Leaves this week — all team members
+      const leaveQuery = (supabase.from('leaves' as any).select('*').in('user_id', teamUserIds).gte('leave_date', week.start).lte('leave_date', week.end).order('leave_date') as any);
       const { data: leavesData } = await leaveQuery;
 
       const rawLeaves: Leave[] = leavesData || [];
@@ -191,9 +204,9 @@ export function useWorkDashboard(teamId: string | undefined) {
       console.log('[WorkDashboard] fetched leaves:', rawLeaves.length);
       setLeaves([...rawLeaves]);
 
-      // Leave balances (current year)
+      // Leave balances (current year) — all team members
       const currentYear = getYearKST();
-      const { data: balData } = await (supabase.from('leave_balance' as any).select('*').eq('year', currentYear) as any);
+      const { data: balData } = await (supabase.from('leave_balance' as any).select('*').in('user_id', teamUserIds).eq('year', currentYear) as any);
       const rawBal: LeaveBalance[] = balData || [];
       if (rawBal.length > 0) {
         const uids = [...new Set(rawBal.map(b => b.user_id))];
@@ -210,10 +223,11 @@ export function useWorkDashboard(teamId: string | undefined) {
         .order('is_default', { ascending: false }) as any);
       setProjectTypes(typesData || []);
 
-      // Sync pending balance deductions (leave_date <= today AND not yet deducted)
+      // Sync pending balance deductions (leave_date <= today AND not yet deducted) — team scope
       const todayStr = getTodayKST();
       const { data: pendingLeaves } = await (supabase.from('leaves' as any)
         .select('id, user_id, type')
+        .in('user_id', teamUserIds)
         .eq('balance_deducted', false)
         .lte('leave_date', todayStr) as any);
 
