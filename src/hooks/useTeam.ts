@@ -104,9 +104,9 @@ export function useTeam() {
         (invitedProfiles || []).forEach((p: any) => teamUserIds.add(p.id));
       }
 
-      // Step 3: Fetch team_members_v2 by user_ids
+      // Step 3: Fetch team_members by user_ids
       const { data: membersData } = await (supabase
-        .from('team_members_v2' as any)
+        .from('team_members' as any)
         .select('*')
         .in('user_id', [...teamUserIds])
         .order('created_at') as any);
@@ -162,7 +162,7 @@ export function useTeam() {
       if (error) throw error;
 
       // Add self as member
-      await (supabase.from('team_members_v2' as any).insert({
+      await (supabase.from('team_members' as any).insert({
         user_id: user.id,
         invited_email: user.email,
         status: 'accepted',
@@ -188,6 +188,13 @@ export function useTeam() {
         .single() as any);
 
       if (error) throw error;
+
+      // Pre-create membership row (user_id=null until accepted)
+      await (supabase.from('team_members' as any).insert({
+        user_id: null,
+        invited_email: email,
+        status: 'pending',
+      }) as any);
 
       await fetchTeam();
       toast({ title: `Invite sent to ${email}` });
