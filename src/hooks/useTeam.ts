@@ -29,9 +29,9 @@ export interface TeamMember {
 export interface TeamInvite {
   id: string;
   team_id: string;
-  email: string;
   token: string;
   status: string;
+  expires_at: string;
   created_at: string;
 }
 
@@ -104,12 +104,13 @@ export function useTeam() {
 
       setMembers(rawMembers);
 
-      // Step 4: Fetch pending invites
+      // Step 4: Fetch pending invites (not expired)
       const { data: invitesData } = await (supabase
         .from('team_invites' as any)
         .select('*')
         .eq('team_id', currentTeam.id)
         .eq('status', 'pending')
+        .gte('expires_at', new Date().toISOString())
         .order('created_at', { ascending: false }) as any);
 
       setInvites(invitesData || []);
@@ -151,31 +152,26 @@ export function useTeam() {
     }
   };
 
-  const inviteMember = async (email: string): Promise<string | null> => {
+  const createInviteLink = async (): Promise<string | null> => {
     if (!user || !team) return null;
     try {
-      const { data, error } = await (supabase
+      const token = crypto.randomUUID();
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+      const { error } = await (supabase
         .from('team_invites' as any)
-        .insert({ team_id: team.id, email })
+        .insert({ team_id: team.id, token, status: 'pending', expires_at: expiresAt })
         .select()
         .single() as any);
 
       if (error) throw error;
 
-      // Pre-create membership row (user_id=null until accepted)
-      await (supabase.from('team_members' as any).insert({
-        team_id: team.id,
-        user_id: null,
-        invited_email: email,
-        status: 'pending',
-      }) as any);
-
       await fetchTeam();
-      toast({ title: `Invite sent to ${email}` });
-      return data.token;
+      const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+      return `${baseUrl}/invite?token=${token}`;
     } catch (err: any) {
-      console.error('[useTeam] invite error:', err);
-      toast({ title: 'Failed to send invite', description: err.message, variant: 'destructive' });
+      console.error('[useTeam] createInviteLink error:', err);
+      toast({ title: 'Failed to create invite link', description: err.message, variant: 'destructive' });
       return null;
     }
   };
@@ -209,7 +205,7 @@ export function useTeam() {
     invites,
     loading,
     createTeam,
-    inviteMember,
+    createInviteLink,
     acceptInvite,
     refetch: fetchTeam,
   };

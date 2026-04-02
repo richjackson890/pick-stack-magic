@@ -4,20 +4,20 @@ import { useTeam } from '@/hooks/useTeam';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Users, UserPlus, Copy, Check, Crown, Mail, Loader2 } from 'lucide-react';
+import { Users, UserPlus, Copy, Check, Crown, Link, Loader2 } from 'lucide-react';
 import { LiquidSpinner } from '@/components/LiquidSpinner';
 
 export function TeamTab() {
   const { user } = useAuth();
-  const { team, members, invites, loading, createTeam, inviteMember, acceptInvite } = useTeam();
+  const { team, members, invites, loading, createTeam, createInviteLink, acceptInvite } = useTeam();
 
   const [teamName, setTeamName] = useState('');
   const [inviteToken, setInviteToken] = useState('');
-  const [inviteEmail, setInviteEmail] = useState('');
+  const [copiedLink, setCopiedLink] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
-  const [inviting, setInviting] = useState(false);
+  const [generatingLink, setGeneratingLink] = useState(false);
 
   if (loading) {
     return (
@@ -150,38 +150,41 @@ export function TeamTab() {
       {isOwner && (
         <div className="glass-card rounded-2xl p-5 space-y-3">
           <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Mail className="h-4 w-4" />
+            <Link className="h-4 w-4" />
             Invite Member
           </h3>
-          <div className="flex gap-2">
-            <Input
-              type="email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="email@example.com"
-              className="flex-1"
-            />
-            <Button
-              size="sm"
-              disabled={!inviteEmail.includes('@') || inviting}
-              onClick={async () => {
-                setInviting(true);
-                await inviteMember(inviteEmail.trim());
-                setInviteEmail('');
-                setInviting(false);
-              }}
-            >
-              {inviting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
-            </Button>
-          </div>
+          <p className="text-xs text-muted-foreground">Generate a shareable invite link (valid for 7 days)</p>
+          <Button
+            className="w-full"
+            disabled={generatingLink}
+            onClick={async () => {
+              setGeneratingLink(true);
+              const link = await createInviteLink();
+              if (link) {
+                await navigator.clipboard.writeText(link);
+                setCopiedLink(true);
+                setTimeout(() => setCopiedLink(false), 3000);
+              }
+              setGeneratingLink(false);
+            }}
+          >
+            {generatingLink ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : copiedLink ? (
+              <Check className="h-4 w-4 mr-2" />
+            ) : (
+              <Copy className="h-4 w-4 mr-2" />
+            )}
+            {copiedLink ? 'Link Copied!' : 'Generate Invite Link'}
+          </Button>
 
-          {/* Pending invites */}
+          {/* Active invite links */}
           {invites.length > 0 && (
             <div className="space-y-1.5 pt-2 border-t border-border/30">
-              <p className="text-xs text-muted-foreground">Pending invites</p>
+              <p className="text-xs text-muted-foreground">Active invite links ({invites.length})</p>
               {invites.map(inv => (
                 <div key={inv.id} className="flex items-center justify-between text-xs">
-                  <span className="truncate text-muted-foreground">{inv.email}</span>
+                  <span className="truncate text-muted-foreground font-mono">...{inv.token.slice(-8)}</span>
                   <button
                     onClick={() => handleCopyToken(inv.token)}
                     className="flex items-center gap-1 text-primary hover:underline shrink-0 ml-2"
