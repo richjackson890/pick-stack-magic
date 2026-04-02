@@ -378,14 +378,14 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   };
 
   return (
-    <div id="work-dashboard" className="space-y-4">
+    <div id="work-dashboard" className="space-y-4 min-w-0 w-full">
       {/* Header */}
-      <div className="flex items-center gap-3 pb-3 border-b border-border print-header">
-        <h2 className="text-xl font-bold text-foreground flex-1">
+      <div className="flex items-center gap-2 pb-3 border-b border-border print-header min-w-0">
+        <h2 className="text-lg font-bold text-foreground flex-1 min-w-0 truncate">
           DLab1 주간업무
           {isReadOnly && <span className="text-sm font-normal text-muted-foreground ml-2">(히스토리)</span>}
         </h2>
-        <span className="text-sm text-muted-foreground font-mono">{getWeekLabel()}</span>
+        <span className="text-xs text-muted-foreground font-mono shrink-0">{getWeekLabel()}</span>
 
         {/* History dropdown */}
         <div className="relative">
@@ -441,15 +441,15 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
             {projects.map(p => (
               <div key={p.id} className="py-4 first:pt-0 last:pb-0 space-y-2">
                 <div className="flex items-start gap-2 min-w-0">
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-base font-semibold truncate">{p.name}</span>
+                  <div className="flex-1 min-w-0 overflow-hidden space-y-1">
+                    <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                      <span className="text-base font-semibold truncate min-w-0">{p.name}</span>
                       {p.type && <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0 whitespace-nowrap">{p.type}</span>}
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground overflow-hidden">
                       <span className="shrink-0">{getCreatorName(p.created_by)}</span>
                       {p.members.length > 0 && (
-                        <span className="text-primary font-medium truncate">
+                        <span className="text-primary font-medium break-all line-clamp-1">
                           {p.members.map(m => [m.position, m.name].filter(Boolean).join(' ')).join(' · ')}
                         </span>
                       )}
@@ -904,7 +904,7 @@ function Section({
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className={cn("px-4 pb-4 space-y-2 overflow-y-auto", maxHeight)}>
+            <div className={cn("px-4 pb-4 space-y-2 overflow-y-auto min-w-0", maxHeight)}>
               {children}
             </div>
           </motion.div>
