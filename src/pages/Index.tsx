@@ -371,8 +371,8 @@ const Index = () => {
                 <TipCard
                   tip={tip}
                   category={getCategoryById(tip.category)}
-                  onEdit={tip.user_id === user?.id || user?.email === 'believe0me77@gmail.com' ? () => handleEdit(tip) : undefined}
-                  onDelete={tip.user_id === user?.id || user?.email === 'believe0me77@gmail.com' ? () => handleDelete(tip.id) : undefined}
+                  onEdit={() => handleEdit(tip)}
+                  onDelete={() => handleDelete(tip.id)}
                   onLike={() => handleLike(tip.id)}
                   onBookmark={() => toggleBookmark(tip.id)}
                   onComment={() => setDetailTip(tip)}

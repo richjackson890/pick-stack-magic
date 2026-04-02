@@ -211,8 +211,8 @@ export function TeamTab() {
         </div>
       )}
 
-      {/* Category Management (owner only) */}
-      {isOwner && (
+      {/* Category Management (all team members) */}
+      {team && (
         <div className="glass-card rounded-2xl p-5 space-y-3">
           <h3 className="text-sm font-semibold flex items-center gap-2">
             <FolderOpen className="h-4 w-4" />

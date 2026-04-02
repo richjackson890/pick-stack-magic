@@ -206,7 +206,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     );
   }
 
-  const isAdmin = user?.email === 'believe0me77@gmail.com';
+  const isAdmin = true; // All team members can manage
 
   // 주간 날짜 라벨
   const fmtWeekDate = (d: Date) => {
