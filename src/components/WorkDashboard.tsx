@@ -79,6 +79,11 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
 
   const toggle = (key: string) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
 
+  const getCreatorName = (userId: string) => {
+    const member = teamMembers.find(m => m.user_id === userId);
+    return member ? getDisplayName(member.profiles) : '?';
+  };
+
   const resetForm = () => {
     setEditProjectId(null); setEditEventId(null); setEditLeaveId(null);
   };
@@ -437,6 +442,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
               <div key={p.id} className="py-4 first:pt-0 last:pb-0 space-y-2">
                 <div className="flex items-center gap-3">
                   <span className="text-base font-semibold flex-1">{p.name}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">{getCreatorName(p.created_by)}</span>
                   {p.type && <span className="text-sm px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0">{p.type}</span>}
                   {p.members.length > 0 && (
                     <span className="text-sm text-primary font-medium shrink-0">
@@ -475,6 +481,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                   <span className="text-sm text-muted-foreground font-mono min-w-[80px] shrink-0">{formatDate(e.event_date)}</span>
                   {e.event_time && <span className="text-sm text-primary font-medium shrink-0 whitespace-nowrap">{e.event_time}</span>}
                   <span className="text-sm font-medium flex-1 whitespace-nowrap truncate">{e.title}</span>
+                  <span className="text-xs text-muted-foreground shrink-0">{getCreatorName(e.created_by)}</span>
                   <div className="flex items-center gap-1 ml-auto shrink-0">
                     {!isReadOnly && <button onClick={() => openEditEvent(e)} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button>}
                     {!isReadOnly && <button onClick={() => deleteEvent(e.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
