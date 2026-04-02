@@ -56,7 +56,10 @@ function getLeaveLabel(type: string) {
 }
 
 export function CalendarView({ projects, events, leaves }: CalendarViewProps) {
-  const today = new Date();
+  // Use KST date to match the rest of the app
+  const now = new Date();
+  const kstOffset = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  const today = new Date(kstOffset.toISOString().split('T')[0] + 'T00:00:00');
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -177,7 +180,7 @@ export function CalendarView({ projects, events, leaves }: CalendarViewProps) {
                 <div className="flex flex-col gap-[2px] mt-0.5 min-w-0 overflow-hidden flex-1">
                   {dateTasks.slice(0, 2).map((t, i) => (
                     <div key={`t${i}`} className="text-[9px] leading-tight px-1 py-[1px] rounded bg-orange-500/15 text-orange-600 truncate">
-                      {t.task}
+                      {t.project} — {t.task}
                     </div>
                   ))}
                   {dateTasks.length > 2 && (
