@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Notification } from '@/hooks/useNotifications';
+import { supabase } from '@/integrations/supabase/client';
 
 interface HeaderProps {
   onSettingsClick?: () => void;
@@ -16,10 +17,23 @@ interface HeaderProps {
 }
 
 export function Header({ onSettingsClick, notifications = [], unreadCount = 0, onMarkAsRead, onMarkAllAsRead, onNotificationClick }: HeaderProps) {
-  const { signOut } = useAuth();
+  const { user, signOut } = useAuth();
   const { toast } = useToast();
   const [showNotifications, setShowNotifications] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const [profile, setProfile] = useState<{ display_name: string | null; name: string | null; position: string | null; avatar_url: string | null } | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    (supabase.from('profiles' as any)
+      .select('display_name, name, position, avatar_url')
+      .eq('id', user.id)
+      .single() as any)
+      .then(({ data }: any) => { if (data) setProfile(data); });
+  }, [user]);
+
+  const displayName = profile?.display_name || profile?.name || user?.email?.split('@')[0] || '';
+  const initials = displayName.slice(0, 2).toUpperCase();
 
   const handleLogout = async () => {
     await signOut();
@@ -75,6 +89,29 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
         </motion.div>
 
         <div className="flex items-center gap-1.5">
+          {/* User indicator */}
+          {profile && (
+            <div className="flex items-center gap-2 mr-1.5">
+              {profile.avatar_url ? (
+                <img
+                  src={profile.avatar_url}
+                  alt={displayName}
+                  className="w-7 h-7 rounded-full object-cover ring-1 ring-border/50"
+                />
+              ) : (
+                <div className="w-7 h-7 rounded-full bg-primary/15 text-primary text-[11px] font-bold flex items-center justify-center ring-1 ring-border/50">
+                  {initials}
+                </div>
+              )}
+              <div className="hidden sm:flex flex-col leading-none">
+                <span className="text-xs font-semibold text-foreground truncate max-w-[100px]">{displayName}</span>
+                {profile.position && (
+                  <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">{profile.position}</span>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Notifications */}
           <div className="relative" ref={dropdownRef}>
             <motion.button

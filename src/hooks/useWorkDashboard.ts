@@ -297,10 +297,10 @@ export function useWorkDashboard(teamId: string | undefined) {
     if (error) { console.error('[WorkDashboard] addProject error:', error); return; }
     console.log('[WorkDashboard] addProject success:', data);
 
-    // Add project members
+    // Add project members (upsert to avoid 409 conflict)
     if (data && memberIds && memberIds.length > 0) {
       const rows = memberIds.map(uid => ({ project_id: data.id, user_id: uid }));
-      await (supabase.from('project_members' as any).insert(rows) as any);
+      await (supabase.from('project_members' as any).upsert(rows, { onConflict: 'project_id,user_id' }) as any);
     }
 
     // Add project tasks
@@ -392,12 +392,13 @@ export function useWorkDashboard(teamId: string | undefined) {
     console.log('[updateProject] result:', data, error);
     if (error) { console.error('[WorkDashboard] updateProject error:', error); return; }
 
-    // Update members: delete all then re-insert
+    // Update members: upsert new, delete removed
     if (memberIds) {
+      // Delete members no longer in the list
       await (supabase.from('project_members' as any).delete().eq('project_id', id) as any);
       if (memberIds.length > 0) {
         const rows = memberIds.map(uid => ({ project_id: id, user_id: uid }));
-        await (supabase.from('project_members' as any).insert(rows) as any);
+        await (supabase.from('project_members' as any).upsert(rows, { onConflict: 'project_id,user_id' }) as any);
       }
     }
 
