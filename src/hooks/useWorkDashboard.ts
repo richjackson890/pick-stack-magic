@@ -342,7 +342,7 @@ export function useWorkDashboard(teamId: string | undefined) {
       event_time: eventTime?.trim() || null,
       created_by: user.id,
     };
-    if (resolvedTeamId) payload.team_id = resolvedTeamId;
+    if (resolvedTeamId) payload.a_id = resolvedTeamId;
     console.log('[WorkDashboard] addEvent payload:', payload);
     const { data, error } = await (supabase.from('team_events' as any).insert(payload).select('id').single() as any);
     if (error) { console.error('[WorkDashboard] addEvent error:', error); } else { console.log('[WorkDashboard] addEvent success:', data); }
