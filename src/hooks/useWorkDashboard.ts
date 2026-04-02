@@ -126,7 +126,7 @@ export function useWorkDashboard(teamId: string | undefined) {
         }
       }
 
-      // Projects (active) — all team members
+      // Projects (active) — created by team OR assigned to team members
       const { data: projectsData } = await (supabase
         .from('projects') as any)
         .select('*')
@@ -134,7 +134,27 @@ export function useWorkDashboard(teamId: string | undefined) {
         .eq('status', '진행중')
         .order('created_at', { ascending: false }) as any;
 
-      const rawProjects: Project[] = (projectsData || []).map((p: any) => ({ ...p, members: [], tasks: [] }));
+      // Also fetch projects where team members are assigned (not just creator)
+      const { data: memberProjectRows } = await (supabase
+        .from('project_members' as any)
+        .select('project_id')
+        .in('user_id', teamUserIds) as any);
+      const memberProjectIds = [...new Set((memberProjectRows || []).map((r: any) => r.project_id))];
+
+      // Fetch those projects that aren't already in projectsData
+      const existingIds = new Set((projectsData || []).map((p: any) => p.id));
+      const missingIds = memberProjectIds.filter((id: string) => !existingIds.has(id));
+      let extraProjects: any[] = [];
+      if (missingIds.length > 0) {
+        const { data: extraData } = await (supabase
+          .from('projects') as any)
+          .select('*')
+          .in('id', missingIds)
+          .eq('status', '진행중') as any;
+        extraProjects = extraData || [];
+      }
+
+      const rawProjects: Project[] = [...(projectsData || []), ...extraProjects].map((p: any) => ({ ...p, members: [], tasks: [] }));
 
       if (rawProjects.length > 0) {
         const projectIds = rawProjects.map(p => p.id);
@@ -198,7 +218,7 @@ export function useWorkDashboard(teamId: string | undefined) {
         const uids = [...new Set(rawLeaves.map(l => l.user_id))];
         const { data: profiles } = await (supabase.from('profiles' as any).select('id, name, display_name, avatar_url').in('id', uids) as any);
         const pMap: Record<string, any> = {};
-        (profiles || []).forEach((p: any) => { pMap[p.id] = { name: p.name, avatar_url: p.avatar_url }; });
+        (profiles || []).forEach((p: any) => { pMap[p.id] = { name: p.display_name || p.name, avatar_url: p.avatar_url }; });
         rawLeaves.forEach(l => { l.profile = pMap[l.user_id]; });
       }
       console.log('[WorkDashboard] fetched leaves:', rawLeaves.length);
@@ -212,7 +232,7 @@ export function useWorkDashboard(teamId: string | undefined) {
         const uids = [...new Set(rawBal.map(b => b.user_id))];
         const { data: profiles } = await (supabase.from('profiles' as any).select('id, name, display_name, avatar_url').in('id', uids) as any);
         const pMap: Record<string, any> = {};
-        (profiles || []).forEach((p: any) => { pMap[p.id] = { name: p.name, avatar_url: p.avatar_url }; });
+        (profiles || []).forEach((p: any) => { pMap[p.id] = { name: p.display_name || p.name, avatar_url: p.avatar_url }; });
         rawBal.forEach(b => { b.profile = pMap[b.user_id]; });
       }
       setBalances(rawBal);
@@ -472,12 +492,12 @@ export function useWorkDashboard(teamId: string | undefined) {
   const addProjectType = async (name: string) => {
     if (!user || !name.trim()) return;
     await (supabase.from('project_types' as any).insert({ name: name.trim(), created_by: user.id }) as any);
-    fetchAll();
+    await fetchAll();
   };
 
   const deleteProjectType = async (id: string) => {
     await (supabase.from('project_types' as any).delete().eq('id', id) as any);
-    fetchAll();
+    await fetchAll();
   };
 
   const upsertLeaveBalance = async (totalDays: number, usedDays: number, targetUserId?: string) => {
