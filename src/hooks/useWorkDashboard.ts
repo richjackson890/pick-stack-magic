@@ -210,7 +210,11 @@ export function useWorkDashboard(teamId: string | undefined) {
       setEvents([...(eventsData || [])]);
 
       // Leaves this week — all team members
-      const leaveQuery = (supabase.from('leaves' as any).select('*').in('user_id', teamUserIds).gte('leave_date', week.start).lte('leave_date', week.end).order('leave_date') as any);
+      // Fetch leaves for next 3 months (today ~ +90 days)
+      const leaveStart = getTodayKST();
+      const leaveEndDate = new Date(new Date(leaveStart + 'T00:00:00').getTime() + 90 * 24 * 60 * 60 * 1000);
+      const leaveEnd = leaveEndDate.toISOString().slice(0, 10);
+      const leaveQuery = (supabase.from('leaves' as any).select('*').in('user_id', teamUserIds).gte('leave_date', leaveStart).lte('leave_date', leaveEnd).order('leave_date') as any);
       const { data: leavesData } = await leaveQuery;
 
       const rawLeaves: Leave[] = leavesData || [];
