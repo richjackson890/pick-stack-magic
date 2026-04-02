@@ -26,13 +26,14 @@ import { TipDetailModal } from '@/components/TipDetailModal';
 import { InstallBanner } from '@/components/InstallBanner';
 import { WorkDashboard } from '@/components/WorkDashboard';
 import { OnboardingModal } from '@/components/OnboardingModal';
-import { RefreshCw, Search, X, LayoutGrid, List, ArrowUpDown, Bookmark } from 'lucide-react';
+import { RefreshCw, Search, X, LayoutGrid, List, ArrowUpDown, Bookmark, Settings, Plus, Pencil, Trash2, Check } from 'lucide-react';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
 const Index = () => {
   const { user } = useAuth();
   const { tips, loading: tipsLoading, addTip, updateTip, deleteTip, refetch } = useTips();
-  const { categories, loading: categoriesLoading, getCategoryById, getDefaultCategory } = useArchiCategories();
+  const { categories, loading: categoriesLoading, getCategoryById, getDefaultCategory, addCategory, updateCategory, deleteCategory } = useArchiCategories();
   const { analyzeTip, analyzingIds } = useGroqAnalysis();
   const { team, members: teamMembers } = useTeam();
   const { toggleLike, isLiked, setInitialCount, getCount } = useTipLikes();
@@ -53,6 +54,14 @@ const Index = () => {
   const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
   const [homeSubTab, setHomeSubTab] = useState<'tips' | 'work'>('tips');
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Category management state
+  const [catMgmtOpen, setCatMgmtOpen] = useState(false);
+  const [catEditId, setCatEditId] = useState<string | null>(null);
+  const [catName, setCatName] = useState('');
+  const [catIcon, setCatIcon] = useState('');
+  const [catColor, setCatColor] = useState('#3b82f6');
+  const [catAdding, setCatAdding] = useState(false);
 
   // Toast state
   const [toastState, setToastState] = useState<{
@@ -307,6 +316,13 @@ const Index = () => {
                     {cat.name}
                   </GlassChip>
                 ))}
+                <button
+                  onClick={() => setCatMgmtOpen(true)}
+                  className="shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-primary hover:bg-secondary/50 transition-colors"
+                  title="카테고리 관리"
+                >
+                  <Settings className="h-3.5 w-3.5" />
+                </button>
               </GlassChipGroup>
             </div>
 
@@ -497,6 +513,64 @@ const Index = () => {
 
       <InstallBanner />
       <OnboardingModal />
+
+      {/* Category Management Sheet */}
+      <Sheet open={catMgmtOpen} onOpenChange={setCatMgmtOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-sm overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              카테고리 관리
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-4 space-y-2">
+            {categories.map(cat => (
+              <div key={cat.id} className="flex items-center gap-2 py-2 px-3 rounded-lg bg-secondary/30">
+                {catEditId === cat.id ? (
+                  <>
+                    <input value={catIcon} onChange={e => setCatIcon(e.target.value)} className="w-8 text-center text-sm bg-transparent border-b border-primary outline-none" placeholder="📁" />
+                    <input value={catName} onChange={e => setCatName(e.target.value)} className="flex-1 min-w-0 text-sm bg-transparent border-b border-primary outline-none" />
+                    <input type="color" value={catColor} onChange={e => setCatColor(e.target.value)} className="w-6 h-6 rounded cursor-pointer border-0" />
+                    <button onClick={async () => {
+                      if (catName.trim()) await updateCategory(cat.id, { name: catName.trim(), icon: catIcon, color: catColor });
+                      setCatEditId(null);
+                    }} className="text-primary"><Check className="h-3.5 w-3.5" /></button>
+                    <button onClick={() => setCatEditId(null)} className="text-muted-foreground"><X className="h-3.5 w-3.5" /></button>
+                  </>
+                ) : (
+                  <>
+                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white shrink-0" style={{ backgroundColor: cat.color }}>{cat.icon}</span>
+                    <span className="text-sm flex-1 min-w-0 truncate">{cat.name}</span>
+                    <button onClick={() => { setCatEditId(cat.id); setCatName(cat.name); setCatIcon(cat.icon); setCatColor(cat.color); }} className="text-muted-foreground hover:text-primary"><Pencil className="h-3.5 w-3.5" /></button>
+                    {cat.name !== '기타' && (
+                      <button onClick={() => deleteCategory(cat.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
+                    )}
+                  </>
+                )}
+              </div>
+            ))}
+
+            {catAdding ? (
+              <div className="flex items-center gap-2 py-2 px-3 rounded-lg bg-secondary/30">
+                <input value={catIcon} onChange={e => setCatIcon(e.target.value)} className="w-8 text-center text-sm bg-transparent border-b border-primary outline-none" placeholder="📁" />
+                <input value={catName} onChange={e => setCatName(e.target.value)} className="flex-1 min-w-0 text-sm bg-transparent border-b border-primary outline-none" placeholder="카테고리 이름" autoFocus />
+                <input type="color" value={catColor} onChange={e => setCatColor(e.target.value)} className="w-6 h-6 rounded cursor-pointer border-0" />
+                <button onClick={async () => {
+                  if (catName.trim()) { await addCategory(catName.trim(), catIcon || '📁', catColor); setCatName(''); setCatIcon(''); setCatAdding(false); }
+                }} className="text-primary"><Check className="h-3.5 w-3.5" /></button>
+                <button onClick={() => { setCatAdding(false); setCatName(''); setCatIcon(''); }} className="text-muted-foreground"><X className="h-3.5 w-3.5" /></button>
+              </div>
+            ) : (
+              <button
+                onClick={() => { setCatName(''); setCatIcon(''); setCatColor('#3b82f6'); setCatAdding(true); }}
+                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg border border-dashed border-border/50 text-sm text-muted-foreground hover:text-primary hover:border-primary/50 transition-colors"
+              >
+                <Plus className="h-3.5 w-3.5" /> 새 카테고리 추가
+              </button>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 };

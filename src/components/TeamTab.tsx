@@ -2,16 +2,14 @@ import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { useTeam } from '@/hooks/useTeam';
 import { useAuth } from '@/contexts/AuthContext';
-import { useArchiCategories } from '@/hooks/useArchiCategories';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Users, UserPlus, Copy, Check, Crown, Link, Loader2, FolderOpen, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { Users, UserPlus, Copy, Check, Crown, Link, Loader2 } from 'lucide-react';
 import { LiquidSpinner } from '@/components/LiquidSpinner';
 
 export function TeamTab() {
   const { user } = useAuth();
   const { team, members, invites, loading, createTeam, createInviteLink, acceptInvite } = useTeam();
-  const { categories, addCategory, updateCategory, deleteCategory } = useArchiCategories();
 
   const [teamName, setTeamName] = useState('');
   const [inviteToken, setInviteToken] = useState('');
@@ -20,13 +18,6 @@ export function TeamTab() {
   const [creating, setCreating] = useState(false);
   const [joining, setJoining] = useState(false);
   const [generatingLink, setGeneratingLink] = useState(false);
-
-  // Category management state
-  const [catName, setCatName] = useState('');
-  const [catIcon, setCatIcon] = useState('');
-  const [catColor, setCatColor] = useState('#3b82f6');
-  const [editingCat, setEditingCat] = useState<string | null>(null);
-  const [addingCat, setAddingCat] = useState(false);
 
   if (loading) {
     return (
@@ -211,59 +202,6 @@ export function TeamTab() {
         </div>
       )}
 
-      {/* Category Management (all team members) */}
-      {team && (
-        <div className="glass-card rounded-2xl p-5 space-y-3">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <FolderOpen className="h-4 w-4" />
-            카테고리 관리
-          </h3>
-
-          <div className="space-y-1.5">
-            {categories.map(cat => (
-              <div key={cat.id} className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-secondary/30">
-                {editingCat === cat.id ? (
-                  <>
-                    <input value={catIcon} onChange={e => setCatIcon(e.target.value)} className="w-8 text-center text-sm bg-transparent border-b border-primary outline-none" placeholder="📁" />
-                    <input value={catName} onChange={e => setCatName(e.target.value)} className="flex-1 min-w-0 text-sm bg-transparent border-b border-primary outline-none" />
-                    <input type="color" value={catColor} onChange={e => setCatColor(e.target.value)} className="w-6 h-6 rounded cursor-pointer border-0" />
-                    <button onClick={async () => {
-                      if (catName.trim()) await updateCategory(cat.id, { name: catName.trim(), icon: catIcon, color: catColor });
-                      setEditingCat(null);
-                    }} className="text-primary"><Check className="h-3.5 w-3.5" /></button>
-                    <button onClick={() => setEditingCat(null)} className="text-muted-foreground"><X className="h-3.5 w-3.5" /></button>
-                  </>
-                ) : (
-                  <>
-                    <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs text-white shrink-0" style={{ backgroundColor: cat.color }}>{cat.icon}</span>
-                    <span className="text-sm flex-1 min-w-0 truncate">{cat.name}</span>
-                    <button onClick={() => { setEditingCat(cat.id); setCatName(cat.name); setCatIcon(cat.icon); setCatColor(cat.color); }} className="text-muted-foreground hover:text-primary"><Pencil className="h-3.5 w-3.5" /></button>
-                    {cat.name !== '기타' && (
-                      <button onClick={() => deleteCategory(cat.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-3.5 w-3.5" /></button>
-                    )}
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {addingCat ? (
-            <div className="flex items-center gap-2 py-1.5 px-2 rounded-lg bg-secondary/30">
-              <input value={catIcon} onChange={e => setCatIcon(e.target.value)} className="w-8 text-center text-sm bg-transparent border-b border-primary outline-none" placeholder="📁" />
-              <input value={catName} onChange={e => setCatName(e.target.value)} className="flex-1 min-w-0 text-sm bg-transparent border-b border-primary outline-none" placeholder="카테고리 이름" autoFocus />
-              <input type="color" value={catColor} onChange={e => setCatColor(e.target.value)} className="w-6 h-6 rounded cursor-pointer border-0" />
-              <button onClick={async () => {
-                if (catName.trim()) { await addCategory(catName.trim(), catIcon || '📁', catColor); setCatName(''); setCatIcon(''); setAddingCat(false); }
-              }} className="text-primary"><Check className="h-3.5 w-3.5" /></button>
-              <button onClick={() => { setAddingCat(false); setCatName(''); setCatIcon(''); }} className="text-muted-foreground"><X className="h-3.5 w-3.5" /></button>
-            </div>
-          ) : (
-            <Button variant="outline" size="sm" className="w-full" onClick={() => { setCatName(''); setCatIcon(''); setCatColor('#3b82f6'); setAddingCat(true); }}>
-              <Plus className="h-3.5 w-3.5 mr-1" /> 새 카테고리
-            </Button>
-          )}
-        </div>
-      )}
     </div>
   );
 }
