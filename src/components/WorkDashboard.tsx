@@ -440,24 +440,32 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
           <div className="divide-y divide-border/30">
             {projects.map(p => (
               <div key={p.id} className="py-4 first:pt-0 last:pb-0 space-y-2">
-                <div className="flex items-center gap-3">
-                  <span className="text-base font-semibold flex-1">{p.name}</span>
-                  <span className="text-xs text-muted-foreground shrink-0">{getCreatorName(p.created_by)}</span>
-                  {p.type && <span className="text-sm px-2.5 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0">{p.type}</span>}
-                  {p.members.length > 0 && (
-                    <span className="text-sm text-primary font-medium shrink-0">
-                      {p.members.map(m => [m.position, m.name].filter(Boolean).join(' ')).join(' · ')}
-                    </span>
-                  )}
-                  {!isReadOnly && <button onClick={() => openEditProject(p)} className="text-muted-foreground hover:text-primary shrink-0"><Pencil className="h-4 w-4" /></button>}
-                  {!isReadOnly && <button onClick={() => deleteProject(p.id)} className="text-muted-foreground hover:text-destructive shrink-0"><Trash2 className="h-4 w-4" /></button>}
+                <div className="flex items-start gap-2 min-w-0">
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-base font-semibold truncate">{p.name}</span>
+                      {p.type && <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0 whitespace-nowrap">{p.type}</span>}
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
+                      <span className="shrink-0">{getCreatorName(p.created_by)}</span>
+                      {p.members.length > 0 && (
+                        <span className="text-primary font-medium truncate">
+                          {p.members.map(m => [m.position, m.name].filter(Boolean).join(' ')).join(' · ')}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {!isReadOnly && <button onClick={() => openEditProject(p)} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button>}
+                    {!isReadOnly && <button onClick={() => deleteProject(p.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
+                  </div>
                 </div>
                 {p.tasks.length > 0 && (
                   <div className="ml-4 space-y-1.5 border-l-2 border-primary/20 pl-4">
                     {p.tasks.map(t => (
-                      <div key={t.id} className="flex items-center gap-3 group">
-                        <span className="text-sm flex-1 text-muted-foreground">{t.title}</span>
-                        <span className="text-sm text-muted-foreground font-mono shrink-0">{formatShortDate(t.start_date)} ~ {formatShortDate(t.end_date)}</span>
+                      <div key={t.id} className="flex items-center gap-2 group min-w-0">
+                        <span className="text-sm flex-1 min-w-0 truncate text-muted-foreground">{t.title}</span>
+                        <span className="text-xs text-muted-foreground font-mono shrink-0">{formatShortDate(t.start_date)} ~ {formatShortDate(t.end_date)}</span>
                         {!isReadOnly && <button onClick={() => deleteProjectTask(t.id)} className="text-muted-foreground hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-3.5 w-3.5" /></button>}
                       </div>
                     ))}
@@ -477,12 +485,12 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
           ) : (
             <div className="space-y-2">
               {events.map(e => (
-                <div key={e.id} className="flex items-center gap-2 py-2 px-3 rounded-lg bg-secondary/20">
-                  <span className="text-sm text-muted-foreground font-mono min-w-[80px] shrink-0">{formatDate(e.event_date)}</span>
-                  {e.event_time && <span className="text-sm text-primary font-medium shrink-0 whitespace-nowrap">{e.event_time}</span>}
-                  <span className="text-sm font-medium flex-1 whitespace-nowrap truncate">{e.title}</span>
+                <div key={e.id} className="flex items-center gap-2 py-2 px-3 rounded-lg bg-secondary/20 min-w-0">
+                  <span className="text-xs text-muted-foreground font-mono shrink-0">{formatDate(e.event_date)}</span>
+                  {e.event_time && <span className="text-xs text-primary font-medium shrink-0 whitespace-nowrap">{e.event_time}</span>}
+                  <span className="text-sm font-medium flex-1 min-w-0 truncate">{e.title}</span>
                   <span className="text-xs text-muted-foreground shrink-0">{getCreatorName(e.created_by)}</span>
-                  <div className="flex items-center gap-1 ml-auto shrink-0">
+                  <div className="flex items-center gap-1 shrink-0">
                     {!isReadOnly && <button onClick={() => openEditEvent(e)} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button>}
                     {!isReadOnly && <button onClick={() => deleteEvent(e.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
                   </div>
@@ -500,16 +508,16 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
           ) : (
             <div className="space-y-2">
               {leaves.map(l => (
-                <div key={l.id} className="flex items-center gap-2 py-2 px-3 rounded-lg bg-secondary/20">
-                  <span className="text-sm text-muted-foreground font-mono min-w-[80px] shrink-0">{formatDate(l.leave_date)}</span>
+                <div key={l.id} className="flex items-center gap-2 py-2 px-3 rounded-lg bg-secondary/20 min-w-0">
+                  <span className="text-xs text-muted-foreground font-mono shrink-0">{formatDate(l.leave_date)}</span>
                   <span className={cn(
                     "text-sm px-2 py-0.5 rounded-full font-medium shrink-0 whitespace-nowrap",
                     l.type === '연차' ? 'bg-rose-500/15 text-rose-400' :
                     (l.type === '오전반차' || l.type === '오후반차') ? 'bg-amber-500/15 text-amber-400' :
                     'bg-violet-500/15 text-violet-400'
                   )}>{leaveLabel(l.type)}</span>
-                  <span className="text-sm font-medium flex-1 whitespace-nowrap truncate">{l.profile?.display_name || l.profile?.name || 'Unknown'}</span>
-                  <div className="flex items-center gap-1 ml-auto shrink-0">
+                  <span className="text-sm font-medium flex-1 min-w-0 truncate">{l.profile?.display_name || l.profile?.name || 'Unknown'}</span>
+                  <div className="flex items-center gap-1 shrink-0">
                     {!isReadOnly && <button onClick={() => openEditLeave(l)} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button>}
                     {!isReadOnly && <button onClick={() => deleteLeave(l.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
                   </div>

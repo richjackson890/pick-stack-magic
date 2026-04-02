@@ -78,7 +78,7 @@ URL: ${url}
 플랫폼: ${platform}
 제목: ${title || '(없음)'}
 
-카테고리 분류 기준 (반드시 아래 기준에 따라 분류):
+카테고리 분류 기준 (반드시 아래 6개 중 하나로 분류):
 - 구조/시공: 구조설계, 시공기술, 건축재료, 구조해석, 공법, 철골/RC/목구조
 - AI/디지털: AI 건축 도구, 생성형 AI 활용, 디지털 설계 워크플로우, BIM 자동화, 파라메트릭 설계, Grasshopper, Dynamo, Revit, Rhino, Snaptrude, 3D모델링, 프로그래밍, 머신러닝 건축 응용, 다이어그램 자동화
 - 디자인레퍼런스: 완성된 건축 작품 사례, 인테리어 디자인, 공간 디자인 사례, 건축가/스튜디오 작품, 디자인 트렌드, 조경, 파사드 디자인
@@ -88,12 +88,19 @@ URL: ${url}
 
 중요: "도구", "소프트웨어", "모델링", "다이어그램", "프로그래밍", "자동화", "AI", "파라메트릭"이 포함된 콘텐츠는 "디자인레퍼런스"가 아니라 "AI/디지털"로 분류하세요.
 
+태그 작성 규칙:
+- 5~8개의 구체적이고 검색 가능한 키워드를 생성하세요
+- 건축가가 실제로 검색할 용어를 사용하세요
+- "AI", "건축", "자동화" 같은 너무 넓은 태그는 금지
+- 구체적 도구명(Rhino, Revit, AutoCAD, Grasshopper, SketchUp, Enscape 등), 기법명(파라메트릭, 보로노이, 매스스터디 등), 프로젝트 유형(공동주택, 오피스텔, 문화시설 등), 전문 개념(건폐율, 용적률, 피난동선, 커튼월, BIM, LOD 등)을 우선 사용하세요
+- 한국어와 영문 약어를 적절히 혼용하세요
+
 다음 JSON만 응답하세요 (다른 텍스트 없이):
 {
   "title": "명확한 제목 (원본 유지하거나 개선, 50자 이내)",
   "description": "콘텐츠 핵심 요약 2-3문장 (한국어)",
-  "tags": ["태그1", "태그2", "태그3", "태그4"],
-  "suggested_category": "위 카테고리 중 가장 적합한 하나"
+  "tags": ["구체적태그1", "구체적태그2", "구체적태그3", "구체적태그4", "구체적태그5", "구체적태그6", "구체적태그7"],
+  "suggested_category": "AI/디지털 | 구조/시공 | 디자인레퍼런스 | 법규검토 | 심사경향 | 기타 중 하나"
 }`;
 
           console.log('[useUrlPreview] Groq request prompt:', prompt.slice(0, 200));
@@ -116,7 +123,7 @@ URL: ${url}
           if (parsed) {
             if (parsed.title) title = parsed.title;
             if (parsed.description) description = parsed.description;
-            if (Array.isArray(parsed.tags) && parsed.tags.length > 0) tags = parsed.tags.slice(0, 5);
+            if (Array.isArray(parsed.tags) && parsed.tags.length > 0) tags = parsed.tags.slice(0, 8);
             if (parsed.suggested_category) suggestedCategory = parsed.suggested_category;
           }
         } catch (groqErr) {

@@ -52,14 +52,19 @@ URL: ${tip.url || '(없음)'}
 
 중요: "도구", "소프트웨어", "모델링", "다이어그램", "프로그래밍", "자동화", "AI", "파라메트릭"이 포함된 콘텐츠는 "디자인레퍼런스"가 아니라 "AI/디지털"로 분류하세요.
 
+태그 작성 규칙:
+- 5~8개의 구체적이고 검색 가능한 키워드를 생성하세요
+- 건축가가 실제로 검색할 용어를 사용하세요
+- "AI", "건축", "자동화" 같은 너무 넓은 태그는 금지
+- 구체적 도구명(Rhino, Revit, AutoCAD, Grasshopper, SketchUp, Enscape 등), 기법명(파라메트릭, 보로노이, 매스스터디 등), 프로젝트 유형(공동주택, 오피스텔, 문화시설 등), 전문 개념(건폐율, 용적률, 피난동선, 커튼월, BIM, LOD 등)을 우선 사용하세요
+- 한국어와 영문 약어를 적절히 혼용하세요
+
 다음 JSON만 응답하세요 (다른 텍스트 없이):
 {
   "summary": "2~3문장 한국어 요약 (건축 전문가 관점)",
-  "tags": ["추천태그1", "추천태그2", "추천태그3", "추천태그4", "추천태그5"],
-  "suggested_category": "위 카테고리 중 가장 적합한 하나"
-}
-
-태그는 한국어 건축 용어를 사용하세요 (예: 건폐율, 용적률, 피난동선, 커튼월, BIM, 친환경인증 등).`;
+  "tags": ["구체적태그1", "구체적태그2", "구체적태그3", "구체적태그4", "구체적태그5", "구체적태그6", "구체적태그7"],
+  "suggested_category": "AI/디지털 | 구조/시공 | 디자인레퍼런스 | 법규검토 | 심사경향 | 기타 중 하나"
+}`;
 
       const raw = await callGroq([
         { role: 'system', content: '건축 분야 지식 공유 분석 전문가. JSON으로만 응답.' },
@@ -78,7 +83,7 @@ URL: ${tip.url || '(없음)'}
 
       const result: AnalysisResult = {
         summary: parsed.summary || '',
-        tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 6) : [],
+        tags: Array.isArray(parsed.tags) ? parsed.tags.slice(0, 8) : [],
         suggestedCategory: parsed.suggested_category || '기타',
       };
 
