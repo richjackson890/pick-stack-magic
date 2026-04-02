@@ -100,18 +100,21 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
     }
   };
 
-  // Auto-apply preview data when it arrives
+  // Auto-apply preview data when it arrives (delayed for DOM readiness)
   useEffect(() => {
     if (!preview) return;
     console.log('[SaveModal] Auto-applying preview:', preview);
-    if (preview.title) setTitle(preview.title);
-    if (preview.description) setContent(preview.description);
-    if (preview.image) setImageUrl(preview.image);
-    if (preview.tags.length > 0) setTags(preview.tags);
-    if (preview.suggestedCategory) {
-      const match = categories.find(c => c.name === preview.suggestedCategory);
-      if (match) setSelectedCategoryId(match.id);
-    }
+    const timer = setTimeout(() => {
+      setTitle(preview.title || '');
+      setContent(preview.description || '');
+      setImageUrl(preview.image || '');
+      if (preview.tags.length > 0) setTags(preview.tags);
+      if (preview.suggestedCategory) {
+        const match = categories.find(c => c.name === preview.suggestedCategory);
+        if (match) setSelectedCategoryId(match.id);
+      }
+    }, 100);
+    return () => clearTimeout(timer);
   }, [preview, categories]);
 
   const handleAddTag = () => {
