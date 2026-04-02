@@ -277,6 +277,19 @@ export function useWorkDashboard(teamId: string | undefined) {
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
+  // Resolve team_id from hook parameter or query team_members
+  const resolveTeamId = async (): Promise<string | null> => {
+    if (teamId) return teamId;
+    if (!user) return null;
+    const { data: tmRow } = await (supabase
+      .from('team_members' as any)
+      .select('team_id')
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .maybeSingle() as any);
+    return tmRow?.team_id || null;
+  };
+
   // Mutations
   const addProject = async (
     name: string,
@@ -285,6 +298,7 @@ export function useWorkDashboard(teamId: string | undefined) {
     tasks?: { title: string; start_date: string; end_date: string }[],
   ) => {
     if (!user) return;
+    const resolvedTeamId = await resolveTeamId();
     const payload: Record<string, any> = {
       name,
       type: type?.trim() || null,
@@ -292,19 +306,7 @@ export function useWorkDashboard(teamId: string | undefined) {
       status: '진행중',
       created_by: user.id,
     };
-
-    // Attach team_id from hook parameter or fetch from team_members
-    if (teamId) {
-      payload.team_id = teamId;
-    } else {
-      const { data: tmRow } = await (supabase
-        .from('team_members' as any)
-        .select('team_id')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .maybeSingle() as any);
-      if (tmRow?.team_id) payload.team_id = tmRow.team_id;
-    }
+    if (resolvedTeamId) payload.team_id = resolvedTeamId;
     console.log('[WorkDashboard] addProject payload:', payload);
     const { data, error } = await (supabase.from('projects' as any).insert(payload).select('id').single() as any);
     if (error) { console.error('[WorkDashboard] addProject error:', error); return; }
@@ -333,12 +335,14 @@ export function useWorkDashboard(teamId: string | undefined) {
 
   const addEvent = async (title: string, eventDate: string, eventTime?: string) => {
     if (!user) return;
-    const payload = {
+    const resolvedTeamId = await resolveTeamId();
+    const payload: Record<string, any> = {
       title,
       event_date: eventDate,
       event_time: eventTime?.trim() || null,
       created_by: user.id,
     };
+    if (resolvedTeamId) payload.team_id = resolvedTeamId;
     console.log('[WorkDashboard] addEvent payload:', payload);
     const { data, error } = await (supabase.from('team_events' as any).insert(payload).select('id').single() as any);
     if (error) { console.error('[WorkDashboard] addEvent error:', error); } else { console.log('[WorkDashboard] addEvent success:', data); }
@@ -371,12 +375,14 @@ export function useWorkDashboard(teamId: string | undefined) {
     const uid = targetUserId || user.id;
     const todayKST = getTodayKST();
     const shouldDeduct = leaveDate <= todayKST;
-    const payload = {
+    const resolvedTeamId = await resolveTeamId();
+    const payload: Record<string, any> = {
       user_id: uid,
       leave_date: leaveDate,
       type,
       balance_deducted: shouldDeduct,
     };
+    if (resolvedTeamId) payload.team_id = resolvedTeamId;
     console.log('[WorkDashboard] addLeave payload:', payload);
     const { data, error } = await (supabase.from('leaves' as any).insert(payload).select('id').single() as any);
     if (error) { console.error('[WorkDashboard] addLeave error:', error); return; }
