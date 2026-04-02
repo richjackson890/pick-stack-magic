@@ -8,7 +8,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Check, Sparkles, ChevronDown, Plus, X, Loader2, Wand2, ExternalLink } from 'lucide-react';
+import { Check, Sparkles, ChevronDown, Plus, X, Loader2, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ArchiCategory } from '@/hooks/useArchiCategories';
 import { Tip, TipInsert } from '@/hooks/useTips';
@@ -102,16 +102,8 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
 
   // Auto-apply preview data when it arrives
   useEffect(() => {
-    if (preview) applyPreview();
-  }, [preview]);
-
-  // Apply AI suggestions from preview
-  const applyPreview = () => {
-    if (!preview) {
-      console.warn('[SaveModal] applyPreview called but no preview data');
-      return;
-    }
-    console.log('[SaveModal] Applying preview:', preview);
+    if (!preview) return;
+    console.log('[SaveModal] Auto-applying preview:', preview);
     if (preview.title) setTitle(preview.title);
     if (preview.description) setContent(preview.description);
     if (preview.image) setImageUrl(preview.image);
@@ -120,7 +112,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
       const match = categories.find(c => c.name === preview.suggestedCategory);
       if (match) setSelectedCategoryId(match.id);
     }
-  };
+  }, [preview, categories]);
 
   const handleAddTag = () => {
     const trimmed = tagInput.trim();
@@ -222,16 +214,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
                         ))}
                       </div>
                     )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={applyPreview}
-                      disabled={!preview}
-                      className="w-full mt-2 text-xs gap-1.5"
-                    >
-                      <Wand2 className="h-3 w-3" />
-                      AI 추천 적용하기
-                    </Button>
+                    <p className="text-[10px] text-muted-foreground text-center mt-2">AI 분석 결과가 자동으로 적용됩니다</p>
                   </div>
                 </div>
               )}
