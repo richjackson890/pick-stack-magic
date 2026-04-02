@@ -544,11 +544,11 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                     <div className="flex items-center gap-3">
                       <div className="flex-1">
                         <label className="text-sm text-muted-foreground block mb-1">총 연차</label>
-                        <Input type="number" value={editTotal} onChange={e => setEditTotal(e.target.value)} className="h-9 text-base" step="0.5" min="0" />
+                        <Input type="number" value={editTotal} onChange={e => setEditTotal(e.target.value)} className="h-9 text-base" step="0.25" min="0" />
                       </div>
                       <div className="flex-1">
                         <label className="text-sm text-muted-foreground block mb-1">사용</label>
-                        <Input type="number" value={editUsed} onChange={e => setEditUsed(e.target.value)} className="h-9 text-base" step="0.5" min="0" />
+                        <Input type="number" value={editUsed} onChange={e => setEditUsed(e.target.value)} className="h-9 text-base" step="0.25" min="0" />
                       </div>
                       <Button className="h-9 px-5 mt-6" disabled={saving} onClick={async () => {
                         setSaving(true);

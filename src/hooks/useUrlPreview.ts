@@ -3,6 +3,17 @@ import { supabase } from '@/integrations/supabase/client';
 import { ArchiCategory } from '@/hooks/useArchiCategories';
 import { callGroq, parseJsonFromLLM } from '@/lib/groqClient';
 
+function extractYouTubeId(url: string): string | null {
+  const patterns = [
+    /(?:youtube\.com\/watch\?.*v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/shorts\/)([a-zA-Z0-9_-]{11})/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
 export interface UrlPreview {
   title: string;
   description: string;
@@ -44,8 +55,23 @@ export function useUrlPreview() {
       let description = (data.summary_3 || []).filter(Boolean).join(' ');
       let tags: string[] = data.tags || [];
       let suggestedCategory = data.final_category || '기타';
-      const image = data.thumbnail_url || '';
+      let image = data.thumbnail_url || '';
       const platform = data.platform || 'Web';
+
+      // YouTube thumbnail: extract video ID and use reliable URL with fallback
+      if (platform === 'YouTube' || url.includes('youtube.com') || url.includes('youtu.be')) {
+        const videoId = extractYouTubeId(url);
+        if (videoId) {
+          const maxRes = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+          const hqFallback = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+          try {
+            const res = await fetch(maxRes, { method: 'HEAD' });
+            image = res.ok ? maxRes : hqFallback;
+          } catch {
+            image = hqFallback;
+          }
+        }
+      }
 
       // Step 2: If Edge Function returned empty AI data, use client-side Groq
       const hasAiData = description.trim().length > 0 && tags.length > 0;
