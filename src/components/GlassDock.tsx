@@ -1,8 +1,8 @@
 import { motion } from 'framer-motion';
-import { Home, Plus, Sparkles, BarChart3, Users } from 'lucide-react';
+import { Home, Plus, Sparkles, BarChart3, Users, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-type TabType = 'home' | 'creator' | 'report' | 'dashboard';
+type TabType = 'home' | 'creator' | 'calendar' | 'report' | 'dashboard';
 
 interface GlassDockProps {
   currentTab: TabType;
@@ -13,6 +13,7 @@ interface GlassDockProps {
 const tabs: { id: TabType; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'Tips', icon: Home },
   { id: 'creator', label: 'Team', icon: Users },
+  { id: 'calendar', label: 'Calendar', icon: CalendarDays },
   { id: 'report', label: 'AI Report', icon: Sparkles },
   { id: 'dashboard', label: 'Stats', icon: BarChart3 },
 ];
@@ -20,7 +21,7 @@ const tabs: { id: TabType; label: string; icon: typeof Home }[] = [
 export function GlassDock({ currentTab, onTabChange, onAdd }: GlassDockProps) {
   // Split tabs into left (before FAB) and right (after FAB)
   const leftTabs = tabs.slice(0, 2);
-  const rightTabs = tabs.slice(2);
+  const rightTabs = tabs.slice(2, 5);
 
   const renderTab = (tab: typeof tabs[0]) => {
     const Icon = tab.icon;

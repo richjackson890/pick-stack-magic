@@ -25,6 +25,8 @@ import { AIReportTab } from '@/components/AIReportTab';
 import { TipDetailModal } from '@/components/TipDetailModal';
 import { InstallBanner } from '@/components/InstallBanner';
 import { WorkDashboard } from '@/components/WorkDashboard';
+import { CalendarView } from '@/components/CalendarView';
+import { useWorkDashboard } from '@/hooks/useWorkDashboard';
 import { OnboardingModal } from '@/components/OnboardingModal';
 import { RefreshCw, Search, X, LayoutGrid, List, ArrowUpDown, Bookmark, Settings, Plus, Pencil, Trash2, Check } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -36,6 +38,7 @@ const Index = () => {
   const { categories, loading: categoriesLoading, getCategoryById, getDefaultCategory, addCategory, updateCategory, deleteCategory } = useArchiCategories();
   const { analyzeTip, analyzingIds } = useGroqAnalysis();
   const { team, members: teamMembers } = useTeam();
+  const { projects: calProjects, events: calEvents, leaves: calLeaves } = useWorkDashboard(team?.id);
   const { toggleLike, isLiked, setInitialCount, getCount } = useTipLikes();
   const { fetchCommentCount, getCount: getCommentCount, commentCounts } = useTipComments();
   const { toggleBookmark, isBookmarked, bookmarkedIds } = useBookmarks();
@@ -49,7 +52,7 @@ const Index = () => {
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
   const [detailTip, setDetailTip] = useState<Tip | null>(null);
   const [editingTip, setEditingTip] = useState<Tip | null>(null);
-  const [currentTab, setCurrentTab] = useState<'home' | 'creator' | 'report' | 'dashboard'>('home');
+  const [currentTab, setCurrentTab] = useState<'home' | 'creator' | 'calendar' | 'report' | 'dashboard'>('home');
   const [sortMode, setSortMode] = useState<'latest' | 'likes' | 'comments'>('latest');
   const [showBookmarksOnly, setShowBookmarksOnly] = useState(false);
   const [homeSubTab, setHomeSubTab] = useState<'tips' | 'work'>('tips');
@@ -248,6 +251,23 @@ const Index = () => {
           onNotificationClick={handleNotificationClick}
         />
         <AIReportTab tips={tips} categories={categories} getCategoryById={getCategoryById} />
+        <GlassDock currentTab={currentTab} onTabChange={setCurrentTab} onAdd={handleAddClick} />
+      </>
+    );
+  }
+
+  // Calendar tab
+  if (currentTab === 'calendar') {
+    return (
+      <>
+        <Header
+          notifications={notifications}
+          unreadCount={unreadCount}
+          onMarkAsRead={markAsRead}
+          onMarkAllAsRead={markAllAsRead}
+          onNotificationClick={handleNotificationClick}
+        />
+        <CalendarView projects={calProjects} events={calEvents} leaves={calLeaves} />
         <GlassDock currentTab={currentTab} onTabChange={setCurrentTab} onAdd={handleAddClick} />
       </>
     );
