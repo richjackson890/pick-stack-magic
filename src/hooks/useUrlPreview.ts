@@ -14,6 +14,20 @@ function extractYouTubeId(url: string): string | null {
   return null;
 }
 
+function detectPlatform(url: string): string {
+  const host = new URL(url).hostname.toLowerCase();
+  if (host.includes('youtube.com') || host.includes('youtu.be')) return 'YouTube';
+  if (host.includes('archdaily.com')) return 'ArchDaily';
+  if (host.includes('threads.net')) return 'Threads';
+  if (host.includes('instagram.com')) return 'Instagram';
+  if (host.includes('tiktok.com')) return 'TikTok';
+  if (host.includes('pinterest.com') || host.includes('pin.it')) return 'Pinterest';
+  if (host.includes('behance.net')) return 'Behance';
+  if (host.includes('dezeen.com')) return 'Dezeen';
+  if (host.includes('divisare.com')) return 'Divisare';
+  return 'Web';
+}
+
 export interface UrlPreview {
   title: string;
   description: string;
@@ -56,15 +70,20 @@ export function useUrlPreview() {
       let tags: string[] = data.tags || [];
       let suggestedCategory = data.final_category || '기타';
       let image = data.thumbnail_url || '';
-      const platform = data.platform || 'Web';
+      const platform = detectPlatform(url);
 
-      // YouTube thumbnail: always use hqdefault.jpg (guaranteed to exist)
-      if (platform === 'YouTube' || url.includes('youtube.com') || url.includes('youtu.be')) {
+      // Platform-specific thumbnail handling
+      if (platform === 'YouTube') {
         const videoId = extractYouTubeId(url);
         if (videoId) {
           image = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
         }
+      } else if ((platform === 'Threads' || platform === 'Instagram') && !image) {
+        // These platforms block scraping — og:image from Edge Function may be empty
+        // Keep whatever Edge Function returned; Groq will still analyze the URL
+        console.log(`[useUrlPreview] ${platform} — using Edge Function image or none`);
       }
+      // For ArchDaily, Dezeen, Behance, etc. — Edge Function og:image usually works fine
 
       // Step 2: If Edge Function returned empty AI data, use client-side Groq
       const hasAiData = description.trim().length > 0 && tags.length > 0;
@@ -72,11 +91,20 @@ export function useUrlPreview() {
         console.log('[useUrlPreview] Edge Function AI data empty, calling Groq...');
         try {
           const categoryNames = categories.map(c => c.name).join(', ');
-          const prompt = `URL 콘텐츠를 분석해주세요.
+          const urlPath = new URL(url).pathname;
+          const prompt = `URL 콘텐츠를 분석해주세요. 제목이나 설명이 없더라도 URL 구조와 도메인을 분석하여 콘텐츠를 추측하세요.
 
 URL: ${url}
 플랫폼: ${platform}
 제목: ${title || '(없음)'}
+URL 경로: ${urlPath}
+
+플랫폼별 분석 힌트:
+- ArchDaily/Dezeen/Divisare: 건축 프로젝트 사례 → 디자인레퍼런스
+- YouTube: URL의 제목이나 경로에서 건축 관련 키워드 추출
+- Threads/Instagram: 건축가 SNS 포스트 → URL 경로에서 힌트 추출
+- Behance/Pinterest: 디자인 포트폴리오 → 디자인레퍼런스
+- 기타 블로그/웹사이트: URL 경로의 단어를 분석하여 주제 추측
 
 카테고리 분류 기준 (반드시 아래 6개 중 하나로 분류):
 - 구조/시공: 구조설계, 시공기술, 건축재료, 구조해석, 공법, 철골/RC/목구조
