@@ -100,6 +100,11 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
     }
   };
 
+  // Auto-apply preview data when it arrives
+  useEffect(() => {
+    if (preview) applyPreview();
+  }, [preview]);
+
   // Apply AI suggestions from preview
   const applyPreview = () => {
     if (!preview) {
