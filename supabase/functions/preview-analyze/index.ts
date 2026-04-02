@@ -148,31 +148,53 @@ async function fetchInstagramMetadata(url: string): Promise<{
   }
 }
 
-// Fetch Open Graph metadata
+// Fetch Open Graph metadata with browser-like headers
 async function fetchOpenGraphData(url: string): Promise<{ title?: string; description?: string; image?: string }> {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
-    
+
     const response = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; PickStackBot/1.0)" },
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
+        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Cache-Control": "no-cache",
+      },
       signal: controller.signal,
+      redirect: "follow",
     });
     clearTimeout(timeout);
-    
-    if (!response.ok) return {};
-    
+
+    if (!response.ok) {
+      console.error(`[preview-analyze] OG fetch HTTP ${response.status} for ${url}`);
+      return {};
+    }
+
     const html = await response.text();
-    
-    const ogTitle = html.match(/<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i)?.[1];
-    const ogDescription = html.match(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']+)["']/i)?.[1];
-    const ogImage = html.match(/<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i)?.[1];
+    console.log(`[preview-analyze] OG HTML length: ${html.length} for ${url}`);
+
+    // Match og:meta — handle both attribute orders: property then content, or content then property
+    const extractOg = (prop: string): string => {
+      const m1 = html.match(new RegExp(`<meta[^>]*property=["']${prop}["'][^>]*content=["']([^"']+)["']`, 'i'));
+      if (m1) return m1[1];
+      const m2 = html.match(new RegExp(`<meta[^>]*content=["']([^"']+)["'][^>]*property=["']${prop}["']`, 'i'));
+      if (m2) return m2[1];
+      return "";
+    };
+
+    const ogTitle = extractOg("og:title");
+    const ogDescription = extractOg("og:description");
+    const ogImage = extractOg("og:image");
     const titleTag = html.match(/<title[^>]*>([^<]+)<\/title>/i)?.[1];
-    const metaDescription = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)?.[1];
-    
+    const metaDescription = html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']+)["']/i)?.[1]
+      || html.match(/<meta[^>]*content=["']([^"']+)["'][^>]*name=["']description["']/i)?.[1];
+
+    console.log(`[preview-analyze] OG extracted — title: ${(ogTitle || titleTag || '').slice(0, 50)}, image: ${ogImage ? 'yes' : 'no'}`);
+
     return {
-      title: ogTitle || titleTag || "",
-      description: ogDescription || metaDescription || "",
+      title: decodeHtmlEntities(ogTitle || titleTag || ""),
+      description: decodeHtmlEntities(ogDescription || metaDescription || ""),
       image: ogImage || "",
     };
   } catch (error) {
