@@ -203,8 +203,11 @@ export function useWorkDashboard(teamId: string | undefined) {
       console.log('[WorkDashboard] fetched projects:', rawProjects.length);
       setProjects([...rawProjects]);
 
-      // Events this week — all team members
-      const eventQuery = (supabase.from('team_events' as any).select('*').in('created_by', teamUserIds).gte('event_date', week.start).lte('event_date', week.end).order('event_date') as any);
+      // Events for next 90 days — all team members
+      const eventStart = getTodayKST();
+      const eventEndDate = new Date(new Date(eventStart + 'T00:00:00').getTime() + 90 * 24 * 60 * 60 * 1000);
+      const eventEnd = eventEndDate.toISOString().slice(0, 10);
+      const eventQuery = (supabase.from('team_events' as any).select('*').in('created_by', teamUserIds).gte('event_date', eventStart).lte('event_date', eventEnd).order('event_date') as any);
       const { data: eventsData } = await eventQuery;
       console.log('[WorkDashboard] fetched events:', (eventsData || []).length);
       setEvents([...(eventsData || [])]);

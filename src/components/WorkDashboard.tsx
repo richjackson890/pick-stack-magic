@@ -215,13 +215,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
       return `${fmtWeekDate(mon)} ~ ${fmtWeekDate(fri)}`;
     }
     const now = new Date();
-    const day = now.getDay();
-    const diffMon = day === 0 ? -6 : 1 - day;
-    const mon = new Date(now);
-    mon.setDate(now.getDate() + diffMon);
-    const fri = new Date(mon);
-    fri.setDate(mon.getDate() + 4);
-    return `${fmtWeekDate(mon)} ~ ${fmtWeekDate(fri)}`;
+    return `${now.getFullYear()}년 ${now.getMonth() + 1}월`;
   };
   const getSnapshotLabel = (s: WeekSnapshot) => {
     const mon = new Date(s.week_start + 'T00:00:00');
@@ -403,7 +397,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                 onClick={() => { viewSnapshot(null); setShowHistory(false); }}
                 className={cn("w-full text-left px-3 py-1.5 text-sm hover:bg-secondary/50", !viewingSnapshot && "font-bold text-primary")}
               >
-                이번 주
+                이번 달
               </button>
               {snapshots.length > 0 && <div className="border-t my-1" />}
               {snapshots.map(s => (
@@ -429,7 +423,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
       {isReadOnly && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20">
           <span className="text-sm text-amber-600 flex-1">과거 주간 데이터를 보고 있습니다 (읽기 전용)</span>
-          <button onClick={() => viewSnapshot(null)} className="text-sm text-primary font-medium hover:underline">이번 주로 돌아가기</button>
+          <button onClick={() => viewSnapshot(null)} className="text-sm text-primary font-medium hover:underline">현재로 돌아가기</button>
         </div>
       )}
 
@@ -470,8 +464,8 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
         {!isReadOnly && <AddButton label="Add Project" onClick={() => openForm('project')} />}
       </Section>
 
-      {/* 2. This Week */}
-      <Section icon={<Calendar className="h-5 w-5" />} title="This Week" count={events.length} collapsed={!!collapsed.events} onToggle={() => toggle('events')}>
+      {/* 2. 이번 달 일정 */}
+      <Section icon={<Calendar className="h-5 w-5" />} title="이번 달 일정" count={events.length} collapsed={!!collapsed.events} onToggle={() => toggle('events')}>
           {events.length === 0 ? (
             <p className="text-base text-muted-foreground py-4 text-center">No events</p>
           ) : (
