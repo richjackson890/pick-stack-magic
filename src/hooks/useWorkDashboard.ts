@@ -285,13 +285,26 @@ export function useWorkDashboard(teamId: string | undefined) {
     tasks?: { title: string; start_date: string; end_date: string }[],
   ) => {
     if (!user) return;
-    const payload = {
+    const payload: Record<string, any> = {
       name,
       type: type?.trim() || null,
       deadline: null,
       status: '진행중',
       created_by: user.id,
     };
+
+    // Attach team_id from hook parameter or fetch from team_members
+    if (teamId) {
+      payload.team_id = teamId;
+    } else {
+      const { data: tmRow } = await (supabase
+        .from('team_members' as any)
+        .select('team_id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle() as any);
+      if (tmRow?.team_id) payload.team_id = tmRow.team_id;
+    }
     console.log('[WorkDashboard] addProject payload:', payload);
     const { data, error } = await (supabase.from('projects' as any).insert(payload).select('id').single() as any);
     if (error) { console.error('[WorkDashboard] addProject error:', error); return; }
