@@ -136,7 +136,7 @@ export function TeamTab() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate">
                   {m.profiles?.position && <span className="text-muted-foreground text-xs mr-1">{m.profiles.position}</span>}
-                  {m.profiles?.display_name || m.profiles?.name || m.profiles?.email}
+                  {m.profiles?.display_name || m.profiles?.name || m.invited_email || m.profiles?.email}
                 </p>
                 <p className="text-[10px] text-muted-foreground">{m.user_id === team.created_by ? 'Owner' : 'Member'}</p>
               </div>

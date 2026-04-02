@@ -83,11 +83,12 @@ export function useTeam() {
         .eq('status', 'active')
         .order('created_at') as any);
 
-      const rawMembers: TeamMember[] = membersData || [];
+      // Filter out ghost rows (user_id is null — old pending invites never accepted)
+      const rawMembers: TeamMember[] = (membersData || []).filter((m: any) => m.user_id != null);
 
       // Step 3: Fetch profiles for display
       if (rawMembers.length > 0) {
-        const userIds = [...new Set(rawMembers.map(m => m.user_id))];
+        const userIds = [...new Set(rawMembers.map(m => m.user_id).filter(Boolean))];
         const { data: profiles } = await (supabase
           .from('profiles' as any)
           .select('id, name, display_name, position, avatar_url, email')
