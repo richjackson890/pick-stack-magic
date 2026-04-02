@@ -58,18 +58,11 @@ export function useUrlPreview() {
       let image = data.thumbnail_url || '';
       const platform = data.platform || 'Web';
 
-      // YouTube thumbnail: extract video ID and use reliable URL with fallback
+      // YouTube thumbnail: always use hqdefault.jpg (guaranteed to exist)
       if (platform === 'YouTube' || url.includes('youtube.com') || url.includes('youtu.be')) {
         const videoId = extractYouTubeId(url);
         if (videoId) {
-          const maxRes = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
-          const hqFallback = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-          try {
-            const res = await fetch(maxRes, { method: 'HEAD' });
-            image = res.ok ? maxRes : hqFallback;
-          } catch {
-            image = hqFallback;
-          }
+          image = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
         }
       }
 
