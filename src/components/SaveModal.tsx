@@ -56,9 +56,11 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
     }
   }, [categories, selectedCategoryId, getDefaultCategory]);
 
-  // Reset form when opened, or populate with editing data
+  // Reset form only when modal opens (not on every re-render while open)
+  const prevOpenRef = useRef(false);
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !prevOpenRef.current) {
+      // Modal just opened
       setShowCategorySelector(false);
       setIsSaved(false);
       clearPreview();
@@ -85,7 +87,8 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
         if (defaultCat) setSelectedCategoryId(defaultCat.id);
       }
     }
-  }, [isOpen, editingTip, getDefaultCategory, clearPreview]);
+    prevOpenRef.current = isOpen;
+  }, [isOpen, editingTip]);
 
   // Debounced URL preview fetch
   const handleUrlChange = (newUrl: string) => {
@@ -100,11 +103,12 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
     }
   };
 
-  // Auto-apply preview data when it arrives (delayed for DOM readiness)
+  // Auto-apply preview data when it arrives (delayed to avoid race with reset)
   useEffect(() => {
     if (!preview) return;
-    console.log('[SaveModal] Auto-applying preview:', preview);
+    console.log('[SaveModal] Preview arrived:', preview);
     const timer = setTimeout(() => {
+      console.log('[SaveModal] Applying preview after delay:', { title: preview.title, desc: preview.description, img: preview.image });
       setTitle(preview.title || '');
       setContent(preview.description || '');
       setImageUrl(preview.image || '');
@@ -113,7 +117,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
         const match = categories.find(c => c.name === preview.suggestedCategory);
         if (match) setSelectedCategoryId(match.id);
       }
-    }, 100);
+    }, 500);
     return () => clearTimeout(timer);
   }, [preview, categories]);
 
