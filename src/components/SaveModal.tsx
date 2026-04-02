@@ -8,11 +8,12 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Check, Sparkles, ChevronDown, Plus, X, Loader2, ExternalLink } from 'lucide-react';
+import { Check, Sparkles, ChevronDown, Plus, X, Loader2, ExternalLink, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ArchiCategory } from '@/hooks/useArchiCategories';
 import { Tip, TipInsert } from '@/hooks/useTips';
 import { useUrlPreview } from '@/hooks/useUrlPreview';
+import { supabase } from '@/integrations/supabase/client';
 
 interface SaveModalProps {
   isOpen: boolean;
@@ -46,7 +47,51 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
   const [competitionName, setCompetitionName] = useState('');
   const [showCategorySelector, setShowCategorySelector] = useState(false);
   const [shareWithTeam, setShareWithTeam] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate type
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      alert('JPG, PNG, GIF, WebP 파일만 업로드 가능합니다.');
+      return;
+    }
+    // Validate size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('파일 크기는 5MB 이하여야 합니다.');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      const ext = file.name.split('.').pop() || 'jpg';
+      const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+      const filePath = `tips/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('tip-images')
+        .upload(filePath, file, { contentType: file.type });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('tip-images')
+        .getPublicUrl(filePath);
+
+      setImageUrl(urlData.publicUrl);
+    } catch (err: any) {
+      console.error('[SaveModal] Upload error:', err);
+      alert('이미지 업로드 실패: ' + (err.message || ''));
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   // Initialize default category
   useEffect(() => {
@@ -250,15 +295,38 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
               />
             </div>
 
-            {/* Image URL */}
+            {/* Image URL / Upload */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Image URL</label>
-              <Input
-                type="url"
-                value={imageUrl}
-                onChange={(e) => setImageUrl(e.target.value)}
-                placeholder="https://... (image link)"
-              />
+              <label className="text-sm font-medium">Image</label>
+              <div className="flex gap-2">
+                <Input
+                  type="url"
+                  value={imageUrl}
+                  onChange={(e) => setImageUrl(e.target.value)}
+                  placeholder="https://... (image link)"
+                  className="flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  disabled={uploading}
+                  onClick={() => fileInputRef.current?.click()}
+                  title="이미지 업로드"
+                >
+                  {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </div>
+              {imageUrl && (
+                <img src={imageUrl} alt="preview" className="w-full h-24 object-cover rounded-lg mt-1" onError={(e) => (e.currentTarget.style.display = 'none')} />
+              )}
             </div>
 
             {/* Competition Name */}
