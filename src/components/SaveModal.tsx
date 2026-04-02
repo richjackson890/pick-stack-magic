@@ -48,6 +48,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
   const [showCategorySelector, setShowCategorySelector] = useState(false);
   const [shareWithTeam, setShareWithTeam] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [analyzingImage, setAnalyzingImage] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -55,41 +56,147 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate type
     const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-    if (!allowed.includes(file.type)) {
-      alert('JPG, PNG, GIF, WebP 파일만 업로드 가능합니다.');
-      return;
-    }
-    // Validate size (5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('파일 크기는 5MB 이하여야 합니다.');
-      return;
-    }
+    if (!allowed.includes(file.type)) { alert('JPG, PNG, GIF, WebP 파일만 업로드 가능합니다.'); return; }
+    if (file.size > 5 * 1024 * 1024) { alert('파일 크기는 5MB 이하여야 합니다.'); return; }
 
     setUploading(true);
     try {
-      const ext = file.name.split('.').pop() || 'jpg';
-      const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-      const filePath = `tips/${fileName}`;
+      // Convert to base64 for Gemini
+      const base64 = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve((reader.result as string).split(',')[1]);
+        reader.readAsDataURL(file);
+      });
 
-      const { error: uploadError } = await supabase.storage
-        .from('tip-images')
-        .upload(filePath, file, { contentType: file.type });
+      const publicUrl = await uploadFileToStorage(file);
+      if (publicUrl) setImageUrl(publicUrl);
 
-      if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from('tip-images')
-        .getPublicUrl(filePath);
-
-      setImageUrl(urlData.publicUrl);
+      // Analyze with Gemini
+      analyzeImageWithGemini(base64, file.type);
     } catch (err: any) {
       console.error('[SaveModal] Upload error:', err);
       alert('이미지 업로드 실패: ' + (err.message || ''));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  // Upload a File object to Supabase and return public URL
+  const uploadFileToStorage = async (file: File): Promise<string | null> => {
+    const ext = file.name?.split('.').pop() || 'png';
+    const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const filePath = `tips/${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('tip-images')
+      .upload(filePath, file, { contentType: file.type });
+
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = supabase.storage
+      .from('tip-images')
+      .getPublicUrl(filePath);
+
+    return urlData.publicUrl;
+  };
+
+  // Analyze image with Gemini Vision API
+  const analyzeImageWithGemini = async (base64: string, mimeType: string) => {
+    const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+    if (!apiKey) {
+      console.warn('[SaveModal] VITE_GEMINI_API_KEY not set, skipping vision analysis');
+      return;
+    }
+
+    setAnalyzingImage(true);
+    try {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: `이 이미지는 건축 관련 콘텐츠입니다. 분석하여 다음 JSON만 반환하세요 (다른 텍스트 없이):
+{
+  "title": "이미지 제목 (50자 이내, 한국어)",
+  "description": "이미지 설명 2-3문장 (한국어, 건축 전문가 관점)",
+  "tags": ["구체적태그1", "구체적태그2", "구체적태그3", "구체적태그4", "구체적태그5", "구체적태그6"],
+  "suggestedCategory": "AI/디지털 | 구조/시공 | 디자인레퍼런스 | 법규검토 | 심사경향 | 기타 중 하나"
+}
+
+태그는 건축가가 실제로 검색할 구체적 키워드를 사용하세요 (도구명, 기법명, 프로젝트 유형, 전문 개념 등).` },
+              { inlineData: { mimeType, data: base64 } },
+            ],
+          }],
+          generationConfig: { temperature: 0.3, maxOutputTokens: 500 },
+        }),
+      });
+
+      if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
+
+      const data = await res.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[0]);
+        if (parsed.title) setTitle(parsed.title);
+        if (parsed.description) setContent(parsed.description);
+        if (Array.isArray(parsed.tags) && parsed.tags.length > 0) setTags(parsed.tags.slice(0, 8));
+        if (parsed.suggestedCategory) {
+          const match = categories.find(c => c.name === parsed.suggestedCategory);
+          if (match) setSelectedCategoryId(match.id);
+        }
+        console.log('[SaveModal] Gemini analysis result:', parsed);
+      }
+    } catch (err) {
+      console.error('[SaveModal] Gemini vision error:', err);
+    } finally {
+      setAnalyzingImage(false);
+    }
+  };
+
+  // Handle clipboard paste (Ctrl+V image)
+  const handlePaste = async (e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    for (const item of Array.from(items)) {
+      if (!item.type.startsWith('image/')) continue;
+
+      e.preventDefault();
+      const file = item.getAsFile();
+      if (!file || file.size > 5 * 1024 * 1024) {
+        alert('이미지는 5MB 이하여야 합니다.');
+        return;
+      }
+
+      setUploading(true);
+      try {
+        // Convert to base64 for Gemini
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(',')[1]); // strip data:...;base64, prefix
+          };
+          reader.readAsDataURL(file);
+        });
+
+        // Upload to storage
+        const publicUrl = await uploadFileToStorage(file);
+        if (publicUrl) setImageUrl(publicUrl);
+
+        // Analyze with Gemini (async, don't block)
+        analyzeImageWithGemini(base64, file.type);
+      } catch (err: any) {
+        console.error('[SaveModal] Paste upload error:', err);
+        alert('이미지 업로드 실패: ' + (err.message || ''));
+      } finally {
+        setUploading(false);
+      }
+      return; // Only process first image
     }
   };
 
@@ -202,7 +309,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent side="bottom" className="h-[85vh] overflow-y-auto">
+      <SheetContent side="bottom" className="h-[85vh] overflow-y-auto" onPaste={handlePaste}>
         <SheetHeader>
           <SheetTitle className="flex items-center gap-2">
             <span className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center">
@@ -327,6 +434,13 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
               {imageUrl && (
                 <img src={imageUrl} alt="preview" className="w-full h-24 object-cover rounded-lg mt-1" onError={(e) => (e.currentTarget.style.display = 'none')} />
               )}
+              {analyzingImage && (
+                <div className="flex items-center gap-2 text-xs text-primary mt-1">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  이미지 분석 중...
+                </div>
+              )}
+              <p className="text-[10px] text-muted-foreground">Ctrl+V로 이미지를 붙여넣을 수 있습니다</p>
             </div>
 
             {/* Competition Name */}
