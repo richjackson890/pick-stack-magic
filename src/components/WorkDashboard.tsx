@@ -377,6 +377,23 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     setTimeout(() => w.print(), 300);
   };
 
+  if (!teamId) {
+    return (
+      <div id="work-dashboard" className="space-y-4 min-w-0 w-full">
+        <div className="flex items-center gap-2 pb-3 border-b border-border min-w-0">
+          <h2 className="text-lg font-bold text-foreground flex-1 min-w-0 truncate">주간업무</h2>
+        </div>
+        <div className="flex flex-col items-center justify-center py-12 text-center space-y-3">
+          <Users className="h-10 w-10 text-muted-foreground/40" />
+          <p className="text-sm text-muted-foreground leading-relaxed max-w-[240px]">
+            팀에 초대받은 링크가 있으신가요?<br />
+            링크로 접속하거나 팀장에게 초대를 요청하세요.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div id="work-dashboard" className="space-y-4 min-w-0 w-full">
       {/* Header */}

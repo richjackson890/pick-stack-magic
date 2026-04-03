@@ -28,6 +28,7 @@ import { WorkDashboard } from '@/components/WorkDashboard';
 import { CalendarView } from '@/components/CalendarView';
 import { useWorkDashboard } from '@/hooks/useWorkDashboard';
 import { OnboardingModal } from '@/components/OnboardingModal';
+import { ProfileSetupModal } from '@/components/ProfileSetupModal';
 import { RefreshCw, Search, X, LayoutGrid, List, ArrowUpDown, Bookmark, Settings, Plus, Pencil, Trash2, Check } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -533,6 +534,7 @@ const Index = () => {
 
       <InstallBanner />
       <OnboardingModal />
+      <ProfileSetupModal />
 
       {/* Category Management Sheet */}
       <Sheet open={catMgmtOpen} onOpenChange={setCatMgmtOpen}>
