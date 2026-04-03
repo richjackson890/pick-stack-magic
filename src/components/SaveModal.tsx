@@ -127,7 +127,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
 }
 
 태그는 건축가가 실제로 검색할 구체적 키워드를 사용하세요 (도구명, 기법명, 프로젝트 유형, 전문 개념 등).` },
-              { inlineData: { mimeType, data: base64 } },
+              { inline_data: { mime_type: mimeType, data: base64 } },
             ],
           }],
           generationConfig: { temperature: 0.3, maxOutputTokens: 500 },
