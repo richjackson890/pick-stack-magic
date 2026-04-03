@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LiquidSpinner } from "@/components/LiquidSpinner";
+import { ProfileSetupModal } from "@/components/ProfileSetupModal";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import ResetPassword from "./pages/ResetPassword";
@@ -38,7 +39,7 @@ function useTheme() {
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, loading, profileComplete, recheckProfile } = useAuth();
 
   if (loading) {
     return (
@@ -56,6 +57,19 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const pendingInvite = localStorage.getItem('pending_invite_token');
   if (pendingInvite) {
     return <Navigate to={`/invite?token=${encodeURIComponent(pendingInvite)}`} replace />;
+  }
+
+  // Block UI until profile is complete (display_name set)
+  if (profileComplete === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LiquidSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!profileComplete) {
+    return <ProfileSetupModal onComplete={recheckProfile} />;
   }
 
   return <>{children}</>;

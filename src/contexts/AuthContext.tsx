@@ -7,6 +7,8 @@ interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  profileComplete: boolean | null; // null = still checking, true/false = result
+  recheckProfile: () => Promise<void>;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
@@ -21,6 +23,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileComplete, setProfileComplete] = useState<boolean | null>(null);
   const { toast } = useToast();
 
   // Upsert profile in the profiles table (for existing users or if trigger didn't fire)
@@ -38,6 +41,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  // Check if display_name is set in profiles
+  const checkProfileComplete = async (uid: string) => {
+    try {
+      const { data } = await (supabase
+        .from('profiles' as any)
+        .select('display_name')
+        .eq('id', uid)
+        .maybeSingle() as any);
+      setProfileComplete(!!data?.display_name && data.display_name.trim() !== '');
+    } catch {
+      setProfileComplete(false);
+    }
+  };
+
+  const recheckProfile = async () => {
+    if (user) await checkProfileComplete(user.id);
+  };
+
   useEffect(() => {
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -46,9 +67,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(session?.user ?? null);
         setLoading(false);
 
-        // Ensure profile exists on sign in
+        // Ensure profile exists on sign in, then check completeness
         if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-          ensureProfile(session.user);
+          ensureProfile(session.user).then(() => checkProfileComplete(session.user.id));
+        } else if (!session?.user) {
+          setProfileComplete(null);
         }
       }
     );
@@ -59,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(session?.user ?? null);
       setLoading(false);
       if (session?.user) {
-        ensureProfile(session.user);
+        ensureProfile(session.user).then(() => checkProfileComplete(session.user.id));
       }
     });
 
@@ -175,7 +198,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, signUp, signIn, signInWithGoogle, signOut, resetPassword, updatePassword }}>
+    <AuthContext.Provider value={{ user, session, loading, profileComplete, recheckProfile, signUp, signIn, signInWithGoogle, signOut, resetPassword, updatePassword }}>
       {children}
     </AuthContext.Provider>
   );
