@@ -132,21 +132,8 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
       console.log('[Gemini Raw Response]', JSON.stringify(data));
       const text = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
       console.log('[Gemini Text]', text);
-
-      // Parse JSON: extract from first '{' to last '}'
-      let parsed: any = null;
-      const firstBrace = text.indexOf('{');
-      const lastBrace = text.lastIndexOf('}');
-      if (firstBrace !== -1 && lastBrace > firstBrace) {
-        try {
-          parsed = JSON.parse(text.substring(firstBrace, lastBrace + 1));
-        } catch {
-          console.warn('[Gemini] Substring parse failed, trying full text');
-        }
-      }
-      if (!parsed) {
-        try { parsed = JSON.parse(text); } catch { /* ignore */ }
-      }
+      const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim();
+      const parsed = JSON.parse(cleaned);
 
       if (parsed) {
         console.log('[Gemini Parsed]', parsed);
