@@ -122,7 +122,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
               { inline_data: { mime_type: mimeType, data: base64 } },
             ],
           }],
-          generation_config: { temperature: 0.3, max_output_tokens: 500 },
+          generation_config: { temperature: 0.3, max_output_tokens: 1024 },
         }),
       });
 
