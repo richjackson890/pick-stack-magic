@@ -112,7 +112,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
 
     setAnalyzingImage(true);
     try {
-      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+      const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-001:generateContent?key=${apiKey}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -130,7 +130,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
               { inline_data: { mime_type: mimeType, data: base64 } },
             ],
           }],
-          generationConfig: { temperature: 0.3, maxOutputTokens: 500 },
+          generation_config: { temperature: 0.3, max_output_tokens: 500 },
         }),
       });
 
