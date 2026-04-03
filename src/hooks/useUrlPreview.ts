@@ -168,6 +168,7 @@ URL 경로: ${urlPath}
         suggestedCategory,
       };
       console.log('[useUrlPreview] Final preview:', previewData);
+      console.log('[Preview Debug]', { title, description, image });
       setPreview(previewData);
 
     } catch (err: any) {
