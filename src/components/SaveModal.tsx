@@ -130,12 +130,25 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
 
       const data = await res.json();
       console.log('[Gemini Raw Response]', JSON.stringify(data));
-      let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-      // Strip markdown code blocks (```json ... ```)
-      text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
+      const text = (data.candidates?.[0]?.content?.parts?.[0]?.text || '').trim();
+      console.log('[Gemini Text]', text);
+
+      // Parse JSON: extract from first '{' to last '}'
+      let parsed: any = null;
+      const firstBrace = text.indexOf('{');
+      const lastBrace = text.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace > firstBrace) {
+        try {
+          parsed = JSON.parse(text.substring(firstBrace, lastBrace + 1));
+        } catch {
+          console.warn('[Gemini] Substring parse failed, trying full text');
+        }
+      }
+      if (!parsed) {
+        try { parsed = JSON.parse(text); } catch { /* ignore */ }
+      }
+
+      if (parsed) {
         console.log('[Gemini Parsed]', parsed);
         if (parsed.title) setTitle(parsed.title);
         if (parsed.description) setContent(parsed.description);
@@ -146,7 +159,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
           if (match) setSelectedCategoryId(match.id);
         }
       } else {
-        console.warn('[Gemini] No JSON found in response text:', text);
+        console.warn('[Gemini] Failed to parse JSON from:', text);
       }
     } catch (err) {
       console.error('[SaveModal] Gemini vision error:', err);
