@@ -137,10 +137,12 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
       if (!res.ok) throw new Error(`Gemini API error: ${res.status}`);
 
       const data = await res.json();
+      console.log('[Gemini Raw Response]', JSON.stringify(data));
       const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
+        console.log('[Gemini Parsed]', parsed);
         if (parsed.title) setTitle(parsed.title);
         if (parsed.description) setContent(parsed.description);
         if (Array.isArray(parsed.tags) && parsed.tags.length > 0) setTags(parsed.tags.slice(0, 8));
@@ -148,7 +150,8 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
           const match = categories.find(c => c.name === parsed.suggestedCategory);
           if (match) setSelectedCategoryId(match.id);
         }
-        console.log('[SaveModal] Gemini analysis result:', parsed);
+      } else {
+        console.warn('[Gemini] No JSON found in response text:', text);
       }
     } catch (err) {
       console.error('[SaveModal] Gemini vision error:', err);
