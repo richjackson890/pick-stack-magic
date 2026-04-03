@@ -118,15 +118,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
         body: JSON.stringify({
           contents: [{
             parts: [
-              { text: `이 이미지는 건축 관련 콘텐츠입니다. 분석하여 다음 JSON만 반환하세요 (다른 텍스트 없이):
-{
-  "title": "이미지 제목 (50자 이내, 한국어)",
-  "description": "이미지 설명 2-3문장 (한국어, 건축 전문가 관점)",
-  "tags": ["구체적태그1", "구체적태그2", "구체적태그3", "구체적태그4", "구체적태그5", "구체적태그6"],
-  "suggestedCategory": "AI/디지털 | 구조/시공 | 디자인레퍼런스 | 법규검토 | 심사경향 | 기타 중 하나"
-}
-
-태그는 건축가가 실제로 검색할 구체적 키워드를 사용하세요 (도구명, 기법명, 프로젝트 유형, 전문 개념 등).` },
+              { text: `이 건축 이미지를 분석하고 반드시 아래 형식의 JSON만 응답하세요. 다른 텍스트는 절대 포함하지 마세요:\n{"title": "제목", "description": "설명", "tags": ["태그1", "태그2"], "category": "카테고리"}\ntitle: 건축 팁 제목 (30자 이내)\ndescription: 이 이미지에서 배울 수 있는 건축 설계 인사이트 (100자 이내)\ntags: 건축가가 검색할 구체적 키워드 5개 배열\ncategory: 다음 중 하나 선택 - 구조/시설, 기타, 디자인/렌더링, 법규/행정, 소프트웨어` },
               { inline_data: { mime_type: mimeType, data: base64 } },
             ],
           }],
@@ -138,7 +130,9 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
 
       const data = await res.json();
       console.log('[Gemini Raw Response]', JSON.stringify(data));
-      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      // Strip markdown code blocks (```json ... ```)
+      text = text.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
       const jsonMatch = text.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0]);
@@ -146,8 +140,9 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
         if (parsed.title) setTitle(parsed.title);
         if (parsed.description) setContent(parsed.description);
         if (Array.isArray(parsed.tags) && parsed.tags.length > 0) setTags(parsed.tags.slice(0, 8));
-        if (parsed.suggestedCategory) {
-          const match = categories.find(c => c.name === parsed.suggestedCategory);
+        const catName = parsed.category || parsed.suggestedCategory;
+        if (catName) {
+          const match = categories.find(c => c.name === catName);
           if (match) setSelectedCategoryId(match.id);
         }
       } else {
