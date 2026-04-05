@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type ReactNode } from 'react';
+import { useState, useEffect, useRef, useCallback, type ReactNode } from 'react';
 
 interface GuideTooltipProps {
   name: string;
@@ -9,27 +9,36 @@ interface GuideTooltipProps {
 
 const STORAGE_PREFIX = 'tooltip_seen_';
 
+export function isTooltipSeen(name: string): boolean {
+  return localStorage.getItem(`${STORAGE_PREFIX}${name}`) === '1';
+}
+
 export function GuideTooltip({ name, message, position = 'top', children }: GuideTooltipProps) {
   const [visible, setVisible] = useState(false);
-  const [dismissed, setDismissed] = useState(() => {
-    return localStorage.getItem(`${STORAGE_PREFIX}${name}`) === '1';
-  });
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const [dismissed, setDismissed] = useState(() => isTooltipSeen(name));
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    return () => { if (timeoutRef.current) clearTimeout(timeoutRef.current); };
-  }, []);
-
-  const dismiss = () => {
+  const dismiss = useCallback(() => {
     setVisible(false);
     setDismissed(true);
     localStorage.setItem(`${STORAGE_PREFIX}${name}`, '1');
-  };
+  }, [name]);
 
-  const handleInteraction = () => {
+  // Click outside to dismiss
+  useEffect(() => {
+    if (!visible) return;
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        dismiss();
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [visible, dismiss]);
+
+  const showTooltip = () => {
     if (dismissed) return;
     setVisible(true);
-    timeoutRef.current = setTimeout(dismiss, 4000);
   };
 
   if (dismissed) return <>{children}</>;
@@ -38,25 +47,54 @@ export function GuideTooltip({ name, message, position = 'top', children }: Guid
 
   return (
     <div
+      ref={wrapperRef}
       className="relative inline-flex"
-      onMouseEnter={handleInteraction}
-      onClick={handleInteraction}
+      onMouseEnter={showTooltip}
+      onClick={showTooltip}
     >
+      {/* Pulsing beacon ring */}
+      {!visible && (
+        <span className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center">
+          <span className="absolute w-full h-full rounded-full animate-ping bg-orange-400/40" />
+          <span className="absolute w-full h-full rounded-full animate-pulse ring-2 ring-orange-400/60 bg-transparent" />
+        </span>
+      )}
+
       {children}
+
       {visible && (
         <div
-          className={`absolute z-50 w-52 px-3 py-2 rounded-lg text-[11px] leading-relaxed font-medium text-white shadow-lg pointer-events-none ${
-            isTop ? 'bottom-full mb-2 left-1/2 -translate-x-1/2' : 'top-full mt-2 left-1/2 -translate-x-1/2'
+          className={`absolute z-50 w-60 px-4 py-3 rounded-xl text-xs leading-relaxed font-medium text-white shadow-2xl ${
+            isTop ? 'bottom-full mb-3 left-1/2 -translate-x-1/2' : 'top-full mt-3 left-1/2 -translate-x-1/2'
           }`}
-          style={{ background: 'linear-gradient(135deg, #f97316, #ea580c)' }}
+          style={{
+            background: 'linear-gradient(135deg, #f97316, #ea580c)',
+            boxShadow: '0 8px 32px rgba(249, 115, 22, 0.4)',
+          }}
         >
-          {message}
+          {/* Close X */}
+          <button
+            onClick={(e) => { e.stopPropagation(); dismiss(); }}
+            className="absolute top-1.5 right-2 text-white/70 hover:text-white text-sm leading-none"
+          >
+            &times;
+          </button>
+
+          <p className="pr-4">{message}</p>
+
+          <button
+            onClick={(e) => { e.stopPropagation(); dismiss(); }}
+            className="mt-2 w-full py-1 rounded-md bg-white/20 hover:bg-white/30 text-white text-[11px] font-semibold transition-colors"
+          >
+            확인
+          </button>
+
           {/* Arrow */}
           <div
             className={`absolute left-1/2 -translate-x-1/2 w-0 h-0 ${
               isTop
-                ? 'top-full border-l-[6px] border-r-[6px] border-t-[6px] border-l-transparent border-r-transparent border-t-orange-500'
-                : 'bottom-full border-l-[6px] border-r-[6px] border-b-[6px] border-l-transparent border-r-transparent border-b-orange-500'
+                ? 'top-full border-l-[7px] border-r-[7px] border-t-[7px] border-l-transparent border-r-transparent border-t-orange-500'
+                : 'bottom-full border-l-[7px] border-r-[7px] border-b-[7px] border-l-transparent border-r-transparent border-b-orange-500'
             }`}
           />
         </div>

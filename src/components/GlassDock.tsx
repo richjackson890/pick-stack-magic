@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Home, Plus, Sparkles, BarChart3, Users, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { GuideTooltip } from '@/components/GuideTooltip';
+import { GuideTooltip, isTooltipSeen } from '@/components/GuideTooltip';
 
 type TabType = 'home' | 'creator' | 'calendar' | 'report' | 'dashboard';
 
@@ -84,6 +84,12 @@ export function GlassDock({ currentTab, onTabChange, onAdd }: GlassDockProps) {
             whileTap={{ scale: 0.92 }}
             className="relative -mt-6"
           >
+            {/* Pulsing ping for first-time users */}
+            {!isTooltipSeen('fab_add') && (
+              <span className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
+                <span className="absolute w-14 h-14 rounded-full animate-ping bg-orange-400/50" />
+              </span>
+            )}
             <motion.div
               className="absolute inset-0 rounded-full"
               animate={{
