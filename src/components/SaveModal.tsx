@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/sheet';
 import { Check, Sparkles, ChevronDown, Plus, X, Loader2, ExternalLink, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { GuideTooltip } from '@/components/GuideTooltip';
 import { ArchiCategory } from '@/hooks/useArchiCategories';
 import { Tip, TipInsert } from '@/hooks/useTips';
 import { useUrlPreview } from '@/hooks/useUrlPreview';
@@ -543,17 +544,19 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
 
             {/* Team Share Toggle */}
             {teamId && (
-              <label className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 cursor-pointer">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">Share with Team</span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={shareWithTeam}
-                  onChange={(e) => setShareWithTeam(e.target.checked)}
-                  className="w-4 h-4 rounded accent-primary"
-                />
-              </label>
+              <GuideTooltip name="share_team" message="팀원들과 팁을 공유할 수 있어요" position="bottom">
+                <label className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 cursor-pointer w-full">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">Share with Team</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    checked={shareWithTeam}
+                    onChange={(e) => setShareWithTeam(e.target.checked)}
+                    className="w-4 h-4 rounded accent-primary"
+                  />
+                </label>
+              </GuideTooltip>
             )}
 
             {/* Save Button */}

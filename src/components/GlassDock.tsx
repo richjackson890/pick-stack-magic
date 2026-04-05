@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { Home, Plus, Sparkles, BarChart3, Users, CalendarDays } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { GuideTooltip } from '@/components/GuideTooltip';
 
 type TabType = 'home' | 'creator' | 'calendar' | 'report' | 'dashboard';
 
@@ -27,7 +28,7 @@ export function GlassDock({ currentTab, onTabChange, onAdd }: GlassDockProps) {
     const Icon = tab.icon;
     const isActive = currentTab === tab.id;
 
-    return (
+    const button = (
       <motion.button
         key={tab.id}
         onClick={() => onTabChange(tab.id)}
@@ -58,6 +59,16 @@ export function GlassDock({ currentTab, onTabChange, onAdd }: GlassDockProps) {
         )}
       </motion.button>
     );
+
+    if (tab.id === 'calendar') {
+      return (
+        <GuideTooltip key={tab.id} name="calendar_tab" message="팀 일정과 개인 휴가를 관리할 수 있어요">
+          {button}
+        </GuideTooltip>
+      );
+    }
+
+    return button;
   };
 
   return (
@@ -66,31 +77,33 @@ export function GlassDock({ currentTab, onTabChange, onAdd }: GlassDockProps) {
         {leftTabs.map(renderTab)}
 
         {/* Add Button - Floating with Glow */}
-        <motion.button
-          onClick={onAdd}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.92 }}
-          className="relative -mt-6"
-        >
-          <motion.div
-            className="absolute inset-0 rounded-full"
-            animate={{
-              boxShadow: [
-                '0 0 20px hsl(var(--primary) / 0.4), 0 0 40px hsl(var(--primary) / 0.2)',
-                '0 0 30px hsl(var(--primary) / 0.6), 0 0 60px hsl(var(--primary) / 0.3)',
-                '0 0 20px hsl(var(--primary) / 0.4), 0 0 40px hsl(var(--primary) / 0.2)',
-              ],
-            }}
-            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
-          />
-          <motion.div
-            className="relative w-14 h-14 rounded-full gradient-primary flex items-center justify-center shadow-lg"
-            animate={{ y: [0, -2, 0] }}
-            transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+        <GuideTooltip name="fab_add" message="새 팁을 등록하세요! URL을 붙여넣거나 이미지를 첨부하면 AI가 자동으로 분석해드려요">
+          <motion.button
+            onClick={onAdd}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.92 }}
+            className="relative -mt-6"
           >
-            <Plus className="h-6 w-6 text-white" strokeWidth={2.5} />
-          </motion.div>
-        </motion.button>
+            <motion.div
+              className="absolute inset-0 rounded-full"
+              animate={{
+                boxShadow: [
+                  '0 0 20px hsl(var(--primary) / 0.4), 0 0 40px hsl(var(--primary) / 0.2)',
+                  '0 0 30px hsl(var(--primary) / 0.6), 0 0 60px hsl(var(--primary) / 0.3)',
+                  '0 0 20px hsl(var(--primary) / 0.4), 0 0 40px hsl(var(--primary) / 0.2)',
+                ],
+              }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            />
+            <motion.div
+              className="relative w-14 h-14 rounded-full gradient-primary flex items-center justify-center shadow-lg"
+              animate={{ y: [0, -2, 0] }}
+              transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <Plus className="h-6 w-6 text-white" strokeWidth={2.5} />
+            </motion.div>
+          </motion.button>
+        </GuideTooltip>
 
         {rightTabs.map(renderTab)}
       </div>

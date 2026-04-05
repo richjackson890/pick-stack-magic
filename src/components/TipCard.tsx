@@ -4,6 +4,7 @@ import { Tip } from '@/hooks/useTips';
 import { ArchiCategory } from '@/hooks/useArchiCategories';
 import { ExternalLink, Trash2, Heart, User, Sparkles, Loader2, ChevronDown, Pencil, MessageCircle, Bookmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { GuideTooltip } from '@/components/GuideTooltip';
 
 export type ViewMode = 'grid' | 'list';
 
@@ -326,13 +327,15 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
               </motion.button>
             )}
             {onBookmark && (
-              <motion.button
-                whileTap={{ scale: 0.9 }}
-                onClick={(e) => { e.stopPropagation(); onBookmark(); }}
-                className={cn("transition-colors", isBookmarked ? "text-yellow-500" : "text-muted-foreground hover:text-yellow-500")}
-              >
-                <Bookmark className={cn("h-3.5 w-3.5", isBookmarked && "fill-current")} />
-              </motion.button>
+              <GuideTooltip name="bookmark" message="팁을 북마크해서 나중에 다시 볼 수 있어요">
+                <motion.button
+                  whileTap={{ scale: 0.9 }}
+                  onClick={(e) => { e.stopPropagation(); onBookmark(); }}
+                  className={cn("transition-colors", isBookmarked ? "text-yellow-500" : "text-muted-foreground hover:text-yellow-500")}
+                >
+                  <Bookmark className={cn("h-3.5 w-3.5", isBookmarked && "fill-current")} />
+                </motion.button>
+              </GuideTooltip>
             )}
             {onEdit && (
               <motion.button

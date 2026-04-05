@@ -97,6 +97,16 @@ export function TeamTab() {
   // Has team — show team info
   const isOwner = team.created_by === user?.id;
 
+  const POSITION_RANK = ['소장', '실장', '팀장/책임', '팀장', '부팀장', '소원', '인턴', '실습'];
+  const sortedMembers = [...members].sort((a, b) => {
+    // Owner always first
+    if (a.user_id === team.created_by) return -1;
+    if (b.user_id === team.created_by) return 1;
+    const rankA = POSITION_RANK.indexOf(a.profiles?.position || '');
+    const rankB = POSITION_RANK.indexOf(b.profiles?.position || '');
+    return (rankA === -1 ? 999 : rankA) - (rankB === -1 ? 999 : rankB);
+  });
+
   const handleCopyToken = (token: string) => {
     const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;
     const link = `${baseUrl}/invite?token=${token}`;
@@ -124,7 +134,7 @@ export function TeamTab() {
       <div className="glass-card rounded-2xl p-5 space-y-3">
         <h3 className="text-sm font-semibold">Members</h3>
         <div className="space-y-2">
-          {members.map(m => (
+          {sortedMembers.map(m => (
             <div key={m.id} className="flex items-center gap-2.5">
               {m.profiles?.avatar_url ? (
                 <img src={m.profiles.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
