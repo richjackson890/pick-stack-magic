@@ -47,7 +47,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
   const [tagInput, setTagInput] = useState('');
   const [competitionName, setCompetitionName] = useState('');
   const [showCategorySelector, setShowCategorySelector] = useState(false);
-  const [shareWithTeam, setShareWithTeam] = useState(false);
+  const [privateOnly, setPrivateOnly] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [analyzingImage, setAnalyzingImage] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
@@ -225,7 +225,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
         setTags(editingTip.tags || []);
         setCompetitionName(editingTip.competition_name || '');
         setSelectedCategoryId(editingTip.category || '');
-        setShareWithTeam(!!editingTip.team_id);
+        setPrivateOnly(!editingTip.team_id);
       } else {
         setTitle('');
         setContent('');
@@ -233,7 +233,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
         setImageUrl('');
         setTags([]);
         setCompetitionName('');
-        setShareWithTeam(false);
+        setPrivateOnly(false);
         const defaultCat = getDefaultCategory();
         if (defaultCat) setSelectedCategoryId(defaultCat.id);
       }
@@ -295,7 +295,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
       category: selectedCategoryId || undefined,
       tags: tags.length > 0 ? tags : undefined,
       competition_name: competitionName.trim() || undefined,
-      team_id: shareWithTeam && teamId ? teamId : null,
+      team_id: !privateOnly && teamId ? teamId : null,
     });
 
     setTimeout(() => {
@@ -549,19 +549,19 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
                 <div className="w-full">
                   <label className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 cursor-pointer w-full">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">Share with Team</span>
+                      <span className="text-sm font-medium">나만 보기</span>
                     </div>
                     <input
                       type="checkbox"
-                      checked={shareWithTeam}
-                      onChange={(e) => setShareWithTeam(e.target.checked)}
+                      checked={privateOnly}
+                      onChange={(e) => setPrivateOnly(e.target.checked)}
                       className="w-4 h-4 rounded accent-primary"
                     />
                   </label>
                   <p className="text-[10px] text-muted-foreground mt-1 px-3">
-                    {shareWithTeam
-                      ? '체크하면 팀원 전체에게 공유됩니다.'
-                      : '체크 안 하면 나만 볼 수 있어요'}
+                    {privateOnly
+                      ? '나만 볼 수 있어요'
+                      : '팀원 전체에게 공유됩니다'}
                   </p>
                 </div>
               </GuideTooltip>
