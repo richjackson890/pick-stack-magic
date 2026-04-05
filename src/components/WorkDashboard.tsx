@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useWorkDashboard, Project, TeamEvent, Leave, WeekSnapshot } from '@/hooks/useWorkDashboard';
 import { useAuth } from '@/contexts/AuthContext';
 import { TeamMember } from '@/hooks/useTeam';
+import { GuideTooltip } from '@/components/GuideTooltip';
 import { ChevronDown, Plus, Briefcase, Calendar, PalmtreeIcon as Palmtree, Trash2, Loader2, X, Check, Pencil, Users, Printer, History } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -492,7 +493,11 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
             ))}
           </div>
         )}
-        {!isReadOnly && <AddButton label="Add Project" onClick={() => openForm('project')} />}
+        {!isReadOnly && (
+          <GuideTooltip name="add_project" message="진행 중인 프로젝트를 등록하세요. 마감일과 담당자를 설정할 수 있어요" position="bottom">
+            <AddButton label="Add Project" onClick={() => openForm('project')} />
+          </GuideTooltip>
+        )}
       </Section>
 
       {/* 2. 이번 달 일정 */}
@@ -515,7 +520,11 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
               ))}
             </div>
           )}
-          {!isReadOnly && <AddButton label="Add Event" onClick={() => openForm('event')} />}
+          {!isReadOnly && (
+            <GuideTooltip name="add_event" message="팀 회의, 발표, 납품 등 중요한 일정을 등록하세요" position="bottom">
+              <AddButton label="Add Event" onClick={() => openForm('event')} />
+            </GuideTooltip>
+          )}
         </Section>
 
       {/* 3. Leaves */}
@@ -542,10 +551,16 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
               ))}
             </div>
           )}
-          {!isReadOnly && <AddButton label="Add Leave" onClick={() => openForm('leave')} />}
+          {!isReadOnly && (
+            <GuideTooltip name="add_leave" message="연차, 반차 등 휴가를 신청하세요. 팀원 모두가 확인할 수 있어요" position="bottom">
+              <AddButton label="Add Leave" onClick={() => openForm('leave')} />
+            </GuideTooltip>
+          )}
       </Section>
 
       {/* 4. 팀원 연차 현황 */}
+      <GuideTooltip name="leave_status" message="팀원별 연차 사용 현황을 한눈에 볼 수 있어요. 연필 아이콘으로 연간 연차 일수를 수정할 수 있어요" position="bottom">
+        <div className="w-full">
       <Section icon={<Users className="h-5 w-5" />} title="팀원 연차 현황" count={teamMembers.length} collapsed={!!collapsed.teamLeave} onToggle={() => toggle('teamLeave')}>
         {teamMembers.length === 0 ? (
           <p className="text-base text-muted-foreground py-4 text-center">팀원이 없습니다</p>
@@ -624,6 +639,8 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
           </div>
         )}
       </Section>
+        </div>
+      </GuideTooltip>
 
       {/* ====== Modal forms (create & edit) ====== */}
       <AnimatePresence>
