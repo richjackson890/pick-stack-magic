@@ -206,6 +206,27 @@ export function useTeam() {
     }
   };
 
+  const removeMember = async (memberId: string): Promise<boolean> => {
+    if (!user || !team) return false;
+    try {
+      const { error } = await (supabase
+        .from('team_members' as any)
+        .delete()
+        .eq('user_id', memberId)
+        .eq('team_id', team.id) as any);
+
+      if (error) throw error;
+
+      await fetchTeam();
+      toast({ title: 'Member removed' });
+      return true;
+    } catch (err: any) {
+      console.error('[useTeam] removeMember error:', err);
+      toast({ title: 'Failed to remove member', description: err.message, variant: 'destructive' });
+      return false;
+    }
+  };
+
   return {
     team,
     members,
@@ -214,6 +235,7 @@ export function useTeam() {
     createTeam,
     createInviteLink,
     acceptInvite,
+    removeMember,
     refetch: fetchTeam,
   };
 }

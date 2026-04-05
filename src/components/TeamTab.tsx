@@ -4,12 +4,12 @@ import { useTeam } from '@/hooks/useTeam';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Users, UserPlus, Copy, Check, Crown, Link, Loader2 } from 'lucide-react';
+import { Users, UserPlus, Copy, Check, Crown, Link, Loader2, Trash2 } from 'lucide-react';
 import { LiquidSpinner } from '@/components/LiquidSpinner';
 
 export function TeamTab() {
   const { user } = useAuth();
-  const { team, members, invites, loading, createTeam, createInviteLink, acceptInvite } = useTeam();
+  const { team, members, invites, loading, createTeam, createInviteLink, acceptInvite, removeMember } = useTeam();
 
   const [teamName, setTeamName] = useState('');
   const [inviteToken, setInviteToken] = useState('');
@@ -141,6 +141,18 @@ export function TeamTab() {
                 <p className="text-[10px] text-muted-foreground">{m.user_id === team.created_by ? 'Owner' : 'Member'}</p>
               </div>
               {m.user_id === team.created_by && <Crown className="h-3.5 w-3.5 text-yellow-500" />}
+              {isOwner && m.user_id !== team.created_by && (
+                <button
+                  onClick={() => {
+                    if (window.confirm('이 멤버를 팀에서 제거하시겠습니까?')) {
+                      removeMember(m.user_id);
+                    }
+                  }}
+                  className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              )}
             </div>
           ))}
         </div>
