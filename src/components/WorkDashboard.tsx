@@ -494,7 +494,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
           </div>
         )}
         {!isReadOnly && (
-          <GuideTooltip name="add_project" message="진행 중인 프로젝트를 등록하세요. 마감일과 담당자를 설정할 수 있어요" position="bottom">
+          <GuideTooltip name="add_project" message="진행 중인 프로젝트를 등록하세요. 마감일과 담당자를 설정할 수 있어요" position="top">
             <AddButton label="Add Project" onClick={() => openForm('project')} />
           </GuideTooltip>
         )}
@@ -521,7 +521,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
             </div>
           )}
           {!isReadOnly && (
-            <GuideTooltip name="add_event" message="팀 회의, 발표, 납품 등 중요한 일정을 등록하세요" position="bottom">
+            <GuideTooltip name="add_event" message="팀 회의, 발표, 납품 등 중요한 일정을 등록하세요" position="top">
               <AddButton label="Add Event" onClick={() => openForm('event')} />
             </GuideTooltip>
           )}
@@ -552,14 +552,14 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
             </div>
           )}
           {!isReadOnly && (
-            <GuideTooltip name="add_leave" message="연차, 반차 등 휴가를 신청하세요. 팀원 모두가 확인할 수 있어요" position="bottom">
+            <GuideTooltip name="add_leave" message="연차, 반차 등 휴가를 신청하세요. 팀원 모두가 확인할 수 있어요" position="top">
               <AddButton label="Add Leave" onClick={() => openForm('leave')} />
             </GuideTooltip>
           )}
       </Section>
 
       {/* 4. 팀원 연차 현황 */}
-      <GuideTooltip name="leave_status" message="팀원별 연차 사용 현황을 한눈에 볼 수 있어요. 연필 아이콘으로 연간 연차 일수를 수정할 수 있어요" position="bottom">
+      <GuideTooltip name="leave_status" message="팀원별 연차 사용 현황을 한눈에 볼 수 있어요. 연필 아이콘으로 연간 연차 일수를 수정할 수 있어요" position="top">
         <div className="w-full">
       <Section icon={<Users className="h-5 w-5" />} title="팀원 연차 현황" count={teamMembers.length} collapsed={!!collapsed.teamLeave} onToggle={() => toggle('teamLeave')}>
         {teamMembers.length === 0 ? (

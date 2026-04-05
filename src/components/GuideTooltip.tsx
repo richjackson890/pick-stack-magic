@@ -16,7 +16,9 @@ export function isTooltipSeen(name: string): boolean {
 export function GuideTooltip({ name, message, position = 'top', children }: GuideTooltipProps) {
   const [visible, setVisible] = useState(false);
   const [dismissed, setDismissed] = useState(() => isTooltipSeen(name));
+  const [alignRight, setAlignRight] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const tooltipRef = useRef<HTMLDivElement>(null);
 
   const dismiss = useCallback(() => {
     setVisible(false);
@@ -36,19 +38,34 @@ export function GuideTooltip({ name, message, position = 'top', children }: Guid
     return () => document.removeEventListener('mousedown', handler);
   }, [visible, dismiss]);
 
+  // Check if tooltip overflows right edge
+  useEffect(() => {
+    if (!visible || !tooltipRef.current) return;
+    const rect = tooltipRef.current.getBoundingClientRect();
+    if (rect.right > window.innerWidth - 8) {
+      setAlignRight(true);
+    } else if (rect.left < 8) {
+      setAlignRight(false);
+    }
+  }, [visible]);
+
   const showTooltip = () => {
     if (dismissed) return;
+    setAlignRight(false);
     setVisible(true);
   };
 
   if (dismissed) return <>{children}</>;
 
   const isTop = position === 'top';
+  const posClass = isTop ? 'bottom-full mb-3' : 'top-full mt-3';
+  const alignClass = alignRight ? 'right-0' : 'left-1/2 -translate-x-1/2';
 
   return (
     <div
       ref={wrapperRef}
-      className="relative inline-flex"
+      className="relative inline-flex overflow-visible"
+      style={{ overflow: 'visible' }}
       onMouseEnter={showTooltip}
       onClick={showTooltip}
     >
@@ -64,9 +81,8 @@ export function GuideTooltip({ name, message, position = 'top', children }: Guid
 
       {visible && (
         <div
-          className={`absolute z-50 w-60 px-4 py-3 rounded-xl text-xs leading-relaxed font-medium text-white shadow-2xl ${
-            isTop ? 'bottom-full mb-3 left-1/2 -translate-x-1/2' : 'top-full mt-3 left-1/2 -translate-x-1/2'
-          }`}
+          ref={tooltipRef}
+          className={`absolute z-50 w-60 px-4 py-3 rounded-xl text-xs leading-relaxed font-medium text-white shadow-2xl ${posClass} ${alignClass}`}
           style={{
             background: 'linear-gradient(135deg, #f97316, #ea580c)',
             boxShadow: '0 8px 32px rgba(249, 115, 22, 0.4)',
@@ -91,7 +107,7 @@ export function GuideTooltip({ name, message, position = 'top', children }: Guid
 
           {/* Arrow */}
           <div
-            className={`absolute left-1/2 -translate-x-1/2 w-0 h-0 ${
+            className={`absolute ${alignRight ? 'right-4' : 'left-1/2 -translate-x-1/2'} w-0 h-0 ${
               isTop
                 ? 'top-full border-l-[7px] border-r-[7px] border-t-[7px] border-l-transparent border-r-transparent border-t-orange-500'
                 : 'bottom-full border-l-[7px] border-r-[7px] border-b-[7px] border-l-transparent border-r-transparent border-b-orange-500'
