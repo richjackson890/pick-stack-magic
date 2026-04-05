@@ -165,7 +165,7 @@ export function TeamTab() {
             <Link className="h-4 w-4" />
             Invite Member
           </h3>
-          <p className="text-xs text-muted-foreground">Generate a shareable invite link (valid for 7 days)</p>
+          <p className="text-xs text-muted-foreground">Generate a shareable invite link (valid for 24 hours)</p>
           <Button
             className="w-full"
             disabled={generatingLink}
@@ -196,7 +196,7 @@ export function TeamTab() {
               <p className="text-xs text-muted-foreground">Active invite links ({invites.length})</p>
               {invites.map(inv => (
                 <div key={inv.id} className="flex items-center justify-between text-xs">
-                  <span className="truncate text-muted-foreground font-mono">...{inv.token.slice(-8)}</span>
+                  <span className="truncate text-muted-foreground font-mono">...{inv.token.slice(-8)} <span className="text-[10px]">(24시간 유효)</span></span>
                   <button
                     onClick={() => handleCopyToken(inv.token)}
                     className="flex items-center gap-1 text-primary hover:underline shrink-0 ml-2"

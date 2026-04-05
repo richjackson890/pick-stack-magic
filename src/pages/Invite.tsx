@@ -59,12 +59,15 @@ export default function Invite() {
           .eq('token', token) as any);
 
         setStatus('success');
-        setMessage('Successfully joined the team!');
-        setTimeout(() => navigate('/', { replace: true }), 1500);
+        setMessage('팀에 합류했습니다! 팀장이 초대한 DLab 팀에 참여되었습니다.');
+        setTimeout(() => navigate('/', { replace: true }), 2000);
       } catch (err: any) {
         console.error('[Invite] accept error:', err);
         setStatus('error');
-        setMessage(err.message || 'Failed to join team. The invite may be expired.');
+        const isExpired = err.message?.toLowerCase().includes('expired') || err.message?.includes('만료');
+        setMessage(isExpired
+          ? '이 초대 링크는 만료되었습니다. 팀장에게 새 링크를 요청하세요.'
+          : err.message || '팀 참여에 실패했습니다.');
       }
     })();
   }, [authLoading, user, searchParams, navigate]);
