@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const POSITION_OPTIONS = ['실장', '소원', '인턴', '기타'];
+const POSITION_OPTIONS = ['소장', '실장', '팀장/책임', '팀장', '부팀장', '소원', '인턴', '실습'];
 
 interface ProfileSetupModalProps {
   onComplete: () => Promise<void>;
