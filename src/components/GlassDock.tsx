@@ -60,9 +60,16 @@ export function GlassDock({ currentTab, onTabChange, onAdd }: GlassDockProps) {
       </motion.button>
     );
 
-    if (tab.id === 'calendar') {
+    const tooltipMap: Record<string, { name: string; message: string }> = {
+      calendar: { name: 'calendar', message: '팀 일정과 개인 휴가를 한눈에 관리할 수 있어요. 프로젝트 마감일도 확인 가능해요' },
+      report: { name: 'ai_report', message: 'AI가 팀의 팁 활동을 분석해서 주간 리포트를 자동으로 만들어드려요' },
+      dashboard: { name: 'stats', message: '팀원별 팁 기여도와 카테고리별 통계를 확인할 수 있어요' },
+    };
+
+    const tooltip = tooltipMap[tab.id];
+    if (tooltip) {
       return (
-        <GuideTooltip key={tab.id} name="calendar_tab" message="팀 일정과 개인 휴가를 관리할 수 있어요">
+        <GuideTooltip key={tab.id} name={tooltip.name} message={tooltip.message}>
           {button}
         </GuideTooltip>
       );
