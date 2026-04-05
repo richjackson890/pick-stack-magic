@@ -336,6 +336,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
                 onChange={(e) => handleUrlChange(e.target.value)}
                 placeholder="https://... (paste a link to auto-fill)"
               />
+              <p className="text-[10px] text-muted-foreground">YouTube, ArchDaily, 블로그 등 URL을 붙여넣으면 AI가 자동으로 내용을 분석해요</p>
 
               {/* URL Preview loading */}
               {previewLoading && (
@@ -439,7 +440,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
                   이미지 분석 중...
                 </div>
               )}
-              <p className="text-[10px] text-muted-foreground">Ctrl+V로 이미지를 붙여넣을 수 있습니다</p>
+              <p className="text-[10px] text-muted-foreground">Ctrl+V로 스크린샷을 바로 붙여넣거나, 이미지 URL을 입력하세요. AI가 내용을 분석해드려요</p>
             </div>
 
             {/* Competition Name */}
@@ -545,17 +546,24 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
             {/* Team Share Toggle */}
             {teamId && (
               <GuideTooltip name="share_team" message="팀원들과 팁을 공유할 수 있어요" position="bottom">
-                <label className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 cursor-pointer w-full">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">Share with Team</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    checked={shareWithTeam}
-                    onChange={(e) => setShareWithTeam(e.target.checked)}
-                    className="w-4 h-4 rounded accent-primary"
-                  />
-                </label>
+                <div className="w-full">
+                  <label className="flex items-center justify-between p-3 rounded-lg bg-secondary/50 cursor-pointer w-full">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium">Share with Team</span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={shareWithTeam}
+                      onChange={(e) => setShareWithTeam(e.target.checked)}
+                      className="w-4 h-4 rounded accent-primary"
+                    />
+                  </label>
+                  <p className="text-[10px] text-muted-foreground mt-1 px-3">
+                    {shareWithTeam
+                      ? '체크하면 팀원 전체에게 공유됩니다.'
+                      : '체크 안 하면 나만 볼 수 있어요'}
+                  </p>
+                </div>
               </GuideTooltip>
             )}
 

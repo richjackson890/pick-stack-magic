@@ -84,11 +84,17 @@ export function GlassDock({ currentTab, onTabChange, onAdd }: GlassDockProps) {
             whileTap={{ scale: 0.92 }}
             className="relative -mt-6"
           >
-            {/* Pulsing ping for first-time users */}
+            {/* Pulsing ping + bouncing label for first-time users */}
             {!isTooltipSeen('fab_add') && (
-              <span className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
-                <span className="absolute w-14 h-14 rounded-full animate-ping bg-orange-400/50" />
-              </span>
+              <>
+                <span className="absolute inset-0 z-0 flex items-center justify-center pointer-events-none">
+                  <span className="absolute w-14 h-14 rounded-full animate-ping bg-orange-400/50" />
+                </span>
+                <span className="absolute -top-10 left-1/2 -translate-x-1/2 z-10 pointer-events-none flex flex-col items-center animate-bounce">
+                  <span className="whitespace-nowrap text-[11px] font-bold text-orange-500 bg-orange-50 dark:bg-orange-950/60 px-2 py-0.5 rounded-full shadow-sm">팁 등록</span>
+                  <span className="text-orange-400 text-base leading-none">▼</span>
+                </span>
+              </>
             )}
             <motion.div
               className="absolute inset-0 rounded-full"
