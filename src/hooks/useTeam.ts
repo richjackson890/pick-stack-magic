@@ -217,7 +217,9 @@ export function useTeam() {
 
       if (error) throw error;
 
+      console.log('[Team] removeMember called, refetching...');
       await fetchTeam();
+      console.log('[Team] members after refetch:', members);
       toast({ title: 'Member removed' });
       return true;
     } catch (err: any) {
