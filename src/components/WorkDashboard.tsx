@@ -559,9 +559,13 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
       </Section>
 
       {/* 4. 팀원 연차 현황 */}
-      <GuideTooltip name="leave_status" message="팀원별 연차 사용 현황을 한눈에 볼 수 있어요. 연필 아이콘으로 연간 연차 일수를 수정할 수 있어요" position="top">
-        <div className="w-full">
-      <Section icon={<Users className="h-5 w-5" />} title="팀원 연차 현황" count={teamMembers.length} collapsed={!!collapsed.teamLeave} onToggle={() => toggle('teamLeave')}>
+      <Section
+        icon={
+          <GuideTooltip name="leave_status" message="팀원별 연차 사용 현황을 한눈에 볼 수 있어요. 연필 아이콘으로 연간 연차 일수를 수정할 수 있어요" position="bottom">
+            <Users className="h-5 w-5" />
+          </GuideTooltip>
+        }
+        title="팀원 연차 현황" count={teamMembers.length} collapsed={!!collapsed.teamLeave} onToggle={() => toggle('teamLeave')}>
         {teamMembers.length === 0 ? (
           <p className="text-base text-muted-foreground py-4 text-center">팀원이 없습니다</p>
         ) : (
@@ -639,8 +643,6 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
           </div>
         )}
       </Section>
-        </div>
-      </GuideTooltip>
 
       {/* ====== Modal forms (create & edit) ====== */}
       <AnimatePresence>
