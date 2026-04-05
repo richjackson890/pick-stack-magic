@@ -52,6 +52,12 @@ export default function Invite() {
         const result = typeof data === 'string' ? JSON.parse(data) : data;
         if (result?.error) throw new Error(result.error);
 
+        // Delete the used invite token so it disappears from active links
+        await (supabase
+          .from('team_invites' as any)
+          .delete()
+          .eq('token', token) as any);
+
         setStatus('success');
         setMessage('Successfully joined the team!');
         setTimeout(() => navigate('/', { replace: true }), 1500);

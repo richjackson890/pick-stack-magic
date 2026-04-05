@@ -190,6 +190,12 @@ export function useTeam() {
         throw new Error(result.error);
       }
 
+      // Delete the used invite token so it disappears from active links
+      await (supabase
+        .from('team_invites' as any)
+        .delete()
+        .eq('token', token) as any);
+
       await fetchTeam();
       toast({ title: 'Team joined!' });
       return true;
