@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, LogOut, Lightbulb, Bell, Heart, MessageCircle, Check } from 'lucide-react';
+import { Settings, LogOut, Lightbulb, Bell, Heart, MessageCircle, Check, Download } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Notification } from '@/hooks/useNotifications';
+import { usePwaInstall } from '@/hooks/usePwaInstall';
 import { supabase } from '@/integrations/supabase/client';
 
 interface HeaderProps {
@@ -32,6 +33,7 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
       .then(({ data }: any) => { if (data) setProfile(data); });
   }, [user]);
 
+  const { installable, promptInstall } = usePwaInstall();
   const displayName = profile?.display_name || profile?.name || user?.email?.split('@')[0] || '';
   const initials = displayName.slice(0, 2).toUpperCase();
 
@@ -211,6 +213,19 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
               )}
             </AnimatePresence>
           </div>
+
+          {/* PWA Install */}
+          {installable && (
+            <motion.button
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => promptInstall()}
+              className="glass-button w-8 h-8 flex items-center justify-center text-blue-500 hover:text-blue-600 transition-colors"
+              title="앱 설치하기"
+            >
+              <Download className="h-4 w-4" />
+            </motion.button>
+          )}
 
           {/* Theme Toggle */}
           <ThemeToggle />
