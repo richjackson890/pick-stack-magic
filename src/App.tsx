@@ -17,6 +17,7 @@ import PublicView from "./pages/PublicView";
 import ManualSaveTest from "./pages/ManualSaveTest";
 import Invite from "./pages/Invite";
 import NotFound from "./pages/NotFound";
+import { PwaInstallBanner } from "@/components/PwaInstallBanner";
 
 const queryClient = new QueryClient();
 
@@ -143,6 +144,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <AppRoutes />
+          <PwaInstallBanner />
         </BrowserRouter>
       </TooltipProvider>
     </AuthProvider>
