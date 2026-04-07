@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Upload, Loader2, User } from 'lucide-react';
+import { X, Upload, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -93,22 +94,22 @@ export function AvatarEditModal({
     }
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          className="fixed inset-0 z-[9999] bg-black/50"
           onClick={onClose}
         >
           <motion.div
-            initial={{ y: 40, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            exit={{ y: 40, opacity: 0 }}
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.95, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className="glass-card rounded-2xl p-5 w-full max-w-xs space-y-4 mx-4"
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 glass-card rounded-2xl p-5 w-full max-w-xs space-y-4 mx-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
@@ -201,6 +202,7 @@ export function AvatarEditModal({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
