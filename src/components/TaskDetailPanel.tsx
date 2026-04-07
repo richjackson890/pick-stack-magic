@@ -15,7 +15,6 @@ interface TaskAssignment {
   task_id: string | null;
   instruction: string;
   due_date: string | null;
-  due_time: string | null;
   assigned_to: string;
   assigned_by: string;
   status: 'pending' | 'acknowledged' | 'completed';
@@ -60,7 +59,6 @@ export function TaskDetailPanel({
   // Assignment form
   const [instruction, setInstruction] = useState('');
   const [dueDate, setDueDate] = useState('');
-  const [dueTime, setDueTime] = useState('');
   const [assignTo, setAssignTo] = useState('');
   const [assigning, setAssigning] = useState(false);
 
@@ -74,15 +72,14 @@ export function TaskDetailPanel({
     setMemoLoaded(false);
     (async () => {
       let query = supabase.from('task_notes' as any)
-        .select('id, content')
-        .eq('project_id', projectId)
-        .eq('created_by', user.id);
+        .select('id, content, created_by')
+        .eq('project_id', projectId);
       if (taskId) {
         query = query.eq('task_id', taskId);
       } else {
         query = query.is('task_id', null);
       }
-      console.log('[TaskPanel] task_notes query: project_id=', projectId, 'task_id=', taskId, 'created_by=', user.id);
+      console.log('[TaskPanel] task_notes query: project_id=', projectId, 'task_id=', taskId);
       const { data } = await (query.maybeSingle() as any);
       setMemo(data?.content || '');
       setMemoLoaded(true);
@@ -93,11 +90,10 @@ export function TaskDetailPanel({
   const saveMemo = useCallback(async () => {
     if (!user || !memoLoaded) return;
     setMemoSaving(true);
-    // Check if note exists
+    // Check if note exists for this project/task
     let existsQuery = supabase.from('task_notes' as any)
       .select('id')
-      .eq('project_id', projectId)
-      .eq('created_by', user.id);
+      .eq('project_id', projectId);
     if (taskId) {
       existsQuery = existsQuery.eq('task_id', taskId);
     } else {
@@ -154,7 +150,6 @@ export function TaskDetailPanel({
       task_id: taskId || null,
       instruction: instruction.trim(),
       due_date: dueDate || null,
-      due_time: dueTime || null,
       assigned_to: assignTo,
       assigned_by: user.id,
       status: 'pending',
@@ -177,7 +172,6 @@ export function TaskDetailPanel({
 
       setInstruction('');
       setDueDate('');
-      setDueTime('');
       setAssignTo('');
       await fetchAssignments();
     }
@@ -258,10 +252,7 @@ export function TaskDetailPanel({
                   value={instruction}
                   onChange={(e) => setInstruction(e.target.value)}
                 />
-                <div className="flex gap-2">
-                  <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="flex-1" />
-                  <Input type="time" value={dueTime} onChange={(e) => setDueTime(e.target.value)} className="w-28" />
-                </div>
+                <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
                 <select
                   value={assignTo}
                   onChange={(e) => setAssignTo(e.target.value)}
@@ -309,7 +300,7 @@ export function TaskDetailPanel({
                                 {a.due_date && (
                                   <span className="flex items-center gap-0.5">
                                     <Clock className="h-3 w-3" />
-                                    {a.due_date}{a.due_time ? ` ${a.due_time.slice(0, 5)}` : ''}
+                                    {a.due_date}
                                   </span>
                                 )}
                               </div>
