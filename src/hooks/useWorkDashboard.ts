@@ -212,12 +212,11 @@ export function useWorkDashboard(teamId: string | undefined) {
       console.log('[WorkDashboard] fetched events:', (eventsData || []).length);
       setEvents([...(eventsData || [])]);
 
-      // Leaves this week — all team members
-      // Fetch leaves for next 3 months (today ~ +90 days)
-      const leaveStart = getTodayKST();
-      const leaveEndDate = new Date(new Date(leaveStart + 'T00:00:00').getTime() + 90 * 24 * 60 * 60 * 1000);
-      const leaveEnd = leaveEndDate.toISOString().slice(0, 10);
-      const leaveQuery = (supabase.from('leaves' as any).select('*').in('user_id', teamUserIds).gte('leave_date', leaveStart).lte('leave_date', leaveEnd).order('leave_date') as any);
+      // Leaves — current year, all team members
+      const currentYearStr = String(getYearKST());
+      const leaveYearStart = `${currentYearStr}-01-01`;
+      const leaveYearEnd = `${currentYearStr}-12-31`;
+      const leaveQuery = (supabase.from('leaves' as any).select('*').in('user_id', teamUserIds).gte('leave_date', leaveYearStart).lte('leave_date', leaveYearEnd).order('leave_date') as any);
       const { data: leavesData } = await leaveQuery;
 
       const rawLeaves: Leave[] = leavesData || [];
