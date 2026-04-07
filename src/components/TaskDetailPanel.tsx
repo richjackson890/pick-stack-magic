@@ -84,7 +84,8 @@ export function TaskDetailPanel({
       setMemo(data?.content || '');
       setMemoLoaded(true);
     })();
-  }, [isOpen, projectId, taskId, user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, projectId, taskId, user?.id]);
 
   // Save memo (debounced on blur)
   const saveMemo = useCallback(async () => {
@@ -112,7 +113,8 @@ export function TaskDetailPanel({
       }) as any);
     }
     setMemoSaving(false);
-  }, [user, projectId, taskId, memo, memoLoaded]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, projectId, taskId, memo, memoLoaded]);
 
   // Fetch assignments
   const fetchAssignments = useCallback(async () => {
