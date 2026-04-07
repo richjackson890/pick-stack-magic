@@ -41,6 +41,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     deleteProject, deleteEvent, deleteLeave, deleteProjectTask,
     addProjectType, deleteProjectType,
     upsertLeaveBalance,
+    deletedProjects, deletedEvents, deletedLeaves,
     restoreProject, restoreEvent, restoreLeave,
     updateProjectOrder,
     snapshots, viewingSnapshot, viewSnapshot,
@@ -977,6 +978,43 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* 최근 삭제된 항목 */}
+      {!isReadOnly && (deletedProjects.length + deletedEvents.length + deletedLeaves.length > 0) && (
+        <Section icon={<Trash2 className="h-5 w-5" />} title="최근 삭제된 항목" count={deletedProjects.length + deletedEvents.length + deletedLeaves.length} collapsed={!collapsed.deleted} onToggle={() => toggle('deleted')}>
+          <div className="space-y-2">
+            {deletedProjects.map(p => (
+              <div key={p.id} className="flex items-center gap-2 py-2 px-3 rounded-lg bg-secondary/20 opacity-60 min-w-0">
+                <Briefcase className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="text-sm flex-1 min-w-0 truncate">{p.name}</span>
+                <button onClick={() => restoreProject(p.id)} className="text-primary hover:text-primary/80 shrink-0" title="복구">
+                  <Undo2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+            {deletedEvents.map(e => (
+              <div key={e.id} className="flex items-center gap-2 py-2 px-3 rounded-lg bg-secondary/20 opacity-60 min-w-0">
+                <Calendar className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="text-xs text-muted-foreground font-mono shrink-0">{e.event_date}</span>
+                <span className="text-sm flex-1 min-w-0 truncate">{e.title}</span>
+                <button onClick={() => restoreEvent(e.id)} className="text-primary hover:text-primary/80 shrink-0" title="복구">
+                  <Undo2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+            {deletedLeaves.map(l => (
+              <div key={l.id} className="flex items-center gap-2 py-2 px-3 rounded-lg bg-secondary/20 opacity-60 min-w-0">
+                <Palmtree className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <span className="text-xs text-muted-foreground font-mono shrink-0">{l.leave_date}</span>
+                <span className="text-sm flex-1 min-w-0 truncate">{l.type}</span>
+                <button onClick={() => restoreLeave(l.id)} className="text-primary hover:text-primary/80 shrink-0" title="복구">
+                  <Undo2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
 
       <ConfirmDialog
         isOpen={!!deleteConfirm}

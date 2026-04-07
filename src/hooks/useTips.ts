@@ -44,6 +44,7 @@ export function useTips() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [tips, setTips] = useState<Tip[]>([]);
+  const [deletedTips, setDeletedTips] = useState<Tip[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchTips = useCallback(async () => {
@@ -87,6 +88,16 @@ export function useTips() {
       }
 
       setTips(rawTips);
+
+      // Fetch recently deleted tips (last 30 days)
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: delData } = await (supabase
+        .from('tips' as any)
+        .select('*')
+        .eq('is_deleted', true)
+        .gte('deleted_at', thirtyDaysAgo)
+        .order('deleted_at', { ascending: false }) as any);
+      setDeletedTips((delData || []).map((tip: any) => ({ ...tip, tags: tip.tags || [], likes: tip.likes || 0, ai_tags: tip.ai_tags || [] })));
     } catch (error: any) {
       console.error('Error fetching tips:', error);
       toast({
@@ -226,6 +237,7 @@ export function useTips() {
 
   return {
     tips,
+    deletedTips,
     loading,
     addTip,
     updateTip,

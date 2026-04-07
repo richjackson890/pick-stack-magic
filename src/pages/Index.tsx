@@ -29,13 +29,13 @@ import { CalendarView } from '@/components/CalendarView';
 import { useWorkDashboard } from '@/hooks/useWorkDashboard';
 import { OnboardingModal } from '@/components/OnboardingModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { RefreshCw, Search, X, LayoutGrid, List, ArrowUpDown, Bookmark, Settings, Plus, Pencil, Trash2, Check } from 'lucide-react';
+import { RefreshCw, Search, X, LayoutGrid, List, ArrowUpDown, Bookmark, Settings, Plus, Pencil, Trash2, Check, Undo2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
 const Index = () => {
   const { user } = useAuth();
-  const { tips, loading: tipsLoading, addTip, updateTip, deleteTip, restoreTip, refetch } = useTips();
+  const { tips, deletedTips, loading: tipsLoading, addTip, updateTip, deleteTip, restoreTip, refetch } = useTips();
   const { categories, loading: categoriesLoading, getCategoryById, getDefaultCategory, addCategory, updateCategory, deleteCategory } = useArchiCategories();
   const { analyzeTip, analyzingIds } = useGroqAnalysis();
   const { team, members: teamMembers } = useTeam();
@@ -173,6 +173,7 @@ const Index = () => {
   };
 
   const [deleteTipId, setDeleteTipId] = useState<string | null>(null);
+  const [showDeletedTips, setShowDeletedTips] = useState(false);
   const handleDelete = async (id: string) => {
     setDeleteTipId(id);
   };
@@ -366,6 +367,16 @@ const Index = () => {
               </select>
               <ArrowUpDown className="absolute right-1.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground pointer-events-none" />
             </div>
+
+            {deletedTips.length > 0 && (
+              <button
+                onClick={() => setShowDeletedTips(true)}
+                className="shrink-0 flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs text-muted-foreground hover:text-primary transition-colors"
+              >
+                <Trash2 className="h-3 w-3" />
+                삭제됨 ({deletedTips.length})
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -599,6 +610,55 @@ const Index = () => {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Deleted tips modal */}
+      <AnimatePresence>
+        {showDeletedTips && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+            onClick={() => setShowDeletedTips(false)}
+          >
+            <motion.div
+              initial={{ y: 40, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 40, opacity: 0 }}
+              className="glass-card rounded-2xl p-5 w-full max-w-sm mx-4 space-y-3 max-h-[70vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold">최근 삭제된 팁 ({deletedTips.length})</h3>
+                <button onClick={() => setShowDeletedTips(false)} className="text-muted-foreground hover:text-foreground">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              {deletedTips.length === 0 ? (
+                <p className="text-sm text-muted-foreground text-center py-4">삭제된 팁이 없습니다</p>
+              ) : (
+                <div className="space-y-2">
+                  {deletedTips.map(tip => (
+                    <div key={tip.id} className="flex items-center gap-2 py-2 px-3 rounded-lg bg-secondary/20 opacity-70">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{tip.title}</p>
+                        <p className="text-[10px] text-muted-foreground">{new Date(tip.created_at).toLocaleDateString('ko-KR')}</p>
+                      </div>
+                      <button
+                        onClick={async () => { await restoreTip(tip.id); setShowDeletedTips(deletedTips.length > 1); }}
+                        className="shrink-0 flex items-center gap-1 px-2 py-1 rounded-md text-xs text-primary hover:bg-primary/10 transition-colors"
+                      >
+                        <Undo2 className="h-3.5 w-3.5" />
+                        복구
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <ConfirmDialog
         isOpen={!!deleteTipId}

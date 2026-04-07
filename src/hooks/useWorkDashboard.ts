@@ -92,6 +92,9 @@ export function useWorkDashboard(teamId: string | undefined) {
   const [loading, setLoading] = useState(true);
   const [snapshots, setSnapshots] = useState<WeekSnapshot[]>([]);
   const [viewingSnapshot, setViewingSnapshot] = useState<WeekSnapshot | null>(null);
+  const [deletedProjects, setDeletedProjects] = useState<Project[]>([]);
+  const [deletedEvents, setDeletedEvents] = useState<TeamEvent[]>([]);
+  const [deletedLeaves, setDeletedLeaves] = useState<Leave[]>([]);
 
   // Date range: this week Mon ~ next week Sun (14 days), KST
   const getWeekRange = () => {
@@ -279,6 +282,17 @@ export function useWorkDashboard(teamId: string | undefined) {
           await (supabase.from('leaves' as any).update({ balance_deducted: true }).eq('id', pl.id) as any);
         }
       }
+
+      // Fetch recently deleted items (last 30 days)
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: delProjects } = await (supabase.from('projects' as any).select('*').in('created_by', teamUserIds).eq('is_deleted', true).gte('deleted_at', thirtyDaysAgo).order('deleted_at', { ascending: false }) as any);
+      setDeletedProjects((delProjects || []).map((p: any) => ({ ...p, members: [], tasks: [] })));
+
+      const { data: delEvents } = await (supabase.from('team_events' as any).select('*').in('created_by', teamUserIds).eq('is_deleted', true).gte('deleted_at', thirtyDaysAgo).order('deleted_at', { ascending: false }) as any);
+      setDeletedEvents(delEvents || []);
+
+      const { data: delLeaves } = await (supabase.from('leaves' as any).select('*').in('user_id', teamUserIds).eq('is_deleted', true).gte('deleted_at', thirtyDaysAgo).order('deleted_at', { ascending: false }) as any);
+      setDeletedLeaves(delLeaves || []);
 
     } catch {
       // Silently handle — tables may not exist yet
@@ -697,6 +711,7 @@ export function useWorkDashboard(teamId: string | undefined) {
     deleteProject, deleteEvent, deleteLeave, deleteProjectTask,
     addProjectType, deleteProjectType,
     upsertLeaveBalance,
+    deletedProjects, deletedEvents, deletedLeaves,
     restoreProject, restoreEvent, restoreLeave,
     refetch: fetchAll,
     updateProjectOrder,
