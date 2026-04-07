@@ -5,21 +5,19 @@ import { useAuth } from '@/contexts/AuthContext';
 // KST 기준 오늘 날짜 (YYYY-MM-DD)
 const getTodayKST = () => {
   const now = new Date();
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  return kst.toISOString().split('T')[0];
+  // toLocaleString으로 KST 기준 날짜 부분 추출 (브라우저 타임존 무관)
+  const kstStr = now.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' }); // sv-SE → YYYY-MM-DD
+  return kstStr;
 };
 
 // KST 기준 현재 연도
 const getYearKST = () => {
-  const now = new Date();
-  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
-  return kst.getUTCFullYear();
+  return parseInt(getTodayKST().slice(0, 4), 10);
 };
 
 // KST 기준 Date를 YYYY-MM-DD로 변환
 const toDateStrKST = (d: Date) => {
-  const kst = new Date(d.getTime() + 9 * 60 * 60 * 1000);
-  return kst.toISOString().split('T')[0];
+  return d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
 };
 
 export interface ProjectTask {
