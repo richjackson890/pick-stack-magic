@@ -75,7 +75,7 @@ export function CalendarView({ projects, events, leaves }: CalendarViewProps) {
         const start = new Date(t.start_date + 'T00:00:00');
         const end = new Date(t.end_date + 'T00:00:00');
         for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-          const key = d.toISOString().slice(0, 10);
+          const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
           if (!map[key]) map[key] = [];
           map[key].push({ project: p.name, task: t.title });
         }
