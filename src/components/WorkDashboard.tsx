@@ -852,7 +852,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                       <label className="text-[11px] text-muted-foreground font-medium mb-1.5 block">
                         Members ({selectedMembers.size} selected)
                       </label>
-                      <div className="max-h-32 overflow-y-auto space-y-1 rounded-lg border border-border/30 p-2">
+                      <div className="space-y-1 rounded-lg border border-border/30 p-2">
                         {teamMembers.map(m => {
                           const name = getDisplayName(m.profiles);
                           const mPos = m.profiles?.position;
