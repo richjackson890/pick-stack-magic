@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight, X, Trash2, CalendarDays, FileEdit, ChevronDown, Eye } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -135,8 +135,8 @@ export function ContentCalendar() {
     }
   }, [user]);
 
-  // Fetch on mount & month change
-  useState(() => { fetchIdeas(); });
+  // Fetch on mount
+  useEffect(() => { fetchIdeas(); }, []);
 
   const todayStr = dateToString(new Date());
   const days = useMemo(() => getMonthDays(year, month), [year, month]);
