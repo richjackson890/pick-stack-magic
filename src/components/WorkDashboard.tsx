@@ -4,7 +4,8 @@ import { useWorkDashboard, Project, TeamEvent, Leave, WeekSnapshot } from '@/hoo
 import { useAuth } from '@/contexts/AuthContext';
 import { TeamMember } from '@/hooks/useTeam';
 import { GuideTooltip } from '@/components/GuideTooltip';
-import { ChevronDown, Plus, Briefcase, Calendar, PalmtreeIcon as Palmtree, Trash2, Loader2, X, Check, Pencil, Users, Printer, History, GripVertical } from 'lucide-react';
+import { ChevronDown, Plus, Briefcase, Calendar, PalmtreeIcon as Palmtree, Trash2, Loader2, X, Check, Pencil, Users, Printer, History, GripVertical, Undo2 } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -40,6 +41,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     deleteProject, deleteEvent, deleteLeave, deleteProjectTask,
     addProjectType, deleteProjectType,
     upsertLeaveBalance,
+    restoreProject, restoreEvent, restoreLeave,
     updateProjectOrder,
     snapshots, viewingSnapshot, viewSnapshot,
   } = useWorkDashboard(teamId);
@@ -85,6 +87,17 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   // Native HTML5 drag-and-drop state
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+
+  // Delete confirmation
+  const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'project' | 'event' | 'leave'; id: string } | null>(null);
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirm) return;
+    if (deleteConfirm.type === 'project') await deleteProject(deleteConfirm.id);
+    else if (deleteConfirm.type === 'event') await deleteEvent(deleteConfirm.id);
+    else if (deleteConfirm.type === 'leave') await deleteLeave(deleteConfirm.id);
+    setDeleteConfirm(null);
+  };
 
   const toggle = (key: string) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
 
@@ -480,7 +493,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                 getCreatorName={getCreatorName}
                 formatShortDate={formatShortDate}
                 onEdit={() => openEditProject(p)}
-                onDelete={() => deleteProject(p.id)}
+                onDelete={() => setDeleteConfirm({ type: 'project', id: p.id })}
                 onDeleteTask={(taskId) => deleteProjectTask(taskId)}
                 onDragStart={() => setDragId(p.id)}
                 onDragEnd={() => { setDragId(null); setDragOverId(null); }}
@@ -522,7 +535,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                   <span className="text-xs text-muted-foreground shrink-0">{getCreatorName(e.created_by)}</span>
                   <div className="flex items-center gap-1 shrink-0">
                     {!isReadOnly && <button onClick={() => openEditEvent(e)} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button>}
-                    {!isReadOnly && <button onClick={() => deleteEvent(e.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
+                    {!isReadOnly && <button onClick={() => setDeleteConfirm({ type: 'event', id: e.id })} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
                   </div>
                 </div>
               ))}
@@ -561,7 +574,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                   <span className="flex-1" />
                   <div className="flex items-center gap-1 shrink-0">
                     {!isReadOnly && <button onClick={() => openEditLeave(l)} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button>}
-                    {!isReadOnly && <button onClick={() => deleteLeave(l.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
+                    {!isReadOnly && <button onClick={() => setDeleteConfirm({ type: 'leave', id: l.id })} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
                   </div>
                 </div>
               ))}
@@ -933,6 +946,13 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <ConfirmDialog
+        isOpen={!!deleteConfirm}
+        message="정말 삭제하시겠습니까?"
+        onConfirm={handleConfirmDelete}
+        onCancel={() => setDeleteConfirm(null)}
+      />
 
       {/* Print-only footer */}
       <div className="hidden print-footer">

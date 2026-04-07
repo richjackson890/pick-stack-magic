@@ -52,6 +52,7 @@ export function useTips() {
       const { data, error } = await (supabase
         .from('tips' as any)
         .select('*')
+        .or('is_deleted.is.null,is_deleted.eq.false')
         .order('created_at', { ascending: false }) as any);
 
       if (error) throw error;
@@ -190,13 +191,13 @@ export function useTips() {
     try {
       console.log('[useTips] DELETE start - tip:', id, 'user:', user.id);
 
-      // Step 1: Execute DELETE on Supabase FIRST, before touching local state
+      // Step 1: Soft-delete on Supabase
       const { error, status, statusText } = await (supabase
         .from('tips' as any)
-        .delete()
+        .update({ is_deleted: true, deleted_at: new Date().toISOString() })
         .eq('id', id) as any);
 
-      console.log('[useTips] DELETE response:', { error, status, statusText });
+      console.log('[useTips] SOFT DELETE response:', { error, status, statusText });
 
       if (error) {
         console.error('[useTips] DELETE error:', JSON.stringify(error));
@@ -218,12 +219,18 @@ export function useTips() {
     }
   };
 
+  const restoreTip = async (id: string) => {
+    await (supabase.from('tips' as any).update({ is_deleted: false, deleted_at: null }).eq('id', id) as any);
+    await fetchTips();
+  };
+
   return {
     tips,
     loading,
     addTip,
     updateTip,
     deleteTip,
+    restoreTip,
     refetch: fetchTips,
   };
 }

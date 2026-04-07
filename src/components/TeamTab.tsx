@@ -6,12 +6,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Users, UserPlus, Copy, Check, Crown, Link, Loader2, Trash2 } from 'lucide-react';
 import { LiquidSpinner } from '@/components/LiquidSpinner';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 
 export function TeamTab() {
   const { user } = useAuth();
   const { team, members, invites, loading, createTeam, createInviteLink, acceptInvite, removeMember } = useTeam();
 
   const [teamName, setTeamName] = useState('');
+  const [removeMemberId, setRemoveMemberId] = useState<string | null>(null);
   const [inviteToken, setInviteToken] = useState('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
@@ -153,11 +155,7 @@ export function TeamTab() {
               {m.user_id === team.created_by && <Crown className="h-3.5 w-3.5 text-yellow-500" />}
               {isOwner && m.user_id !== team.created_by && (
                 <button
-                  onClick={() => {
-                    if (window.confirm('이 멤버를 팀에서 제거하시겠습니까?')) {
-                      removeMember(m.user_id);
-                    }
-                  }}
+                  onClick={() => setRemoveMemberId(m.user_id)}
                   className="p-1.5 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
                 >
                   <Trash2 className="h-3.5 w-3.5" />
@@ -224,6 +222,12 @@ export function TeamTab() {
         </div>
       )}
 
+      <ConfirmDialog
+        isOpen={!!removeMemberId}
+        message="이 멤버를 팀에서 제거하시겠습니까?"
+        onConfirm={() => { if (removeMemberId) { removeMember(removeMemberId); setRemoveMemberId(null); } }}
+        onCancel={() => setRemoveMemberId(null)}
+      />
     </div>
   );
 }

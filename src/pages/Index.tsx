@@ -28,13 +28,14 @@ import { WorkDashboard } from '@/components/WorkDashboard';
 import { CalendarView } from '@/components/CalendarView';
 import { useWorkDashboard } from '@/hooks/useWorkDashboard';
 import { OnboardingModal } from '@/components/OnboardingModal';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { RefreshCw, Search, X, LayoutGrid, List, ArrowUpDown, Bookmark, Settings, Plus, Pencil, Trash2, Check } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 
 const Index = () => {
   const { user } = useAuth();
-  const { tips, loading: tipsLoading, addTip, updateTip, deleteTip, refetch } = useTips();
+  const { tips, loading: tipsLoading, addTip, updateTip, deleteTip, restoreTip, refetch } = useTips();
   const { categories, loading: categoriesLoading, getCategoryById, getDefaultCategory, addCategory, updateCategory, deleteCategory } = useArchiCategories();
   const { analyzeTip, analyzingIds } = useGroqAnalysis();
   const { team, members: teamMembers } = useTeam();
@@ -171,9 +172,15 @@ const Index = () => {
     setIsSaveModalOpen(true);
   };
 
+  const [deleteTipId, setDeleteTipId] = useState<string | null>(null);
   const handleDelete = async (id: string) => {
-    await deleteTip(id);
+    setDeleteTipId(id);
+  };
+  const confirmDeleteTip = async () => {
+    if (!deleteTipId) return;
+    await deleteTip(deleteTipId);
     showToast('success', 'Deleted');
+    setDeleteTipId(null);
   };
 
   const handleRefresh = useCallback(async () => {
@@ -592,6 +599,13 @@ const Index = () => {
           </div>
         </SheetContent>
       </Sheet>
+
+      <ConfirmDialog
+        isOpen={!!deleteTipId}
+        message="정말 삭제하시겠습니까?"
+        onConfirm={confirmDeleteTip}
+        onCancel={() => setDeleteTipId(null)}
+      />
     </div>
   );
 };

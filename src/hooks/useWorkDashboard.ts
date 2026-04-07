@@ -135,6 +135,7 @@ export function useWorkDashboard(teamId: string | undefined) {
         .select('*')
         .in('created_by', teamUserIds)
         .eq('status', '진행중')
+        .or('is_deleted.is.null,is_deleted.eq.false')
         .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false }) as any;
 
@@ -211,7 +212,7 @@ export function useWorkDashboard(teamId: string | undefined) {
       const eventYearStr = String(getYearKST());
       const eventYearStart = `${eventYearStr}-01-01`;
       const eventYearEnd = `${eventYearStr}-12-31`;
-      const eventQuery = (supabase.from('team_events' as any).select('*').in('created_by', teamUserIds).gte('event_date', eventYearStart).lte('event_date', eventYearEnd).order('event_date') as any);
+      const eventQuery = (supabase.from('team_events' as any).select('*').in('created_by', teamUserIds).gte('event_date', eventYearStart).lte('event_date', eventYearEnd).or('is_deleted.is.null,is_deleted.eq.false').order('event_date') as any);
       const { data: eventsData } = await eventQuery;
       console.log('[WorkDashboard] fetched events:', (eventsData || []).length);
       setEvents([...(eventsData || [])]);
@@ -220,7 +221,7 @@ export function useWorkDashboard(teamId: string | undefined) {
       const currentYearStr = String(getYearKST());
       const leaveYearStart = `${currentYearStr}-01-01`;
       const leaveYearEnd = `${currentYearStr}-12-31`;
-      const leaveQuery = (supabase.from('leaves' as any).select('*').in('user_id', teamUserIds).gte('leave_date', leaveYearStart).lte('leave_date', leaveYearEnd).order('leave_date') as any);
+      const leaveQuery = (supabase.from('leaves' as any).select('*').in('user_id', teamUserIds).gte('leave_date', leaveYearStart).lte('leave_date', leaveYearEnd).or('is_deleted.is.null,is_deleted.eq.false').order('leave_date') as any);
       const { data: leavesData } = await leaveQuery;
 
       const rawLeaves: Leave[] = leavesData || [];
@@ -495,9 +496,7 @@ export function useWorkDashboard(teamId: string | undefined) {
   };
 
   const deleteProject = async (id: string) => {
-    // project_tasks cascade via FK, delete members + project
-    await (supabase.from('project_members' as any).delete().eq('project_id', id) as any);
-    const { error } = await (supabase.from('projects' as any).delete().eq('id', id) as any);
+    const { error } = await (supabase.from('projects' as any).update({ is_deleted: true, deleted_at: new Date().toISOString() }).eq('id', id) as any);
     if (error) { console.error('[WorkDashboard] deleteProject error:', error); return; }
     await fetchAll();
   };
@@ -511,19 +510,15 @@ export function useWorkDashboard(teamId: string | undefined) {
   };
 
   const deleteEvent = async (id: string) => {
-    console.log('[deleteEvent] id:', id);
-    const { data, error } = await (supabase.from('team_events' as any).delete().eq('id', id).select() as any);
-    console.log('[deleteEvent] result:', data, error);
+    const { error } = await (supabase.from('team_events' as any).update({ is_deleted: true, deleted_at: new Date().toISOString() }).eq('id', id) as any);
     if (error) { console.error('[WorkDashboard] deleteEvent error:', error); return; }
     await fetchAll();
   };
 
   const deleteLeave = async (id: string) => {
-    console.log('[deleteLeave] id:', id);
     // Fetch leave first to know type, user, and deduction status
     const { data: leaveRow } = await (supabase.from('leaves' as any).select('user_id, type, balance_deducted').eq('id', id).single() as any);
-    const { data, error } = await (supabase.from('leaves' as any).delete().eq('id', id).select() as any);
-    console.log('[deleteLeave] result:', data, error);
+    const { error } = await (supabase.from('leaves' as any).update({ is_deleted: true, deleted_at: new Date().toISOString() }).eq('id', id) as any);
     if (error) { console.error('[WorkDashboard] deleteLeave error:', error); return; }
 
     // Restore leave_balance only if it was already deducted
@@ -541,10 +536,24 @@ export function useWorkDashboard(teamId: string | undefined) {
             .update({ used_days: Math.max(0, bal.used_days - deduction) })
             .eq('user_id', leaveRow.user_id)
             .eq('year', currentYear) as any);
-          console.log('[deleteLeave] balance restored:', deduction);
         }
       }
     }
+    await fetchAll();
+  };
+
+  const restoreProject = async (id: string) => {
+    await (supabase.from('projects' as any).update({ is_deleted: false, deleted_at: null }).eq('id', id) as any);
+    await fetchAll();
+  };
+
+  const restoreEvent = async (id: string) => {
+    await (supabase.from('team_events' as any).update({ is_deleted: false, deleted_at: null }).eq('id', id) as any);
+    await fetchAll();
+  };
+
+  const restoreLeave = async (id: string) => {
+    await (supabase.from('leaves' as any).update({ is_deleted: false, deleted_at: null }).eq('id', id) as any);
     await fetchAll();
   };
 
@@ -686,6 +695,7 @@ export function useWorkDashboard(teamId: string | undefined) {
     deleteProject, deleteEvent, deleteLeave, deleteProjectTask,
     addProjectType, deleteProjectType,
     upsertLeaveBalance,
+    restoreProject, restoreEvent, restoreLeave,
     refetch: fetchAll,
     updateProjectOrder,
     snapshots, viewingSnapshot, viewSnapshot,
