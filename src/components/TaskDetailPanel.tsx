@@ -55,15 +55,17 @@ export function TaskDetailPanel({
 }: TaskDetailPanelProps) {
   const { user } = useAuth();
   const memoKey = `${projectId}:${taskId || 'project'}`;
-  const [memo, setMemoState] = useState(() => memoCache.current[memoKey] || '');
+  const [memo, setMemoState] = useState(() => memoCache.current[memoKey] ?? '');
   const [memoSaving, setMemoSaving] = useState(false);
-  const [memoLoaded, setMemoLoaded] = useState(false);
-  const memoFetchedRef = useRef<string | null>(null);
+  const [memoLoaded, setMemoLoaded] = useState(memoKey in memoCache.current);
+  const memoFetchedRef = useRef<string | null>(memoKey in memoCache.current ? memoKey : null);
+  const memoDirtyRef = useRef<Record<string, boolean>>({});
 
-  // Wrapper that updates both local state and cache
+  // Wrapper that updates both local state and cache + marks dirty
   const setMemo = (val: string) => {
     setMemoState(val);
     memoCache.current[memoKey] = val;
+    memoDirtyRef.current[memoKey] = true;
   };
 
   // Debug: track mount/unmount
@@ -83,16 +85,13 @@ export function TaskDetailPanel({
   const [assignments, setAssignments] = useState<TaskAssignment[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
 
-  // Fetch memo — only once when panel opens for a specific project/task
+  // Fetch memo — only on first open when no cache exists and user hasn't typed
   useEffect(() => {
-    if (!isOpen || !user) {
-      if (!isOpen) memoFetchedRef.current = null;
-      return;
-    }
-    // Skip if already loaded for this panel, or if cache already has content
+    if (!isOpen || !user) return;
+    // Already fetched for this panel
     if (memoFetchedRef.current === memoKey) return;
-    // If cache has content, use it without re-fetching
-    if (memoCache.current[memoKey] !== undefined) {
+    // Cache exists (user typed or previously fetched) — use cache, skip DB
+    if (memoKey in memoCache.current) {
       setMemoState(memoCache.current[memoKey]);
       setMemoLoaded(true);
       memoFetchedRef.current = memoKey;
@@ -101,7 +100,7 @@ export function TaskDetailPanel({
     memoFetchedRef.current = memoKey;
     setMemoLoaded(false);
 
-    const fetchMemo = async () => {
+    (async () => {
       let query = supabase.from('task_notes' as any)
         .select('id, content, created_by')
         .eq('project_id', projectId);
@@ -111,13 +110,16 @@ export function TaskDetailPanel({
         query = query.is('task_id', null);
       }
       const { data } = await (query.maybeSingle() as any);
-      if (memoFetchedRef.current === memoKey) {
+      // Only write to state if user hasn't typed in the meantime
+      if (!memoDirtyRef.current[memoKey] && memoFetchedRef.current === memoKey) {
         const content = data?.content || '';
-        setMemo(content);
+        setMemoState(content);
+        memoCache.current[memoKey] = content;
+        setMemoLoaded(true);
+      } else {
         setMemoLoaded(true);
       }
-    };
-    fetchMemo();
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, memoKey]);
 
