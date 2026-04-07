@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useWorkDashboard, Project, TeamEvent, Leave, WeekSnapshot } from '@/hooks/useWorkDashboard';
 import { useAuth } from '@/contexts/AuthContext';
@@ -95,6 +95,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
 
   // Task detail panel
   const [taskDetail, setTaskDetail] = useState<{ projectId: string; projectName: string; taskId?: string; taskTitle?: string } | null>(null);
+  const memoCache = useRef<Record<string, string>>({});
 
   const handleConfirmDelete = async () => {
     if (!deleteConfirm) return;
@@ -1038,6 +1039,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
           taskId={taskDetail.taskId}
           taskTitle={taskDetail.taskTitle}
           teamMembers={teamMembers}
+          memoCache={memoCache}
         />
       )}
 

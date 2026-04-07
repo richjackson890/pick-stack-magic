@@ -31,6 +31,7 @@ interface TaskDetailPanelProps {
   taskId?: string | null;
   taskTitle?: string | null;
   teamMembers: TeamMember[];
+  memoCache: React.MutableRefObject<Record<string, string>>;
 }
 
 const getDisplayName = (p?: { display_name?: string | null; name?: string | null }) =>
@@ -50,12 +51,27 @@ export function TaskDetailPanel({
   taskId,
   taskTitle,
   teamMembers,
+  memoCache,
 }: TaskDetailPanelProps) {
   const { user } = useAuth();
-  const [memo, setMemo] = useState('');
+  const memoKey = `${projectId}:${taskId || 'project'}`;
+  const [memo, setMemoState] = useState(() => memoCache.current[memoKey] || '');
   const [memoSaving, setMemoSaving] = useState(false);
   const [memoLoaded, setMemoLoaded] = useState(false);
-  const memoFetchedRef = useRef<string | null>(null); // tracks which project/task combo we loaded
+  const memoFetchedRef = useRef<string | null>(null);
+
+  // Wrapper that updates both local state and cache
+  const setMemo = (val: string) => {
+    setMemoState(val);
+    memoCache.current[memoKey] = val;
+  };
+
+  // Debug: track mount/unmount
+  useEffect(() => {
+    console.log('[TaskPanel] MOUNTED - projectId:', projectId, 'taskId:', taskId);
+    return () => console.log('[TaskPanel] UNMOUNTED - projectId:', projectId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Assignment form
   const [instruction, setInstruction] = useState('');
@@ -68,22 +84,21 @@ export function TaskDetailPanel({
   const [loadingAssignments, setLoadingAssignments] = useState(false);
 
   // Fetch memo — only once when panel opens for a specific project/task
-  const memoKey = `${projectId}:${taskId || 'project'}`;
-  const prevMemoKeyRef = useRef<string | null>(null);
-
   useEffect(() => {
     if (!isOpen || !user) {
-      // Reset when panel closes
-      if (!isOpen) {
-        prevMemoKeyRef.current = null;
-        memoFetchedRef.current = null;
-      }
+      if (!isOpen) memoFetchedRef.current = null;
       return;
     }
-    // Only fetch if this is a new panel (different project/task) or first open
+    // Skip if already loaded for this panel, or if cache already has content
     if (memoFetchedRef.current === memoKey) return;
+    // If cache has content, use it without re-fetching
+    if (memoCache.current[memoKey] !== undefined) {
+      setMemoState(memoCache.current[memoKey]);
+      setMemoLoaded(true);
+      memoFetchedRef.current = memoKey;
+      return;
+    }
     memoFetchedRef.current = memoKey;
-    prevMemoKeyRef.current = memoKey;
     setMemoLoaded(false);
 
     const fetchMemo = async () => {
@@ -96,9 +111,9 @@ export function TaskDetailPanel({
         query = query.is('task_id', null);
       }
       const { data } = await (query.maybeSingle() as any);
-      // Only update state if we're still showing the same panel
       if (memoFetchedRef.current === memoKey) {
-        setMemo(data?.content || '');
+        const content = data?.content || '';
+        setMemo(content);
         setMemoLoaded(true);
       }
     };
