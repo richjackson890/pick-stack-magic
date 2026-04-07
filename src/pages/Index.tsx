@@ -29,6 +29,7 @@ import { CalendarView } from '@/components/CalendarView';
 import { useWorkDashboard } from '@/hooks/useWorkDashboard';
 import { OnboardingModal } from '@/components/OnboardingModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { TaskAssignmentPopup } from '@/components/TaskAssignmentPopup';
 import { RefreshCw, Search, X, LayoutGrid, List, ArrowUpDown, Bookmark, Settings, Plus, Pencil, Trash2, Check, Undo2 } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -665,6 +666,11 @@ const Index = () => {
         message="정말 삭제하시겠습니까?"
         onConfirm={confirmDeleteTip}
         onCancel={() => setDeleteTipId(null)}
+      />
+
+      <TaskAssignmentPopup
+        notifications={notifications}
+        onMarkAsRead={markAsRead}
       />
     </div>
   );
