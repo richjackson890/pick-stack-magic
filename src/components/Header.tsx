@@ -71,7 +71,7 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
   };
 
   return (
-    <header className="sticky top-0 z-40 glass-dock border-b-0">
+    <header className="sticky top-0 z-[100] glass-dock border-b-0">
       <div className="container flex items-center justify-between h-12 px-3">
         <motion.div
           className="flex items-center gap-2"
@@ -158,7 +158,7 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -8, scale: 0.95 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 top-10 w-80 max-h-96 glass-card rounded-xl shadow-xl overflow-hidden z-50"
+                  className="absolute right-0 top-10 w-80 max-h-96 glass-card rounded-xl shadow-xl overflow-hidden z-[9999]"
                 >
                   {/* Header */}
                   <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30">
