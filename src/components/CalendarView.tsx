@@ -198,7 +198,7 @@ export function CalendarView({ projects, events, leaves }: CalendarViewProps) {
                   )}
                   {dateLeaves.slice(0, 2).map((l, i) => (
                     <div key={`l${i}`} className={cn("text-[9px] leading-tight px-1 py-[1px] rounded truncate", getLeaveColorBg(l.type))}>
-                      {getLeaveLabel(l.type)} {l.profile?.name || ''}
+                      {getLeaveLabel(l.type)} {l.profile?.name || ''}{l.type === '외출' && l.start_time && l.end_time ? ` ${l.start_time.slice(0,5)}~${l.end_time.slice(0,5)}` : ''}{l.type === '외출' && l.reason ? ` ${l.reason}` : ''}
                     </div>
                   ))}
                   {dateLeaves.length > 2 && (
@@ -261,6 +261,12 @@ export function CalendarView({ projects, events, leaves }: CalendarViewProps) {
                       {getLeaveLabel(l.type)}
                     </span>
                     <span className="font-medium">{l.profile?.name || 'Unknown'}</span>
+                    {l.type === '외출' && l.start_time && l.end_time && (
+                      <span className="text-muted-foreground">{l.start_time.slice(0,5)}~{l.end_time.slice(0,5)}</span>
+                    )}
+                    {l.type === '외출' && l.reason && (
+                      <span className="text-muted-foreground truncate">{l.reason}</span>
+                    )}
                   </div>
                 ))}
               </div>

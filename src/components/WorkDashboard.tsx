@@ -75,6 +75,9 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   const [leaveDate, setLeaveDate] = useState('');
   const [leaveType, setLeaveType] = useState<'연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차' | '외출'>('연차');
   const [leaveUserId, setLeaveUserId] = useState('');
+  const [leaveStartTime, setLeaveStartTime] = useState('');
+  const [leaveEndTime, setLeaveEndTime] = useState('');
+  const [leaveReason, setLeaveReason] = useState('');
 
   // Custom type
   const [newTypeName, setNewTypeName] = useState('');
@@ -100,6 +103,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     setProjectName(''); setProjectType(''); setSelectedMembers(new Set()); setTaskDrafts([]);
     setEventTitle(''); setEventDate(today); setEventTime('');
     setLeaveDate(today); setLeaveType('연차'); setLeaveUserId(user?.id || '');
+    setLeaveStartTime(''); setLeaveEndTime(''); setLeaveReason('');
     setActiveForm(type);
   };
 
@@ -128,6 +132,9 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     setEditLeaveId(l.id);
     setLeaveDate(l.leave_date);
     setLeaveType(l.type);
+    setLeaveStartTime(l.start_time || '');
+    setLeaveEndTime(l.end_time || '');
+    setLeaveReason(l.reason || '');
     setActiveForm('leave');
   };
 
@@ -181,10 +188,11 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   const handleSubmitLeave = async () => {
     if (!leaveDate) return;
     setSaving(true);
+    const extra = leaveType === '외출' ? { start_time: leaveStartTime, end_time: leaveEndTime, reason: leaveReason } : undefined;
     if (editLeaveId) {
-      await updateLeave(editLeaveId, leaveDate, leaveType);
+      await updateLeave(editLeaveId, leaveDate, leaveType, extra);
     } else {
-      await addLeave(leaveDate, leaveType, leaveUserId || undefined);
+      await addLeave(leaveDate, leaveType, leaveUserId || undefined, extra);
     }
     setSaving(false);
     setActiveForm(null);
@@ -543,7 +551,14 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                     (l.type === '오전반차' || l.type === '오후반차') ? 'bg-amber-500/15 text-amber-400' :
                     'bg-violet-500/15 text-violet-400'
                   )}>{leaveLabel(l.type)}</span>
-                  <span className="text-sm font-medium flex-1 min-w-0 truncate">{l.profile?.display_name || l.profile?.name || 'Unknown'}</span>
+                  <span className="text-sm font-medium min-w-0 truncate">{l.profile?.display_name || l.profile?.name || 'Unknown'}</span>
+                  {l.type === '외출' && (l.start_time || l.reason) && (
+                    <span className="text-xs text-muted-foreground truncate">
+                      {l.start_time && l.end_time ? `${l.start_time.slice(0,5)}~${l.end_time.slice(0,5)}` : l.start_time ? l.start_time.slice(0,5) : ''}
+                      {l.reason ? ` ${l.reason}` : ''}
+                    </span>
+                  )}
+                  <span className="flex-1" />
                   <div className="flex items-center gap-1 shrink-0">
                     {!isReadOnly && <button onClick={() => openEditLeave(l)} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button>}
                     {!isReadOnly && <button onClick={() => deleteLeave(l.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
@@ -891,6 +906,24 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                       ))}
                     </div>
                   </div>
+                  {leaveType === '외출' && (
+                    <>
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <label className="text-[11px] text-muted-foreground font-medium mb-1 block">출발 시간</label>
+                          <Input type="time" value={leaveStartTime} onChange={e => setLeaveStartTime(e.target.value)} />
+                        </div>
+                        <div className="flex-1">
+                          <label className="text-[11px] text-muted-foreground font-medium mb-1 block">복귀 시간</label>
+                          <Input type="time" value={leaveEndTime} onChange={e => setLeaveEndTime(e.target.value)} />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[11px] text-muted-foreground font-medium mb-1 block">외출 사유</label>
+                        <Input placeholder="예: 현장 답사" value={leaveReason} onChange={e => setLeaveReason(e.target.value)} />
+                      </div>
+                    </>
+                  )}
                   <Button className="w-full" onClick={handleSubmitLeave} disabled={!leaveDate || saving}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editLeaveId ? 'Save Changes' : 'Request Leave'}
                   </Button>

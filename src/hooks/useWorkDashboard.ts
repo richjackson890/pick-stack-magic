@@ -53,6 +53,9 @@ export interface Leave {
   user_id: string;
   leave_date: string;
   type: '연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차' | '외출';
+  start_time?: string | null;
+  end_time?: string | null;
+  reason?: string | null;
   profile?: { name: string | null; avatar_url: string | null };
 }
 
@@ -377,7 +380,12 @@ export function useWorkDashboard(teamId: string | undefined) {
     else console.log('[deductBalance] deducted:', deduction, 'new used_days:', bal.used_days + deduction);
   };
 
-  const addLeave = async (leaveDate: string, type: '연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차' | '외출', targetUserId?: string) => {
+  const addLeave = async (
+    leaveDate: string,
+    type: '연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차' | '외출',
+    targetUserId?: string,
+    extra?: { start_time?: string; end_time?: string; reason?: string },
+  ) => {
     if (!user) return;
     const uid = targetUserId || user.id;
     const todayKST = getTodayKST();
@@ -389,6 +397,9 @@ export function useWorkDashboard(teamId: string | undefined) {
       type,
       balance_deducted: shouldDeduct,
     };
+    if (extra?.start_time) payload.start_time = extra.start_time;
+    if (extra?.end_time) payload.end_time = extra.end_time;
+    if (extra?.reason) payload.reason = extra.reason;
     if (resolvedTeamId) payload.team_id = resolvedTeamId;
     console.log('[WorkDashboard] addLeave payload:', payload);
     const { data, error } = await (supabase.from('leaves' as any).insert(payload).select('id').single() as any);
@@ -451,10 +462,25 @@ export function useWorkDashboard(teamId: string | undefined) {
     await fetchAll();
   };
 
-  const updateLeave = async (id: string, leaveDate: string, type: '연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차' | '외출') => {
-    console.log('[updateLeave] id:', id, 'payload:', { leave_date: leaveDate, type });
+  const updateLeave = async (
+    id: string,
+    leaveDate: string,
+    type: '연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차' | '외출',
+    extra?: { start_time?: string; end_time?: string; reason?: string },
+  ) => {
+    const updatePayload: Record<string, any> = { leave_date: leaveDate, type };
+    if (type === '외출') {
+      updatePayload.start_time = extra?.start_time || null;
+      updatePayload.end_time = extra?.end_time || null;
+      updatePayload.reason = extra?.reason || null;
+    } else {
+      updatePayload.start_time = null;
+      updatePayload.end_time = null;
+      updatePayload.reason = null;
+    }
+    console.log('[updateLeave] id:', id, 'payload:', updatePayload);
     const { data, error } = await (supabase.from('leaves' as any)
-      .update({ leave_date: leaveDate, type })
+      .update(updatePayload)
       .eq('id', id)
       .select() as any);
     console.log('[updateLeave] result:', data, error);
