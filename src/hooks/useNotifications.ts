@@ -5,13 +5,16 @@ import { useAuth } from '@/contexts/AuthContext';
 export interface Notification {
   id: string;
   user_id: string;
-  type: 'comment' | 'like';
-  tip_id: string;
+  type: 'comment' | 'like' | 'task_assignment' | 'task_acknowledged' | 'task_completed';
+  tip_id: string | null;
+  project_id?: string | null;
   from_user_id: string;
+  message?: string | null;
   read: boolean;
   created_at: string;
   from_profile?: {
     name: string | null;
+    display_name: string | null;
     avatar_url: string | null;
     email: string;
   };
@@ -44,16 +47,16 @@ export function useNotifications() {
 
     // Fetch related profiles and tips separately
     const fromUserIds = [...new Set(data.map((n: any) => n.from_user_id))];
-    const tipIds = [...new Set(data.map((n: any) => n.tip_id))];
+    const tipIds = [...new Set(data.map((n: any) => n.tip_id).filter(Boolean))];
 
-    const [profilesRes, tipsRes] = await Promise.all([
-      (supabase.from('profiles' as any).select('id, name, display_name, avatar_url, email').in('id', fromUserIds) as any),
-      (supabase.from('tips' as any).select('id, title').in('id', tipIds) as any),
-    ]);
+    const profilesRes = await (supabase.from('profiles' as any).select('id, name, display_name, avatar_url, email').in('id', fromUserIds) as any);
+    const tipsRes = tipIds.length > 0
+      ? await (supabase.from('tips' as any).select('id, title').in('id', tipIds) as any)
+      : { data: [] };
 
     const profileMap: Record<string, any> = {};
     (profilesRes.data || []).forEach((p: any) => {
-      profileMap[p.id] = { name: p.name, avatar_url: p.avatar_url, email: p.email };
+      profileMap[p.id] = { name: p.display_name || p.name, display_name: p.display_name, avatar_url: p.avatar_url, email: p.email };
     });
 
     const tipMap: Record<string, any> = {};

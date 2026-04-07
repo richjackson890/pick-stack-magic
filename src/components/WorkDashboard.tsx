@@ -6,6 +6,7 @@ import { TeamMember } from '@/hooks/useTeam';
 import { GuideTooltip } from '@/components/GuideTooltip';
 import { ChevronDown, Plus, Briefcase, Calendar, PalmtreeIcon as Palmtree, Trash2, Loader2, X, Check, Pencil, Users, Printer, History, GripVertical, Undo2 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { TaskDetailPanel } from '@/components/TaskDetailPanel';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -91,6 +92,9 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
 
   // Delete confirmation
   const [deleteConfirm, setDeleteConfirm] = useState<{ type: 'project' | 'event' | 'leave'; id: string } | null>(null);
+
+  // Task detail panel
+  const [taskDetail, setTaskDetail] = useState<{ projectId: string; projectName: string; taskId?: string; taskTitle?: string } | null>(null);
 
   const handleConfirmDelete = async () => {
     if (!deleteConfirm) return;
@@ -512,6 +516,8 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                 onEdit={() => openEditProject(p)}
                 onDelete={() => setDeleteConfirm({ type: 'project', id: p.id })}
                 onDeleteTask={(taskId) => deleteProjectTask(taskId)}
+                onProjectClick={() => setTaskDetail({ projectId: p.id, projectName: p.name })}
+                onTaskClick={(taskId, taskTitle) => setTaskDetail({ projectId: p.id, projectName: p.name, taskId, taskTitle })}
                 onDragStart={() => setDragId(p.id)}
                 onDragEnd={() => { setDragId(null); setDragOverId(null); }}
                 onDragOver={() => setDragOverId(p.id)}
@@ -1016,6 +1022,18 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
         </Section>
       )}
 
+      {taskDetail && (
+        <TaskDetailPanel
+          isOpen={!!taskDetail}
+          onClose={() => setTaskDetail(null)}
+          projectId={taskDetail.projectId}
+          projectName={taskDetail.projectName}
+          taskId={taskDetail.taskId}
+          taskTitle={taskDetail.taskTitle}
+          teamMembers={teamMembers}
+        />
+      )}
+
       <ConfirmDialog
         isOpen={!!deleteConfirm}
         message="정말 삭제하시겠습니까?"
@@ -1046,6 +1064,8 @@ function ProjectRow({
   onEdit,
   onDelete,
   onDeleteTask,
+  onProjectClick,
+  onTaskClick,
   onDragStart,
   onDragEnd,
   onDragOver,
@@ -1060,6 +1080,8 @@ function ProjectRow({
   onEdit: () => void;
   onDelete: () => void;
   onDeleteTask: (taskId: string) => void;
+  onProjectClick: () => void;
+  onTaskClick: (taskId: string, taskTitle: string) => void;
   onDragStart: () => void;
   onDragEnd: () => void;
   onDragOver: () => void;
@@ -1086,7 +1108,7 @@ function ProjectRow({
         )}
         <div className="flex-1 min-w-0 overflow-hidden space-y-1">
           <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-            <span className="text-base font-semibold truncate min-w-0">{p.name}</span>
+            <span className="text-base font-semibold truncate min-w-0 cursor-pointer hover:text-primary transition-colors" onClick={onProjectClick}>{p.name}</span>
             {p.type && <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0 whitespace-nowrap">{p.type}</span>}
           </div>
           <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground overflow-hidden">
@@ -1107,7 +1129,7 @@ function ProjectRow({
         <div className={cn("ml-4 space-y-1.5 border-l-2 border-primary/20 pl-4", !isReadOnly && "ml-9")}>
           {p.tasks.map(t => (
             <div key={t.id} className="flex items-center gap-2 group min-w-0">
-              <span className="text-sm flex-1 min-w-0 truncate text-muted-foreground">{t.title}</span>
+              <span className="text-sm flex-1 min-w-0 truncate text-muted-foreground cursor-pointer hover:text-primary transition-colors" onClick={() => onTaskClick(t.id, t.title)}>{t.title}</span>
               <span className="text-xs text-muted-foreground font-mono shrink-0">{formatShortDate(t.start_date)} ~ {formatShortDate(t.end_date)}</span>
               {!isReadOnly && <button onClick={() => onDeleteTask(t.id)} className="text-muted-foreground hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-3.5 w-3.5" /></button>}
             </div>
