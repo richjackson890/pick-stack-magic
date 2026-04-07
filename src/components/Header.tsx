@@ -158,7 +158,7 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -8, scale: 0.95 }}
                   transition={{ duration: 0.15 }}
-                  className="fixed right-2 top-12 w-[calc(100vw-1rem)] sm:w-80 max-h-96 glass-card rounded-xl shadow-xl overflow-hidden z-[9999]"
+                  className="fixed right-2 top-14 w-[calc(100vw-1rem)] sm:w-80 max-h-[80vh] glass-card rounded-xl shadow-xl overflow-y-auto z-[9999]"
                 >
                   {/* Header */}
                   <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30">
