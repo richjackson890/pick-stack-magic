@@ -100,9 +100,10 @@ export function useWorkDashboard(teamId: string | undefined) {
     monday.setDate(d.getDate() + diff);
     const nextSunday = new Date(monday);
     nextSunday.setDate(monday.getDate() + 13);
+    const fmt = (dt: Date) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
     return {
-      start: monday.toISOString().slice(0, 10),
-      end: nextSunday.toISOString().slice(0, 10),
+      start: fmt(monday),
+      end: fmt(nextSunday),
     };
   };
 
@@ -206,7 +207,7 @@ export function useWorkDashboard(teamId: string | undefined) {
       // Events for next 90 days — all team members
       const eventStart = getTodayKST();
       const eventEndDate = new Date(new Date(eventStart + 'T00:00:00').getTime() + 90 * 24 * 60 * 60 * 1000);
-      const eventEnd = eventEndDate.toISOString().slice(0, 10);
+      const eventEnd = `${eventEndDate.getFullYear()}-${String(eventEndDate.getMonth() + 1).padStart(2, '0')}-${String(eventEndDate.getDate()).padStart(2, '0')}`;
       const eventQuery = (supabase.from('team_events' as any).select('*').in('created_by', teamUserIds).gte('event_date', eventStart).lte('event_date', eventEnd).order('event_date') as any);
       const { data: eventsData } = await eventQuery;
       console.log('[WorkDashboard] fetched events:', (eventsData || []).length);
@@ -555,9 +556,10 @@ export function useWorkDashboard(teamId: string | undefined) {
     if (!user || loading || snapshotSaved.current) return;
     snapshotSaved.current = true;
 
+    const fmtDate = (dt: Date) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
     const todayDate = new Date(getTodayKST() + 'T00:00:00');
     const thisMonday = getMonday(todayDate);
-    const thisMondayStr = thisMonday.toISOString().slice(0, 10);
+    const thisMondayStr = fmtDate(thisMonday);
 
     // localStorage 체크: 이미 이번 주에 저장했으면 스킵
     const lastSaved = localStorage.getItem(`snapshot_week_${user.id}`);
@@ -565,10 +567,10 @@ export function useWorkDashboard(teamId: string | undefined) {
 
     const lastMonday = new Date(thisMonday);
     lastMonday.setDate(lastMonday.getDate() - 7);
-    const lastMondayStr = lastMonday.toISOString().slice(0, 10);
+    const lastMondayStr = fmtDate(lastMonday);
     const lastFriday = new Date(lastMonday);
     lastFriday.setDate(lastMonday.getDate() + 4);
-    const lastFridayStr = lastFriday.toISOString().slice(0, 10);
+    const lastFridayStr = fmtDate(lastFriday);
 
     if (projects.length === 0 && events.length === 0 && leaves.length === 0) return;
 
