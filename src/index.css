@@ -502,6 +502,15 @@
   animation: check-bounce 0.4s ease-out;
 }
 
+@keyframes shrink-width {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+
+.animate-shrink {
+  animation: shrink-width 5s linear forwards;
+}
+
 /* ====== Print styles (fallback for Ctrl+P) ====== */
 @media print {
   * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }

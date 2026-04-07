@@ -27,6 +27,7 @@ export function useNotifications() {
   const { user } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [newTaskAssignment, setNewTaskAssignment] = useState<Notification | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
@@ -83,6 +84,43 @@ export function useNotifications() {
     return () => clearInterval(interval);
   }, [user, fetchNotifications]);
 
+  // Realtime subscription for instant task assignment notifications
+  useEffect(() => {
+    if (!user) return;
+    const channel = supabase
+      .channel('notifications-realtime')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${user.id}`,
+      }, async (payload: any) => {
+        const row = payload.new;
+        if (row.type === 'task_assignment' || row.type === 'task_acknowledged' || row.type === 'task_completed') {
+          // Enrich with profile
+          const { data: profile } = await (supabase.from('profiles' as any)
+            .select('id, name, display_name, avatar_url, email')
+            .eq('id', row.from_user_id)
+            .single() as any);
+          const enriched: Notification = {
+            ...row,
+            from_profile: profile ? { name: profile.display_name || profile.name, display_name: profile.display_name, avatar_url: profile.avatar_url, email: profile.email } : undefined,
+          };
+          if (row.type === 'task_assignment') {
+            setNewTaskAssignment(enriched);
+          }
+          fetchNotifications();
+        } else {
+          fetchNotifications();
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user, fetchNotifications]);
+
+  const dismissTaskAssignment = () => setNewTaskAssignment(null);
+
   const markAsRead = async (id: string) => {
     await (supabase
       .from('notifications' as any)
@@ -126,6 +164,8 @@ export function useNotifications() {
   return {
     notifications,
     unreadCount,
+    newTaskAssignment,
+    dismissTaskAssignment,
     fetchNotifications,
     markAsRead,
     markAllAsRead,

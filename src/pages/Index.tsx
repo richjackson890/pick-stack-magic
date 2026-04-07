@@ -44,7 +44,14 @@ const Index = () => {
   const { toggleLike, isLiked, setInitialCount, getCount } = useTipLikes();
   const { fetchCommentCount, getCount: getCommentCount, commentCounts } = useTipComments();
   const { toggleBookmark, isBookmarked, bookmarkedIds } = useBookmarks();
-  const { notifications, unreadCount, markAsRead, markAllAsRead, createNotification } = useNotifications();
+  const { notifications, unreadCount, newTaskAssignment, dismissTaskAssignment, markAsRead, markAllAsRead, createNotification } = useNotifications();
+
+  // Auto-dismiss task toast after 5s
+  useEffect(() => {
+    if (!newTaskAssignment) return;
+    const timer = setTimeout(dismissTaskAssignment, 5000);
+    return () => clearTimeout(timer);
+  }, [newTaskAssignment, dismissTaskAssignment]);
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem('tipViewMode') as ViewMode) || 'grid';
@@ -672,6 +679,39 @@ const Index = () => {
         notifications={notifications}
         onMarkAsRead={markAsRead}
       />
+
+      {/* Realtime task assignment toast */}
+      <AnimatePresence>
+        {newTaskAssignment && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="fixed inset-0 flex items-center justify-center z-[9999] pointer-events-none"
+          >
+            <div className="glass-card rounded-2xl p-6 shadow-2xl max-w-sm w-[90vw] pointer-events-auto">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl shrink-0">📋</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">새 업무 지시가 도착했습니다</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {newTaskAssignment.from_profile?.display_name || newTaskAssignment.from_profile?.name || 'Someone'}님
+                  </p>
+                  {newTaskAssignment.message && (
+                    <p className="text-sm mt-2 line-clamp-3">{newTaskAssignment.message}</p>
+                  )}
+                </div>
+                <button onClick={dismissTaskAssignment} className="text-muted-foreground hover:text-foreground shrink-0">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="mt-3 h-1 bg-primary/20 rounded-full overflow-hidden">
+                <div className="h-1 bg-primary rounded-full animate-shrink" />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
