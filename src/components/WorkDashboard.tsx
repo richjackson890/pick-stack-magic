@@ -79,6 +79,10 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   // Custom type
   const [newTypeName, setNewTypeName] = useState('');
 
+  // Native HTML5 drag-and-drop state
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
   const toggle = (key: string) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
 
   const getCreatorName = (userId: string) => {
@@ -209,10 +213,6 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   }
 
   const isAdmin = true; // All team members can manage
-
-  // Native HTML5 drag-and-drop state
-  const [dragId, setDragId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   // 주간 날짜 라벨
   const fmtWeekDate = (d: Date) => {
