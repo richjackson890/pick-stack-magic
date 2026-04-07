@@ -35,7 +35,7 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
 
   const { installable, promptInstall } = usePwaInstall();
   const displayName = profile?.display_name || profile?.name || user?.email?.split('@')[0] || '';
-  const initials = displayName.slice(0, 2).toUpperCase();
+  const initials = displayName.slice(-2).toUpperCase();
 
   const handleLogout = async () => {
     await signOut();
