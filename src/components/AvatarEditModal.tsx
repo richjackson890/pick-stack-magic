@@ -21,7 +21,7 @@ interface AvatarEditModalProps {
   currentAvatarUrl: string | null;
   currentColor: string | null;
   currentInitials: string | null;
-  onSaved: () => void;
+  onSaved: () => void | Promise<void>;
 }
 
 export function AvatarEditModal({
@@ -98,7 +98,7 @@ export function AvatarEditModal({
       console.log('[AvatarEdit] save result:', data, 'error:', error);
       if (error) throw error;
 
-      onSaved();
+      await onSaved();
       onClose();
     } catch (err: any) {
       console.error('[AvatarEdit] save error:', err.message, err);

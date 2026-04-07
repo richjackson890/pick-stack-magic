@@ -173,6 +173,22 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     setTaskDrafts(prev => prev.filter((_, i) => i !== idx));
   };
 
+  // Task draft drag reorder
+  const [dragTaskIdx, setDragTaskIdx] = useState<number | null>(null);
+  const [dragOverTaskIdx, setDragOverTaskIdx] = useState<number | null>(null);
+
+  const handleTaskDrop = (dropIdx: number) => {
+    if (dragTaskIdx === null || dragTaskIdx === dropIdx) return;
+    setTaskDrafts(prev => {
+      const reordered = [...prev];
+      const [moved] = reordered.splice(dragTaskIdx, 1);
+      reordered.splice(dropIdx, 0, moved);
+      return reordered;
+    });
+    setDragTaskIdx(null);
+    setDragOverTaskIdx(null);
+  };
+
   const handleSubmitProject = async () => {
     if (!projectName.trim()) return;
     setSaving(true);
@@ -769,8 +785,23 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                     {taskDrafts.length > 0 && (
                       <div className="space-y-2 mb-2">
                         {taskDrafts.map((td, idx) => (
-                          <div key={idx} className="p-2.5 rounded-lg border border-border/30 space-y-1.5">
+                          <div
+                            key={idx}
+                            draggable
+                            onDragStart={() => setDragTaskIdx(idx)}
+                            onDragEnd={() => { setDragTaskIdx(null); setDragOverTaskIdx(null); }}
+                            onDragOver={(e) => { e.preventDefault(); setDragOverTaskIdx(idx); }}
+                            onDrop={(e) => { e.preventDefault(); handleTaskDrop(idx); }}
+                            className={cn(
+                              "p-2.5 rounded-lg border border-border/30 space-y-1.5 transition-opacity",
+                              dragTaskIdx === idx && "opacity-50",
+                              dragOverTaskIdx === idx && dragTaskIdx !== idx && "border-primary",
+                            )}
+                          >
                             <div className="flex items-center gap-1.5">
+                              <span className="shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+                                <GripVertical className="h-3.5 w-3.5" />
+                              </span>
                               <Input
                                 placeholder="업무 제목"
                                 value={td.title}

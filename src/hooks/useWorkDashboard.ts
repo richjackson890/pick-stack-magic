@@ -197,6 +197,7 @@ export function useWorkDashboard(teamId: string | undefined) {
           .from('project_tasks' as any)
           .select('*')
           .in('project_id', projectIds)
+          .order('sort_order', { ascending: true })
           .order('start_date') as any);
 
         if (tasksData && tasksData.length > 0) {
@@ -335,11 +336,12 @@ export function useWorkDashboard(teamId: string | undefined) {
 
     // Add project tasks
     if (data && tasks && tasks.length > 0) {
-      const taskRows = tasks.map(t => ({
+      const taskRows = tasks.map((t, idx) => ({
         project_id: data.id,
         title: t.title,
         start_date: t.start_date,
         end_date: t.end_date,
+        sort_order: idx,
       }));
       const { error: taskError } = await (supabase.from('project_tasks' as any).insert(taskRows) as any);
       if (taskError) console.error('[WorkDashboard] addProjectTasks error:', taskError);
@@ -449,7 +451,7 @@ export function useWorkDashboard(teamId: string | undefined) {
       await (supabase.from('project_tasks' as any).delete().eq('project_id', id) as any);
       const validTasks = tasks.filter(t => t.title.trim() && t.start_date && t.end_date);
       if (validTasks.length > 0) {
-        const rows = validTasks.map(t => ({ project_id: id, title: t.title, start_date: t.start_date, end_date: t.end_date }));
+        const rows = validTasks.map((t, idx) => ({ project_id: id, title: t.title, start_date: t.start_date, end_date: t.end_date, sort_order: idx }));
         await (supabase.from('project_tasks' as any).insert(rows) as any);
       }
     }
