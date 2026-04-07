@@ -397,11 +397,11 @@ export function useWorkDashboard(teamId: string | undefined) {
       type,
       balance_deducted: shouldDeduct,
     };
-    if (extra?.start_time) payload.start_time = extra.start_time;
-    if (extra?.end_time) payload.end_time = extra.end_time;
+    if (extra?.start_time) payload.start_time = extra.start_time.length === 5 ? extra.start_time + ':00' : extra.start_time;
+    if (extra?.end_time) payload.end_time = extra.end_time.length === 5 ? extra.end_time + ':00' : extra.end_time;
     if (extra?.reason) payload.reason = extra.reason;
     if (resolvedTeamId) payload.team_id = resolvedTeamId;
-    console.log('[WorkDashboard] addLeave payload:', payload);
+    console.log('[addLeave] inserting:', payload);
     const { data, error } = await (supabase.from('leaves' as any).insert(payload).select('id').single() as any);
     if (error) { console.error('[WorkDashboard] addLeave error:', error); return; }
     console.log('[WorkDashboard] addLeave success:', data);
@@ -470,8 +470,10 @@ export function useWorkDashboard(teamId: string | undefined) {
   ) => {
     const updatePayload: Record<string, any> = { leave_date: leaveDate, type };
     if (type === '외출') {
-      updatePayload.start_time = extra?.start_time || null;
-      updatePayload.end_time = extra?.end_time || null;
+      const st = extra?.start_time || null;
+      const et = extra?.end_time || null;
+      updatePayload.start_time = st && st.length === 5 ? st + ':00' : st;
+      updatePayload.end_time = et && et.length === 5 ? et + ':00' : et;
       updatePayload.reason = extra?.reason || null;
     } else {
       updatePayload.start_time = null;
