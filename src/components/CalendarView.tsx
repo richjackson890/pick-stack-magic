@@ -42,12 +42,14 @@ function getMonthDays(year: number, month: number) {
 
 function getLeaveColorBg(type: string) {
   if (type === '연차') return 'bg-rose-500/15 text-rose-500';
+  if (type === '외출') return 'bg-blue-500/15 text-blue-500';
   if (type === '오전반차' || type === '오후반차') return 'bg-amber-500/15 text-amber-600';
   return 'bg-emerald-500/15 text-emerald-600';
 }
 
 function getLeaveLabel(type: string) {
   if (type === '연차') return '연차';
+  if (type === '외출') return '외출';
   if (type === '오전반차') return '오전반';
   if (type === '오후반차') return '오후반';
   if (type === '오전반반차') return '오전반반';

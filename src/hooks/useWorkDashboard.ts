@@ -52,7 +52,7 @@ export interface Leave {
   id: string;
   user_id: string;
   leave_date: string;
-  type: '연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차';
+  type: '연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차' | '외출';
   profile?: { name: string | null; avatar_url: string | null };
 }
 
@@ -376,11 +376,11 @@ export function useWorkDashboard(teamId: string | undefined) {
     else console.log('[deductBalance] deducted:', deduction, 'new used_days:', bal.used_days + deduction);
   };
 
-  const addLeave = async (leaveDate: string, type: '연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차', targetUserId?: string) => {
+  const addLeave = async (leaveDate: string, type: '연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차' | '외출', targetUserId?: string) => {
     if (!user) return;
     const uid = targetUserId || user.id;
     const todayKST = getTodayKST();
-    const shouldDeduct = leaveDate <= todayKST;
+    const shouldDeduct = type !== '외출' && leaveDate <= todayKST;
     const resolvedTeamId = await resolveTeamId();
     const payload: Record<string, any> = {
       user_id: uid,
@@ -450,7 +450,7 @@ export function useWorkDashboard(teamId: string | undefined) {
     await fetchAll();
   };
 
-  const updateLeave = async (id: string, leaveDate: string, type: '연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차') => {
+  const updateLeave = async (id: string, leaveDate: string, type: '연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차' | '외출') => {
     console.log('[updateLeave] id:', id, 'payload:', { leave_date: leaveDate, type });
     const { data, error } = await (supabase.from('leaves' as any)
       .update({ leave_date: leaveDate, type })

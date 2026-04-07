@@ -73,7 +73,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
 
   // Leave form
   const [leaveDate, setLeaveDate] = useState('');
-  const [leaveType, setLeaveType] = useState<'연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차'>('연차');
+  const [leaveType, setLeaveType] = useState<'연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차' | '외출'>('연차');
   const [leaveUserId, setLeaveUserId] = useState('');
 
   // Custom type
@@ -262,7 +262,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
       const lname = l.profile?.display_name || l.profile?.name || '';
       return `<tr>
         <td class="mono" style="width:90px">${formatDate(l.leave_date)}</td>
-        <td style="width:70px"><span class="tag ${l.type === '연차' ? 'tag-red' : l.type.includes('반반') ? 'tag-purple' : 'tag-amber'}">${esc(l.type)}</span></td>
+        <td style="width:70px"><span class="tag ${l.type === '연차' ? 'tag-red' : l.type === '외출' ? 'tag-blue' : l.type.includes('반반') ? 'tag-purple' : 'tag-amber'}">${esc(l.type)}</span></td>
         <td>${esc(lname)}</td>
       </tr>`;
     }).join('') || '<tr><td colspan="3" class="empty">연차 없음</td></tr>';
@@ -332,6 +332,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   .tag-red { background:#fff1f2; color:#be123c; border-color:#fecdd3; }
   .tag-amber { background:#fffbeb; color:#b45309; border-color:#fde68a; }
   .tag-purple { background:#f5f3ff; color:#6d28d9; border-color:#ddd6fe; }
+  .tag-blue { background:#eff6ff; color:#2563eb; border-color:#bfdbfe; }
 
   /* Balance table */
   .bal-table td { padding:2.5px 6px; }
@@ -538,6 +539,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                   <span className={cn(
                     "text-sm px-2 py-0.5 rounded-full font-medium shrink-0 whitespace-nowrap",
                     l.type === '연차' ? 'bg-rose-500/15 text-rose-400' :
+                    l.type === '외출' ? 'bg-blue-500/15 text-blue-400' :
                     (l.type === '오전반차' || l.type === '오후반차') ? 'bg-amber-500/15 text-amber-400' :
                     'bg-violet-500/15 text-violet-400'
                   )}>{leaveLabel(l.type)}</span>
@@ -873,7 +875,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                   <div>
                     <label className="text-[11px] text-muted-foreground font-medium mb-1.5 block">Type</label>
                     <div className="flex flex-wrap gap-2">
-                      {([['연차', '연차'], ['오전반차', '오전반차'], ['오후반차', '오후반차'], ['오전반반차', '오전반반차'], ['오후반반차', '오후반반차']] as const).map(([val, label]) => (
+                      {([['연차', '연차'], ['오전반차', '오전반차'], ['오후반차', '오후반차'], ['오전반반차', '오전반반차'], ['오후반반차', '오후반반차'], ['외출', '외출']] as const).map(([val, label]) => (
                         <button
                           key={val}
                           onClick={() => setLeaveType(val)}
