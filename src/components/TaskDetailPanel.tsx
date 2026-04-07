@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Send, Loader2, Clock, User, CheckCircle2, Circle, CheckCheck } from 'lucide-react';
@@ -55,6 +55,7 @@ export function TaskDetailPanel({
   const [memo, setMemo] = useState('');
   const [memoSaving, setMemoSaving] = useState(false);
   const [memoLoaded, setMemoLoaded] = useState(false);
+  const memoFetchedRef = useRef<string | null>(null); // tracks which project/task combo we loaded
 
   // Assignment form
   const [instruction, setInstruction] = useState('');
@@ -66,9 +67,13 @@ export function TaskDetailPanel({
   const [assignments, setAssignments] = useState<TaskAssignment[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
 
-  // Fetch memo
+  // Fetch memo — only once per panel open, not on re-renders
+  const memoKey = `${projectId}:${taskId || 'project'}`;
   useEffect(() => {
     if (!isOpen || !user) return;
+    // Skip if we already loaded for this exact panel
+    if (memoFetchedRef.current === memoKey) return;
+    memoFetchedRef.current = memoKey;
     setMemoLoaded(false);
     (async () => {
       let query = supabase.from('task_notes' as any)
@@ -79,13 +84,17 @@ export function TaskDetailPanel({
       } else {
         query = query.is('task_id', null);
       }
-      console.log('[TaskPanel] task_notes query: project_id=', projectId, 'task_id=', taskId);
       const { data } = await (query.maybeSingle() as any);
       setMemo(data?.content || '');
       setMemoLoaded(true);
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, projectId, taskId, user?.id]);
+  }, [isOpen, memoKey, user?.id]);
+
+  // Reset ref when panel closes so next open re-fetches
+  useEffect(() => {
+    if (!isOpen) memoFetchedRef.current = null;
+  }, [isOpen]);
 
   // Save memo (debounced on blur)
   const saveMemo = useCallback(async () => {
