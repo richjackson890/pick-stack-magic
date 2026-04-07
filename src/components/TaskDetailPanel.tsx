@@ -67,15 +67,26 @@ export function TaskDetailPanel({
   const [assignments, setAssignments] = useState<TaskAssignment[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
 
-  // Fetch memo — only once per panel open, not on re-renders
+  // Fetch memo — only once when panel opens for a specific project/task
   const memoKey = `${projectId}:${taskId || 'project'}`;
+  const prevMemoKeyRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!isOpen || !user) return;
-    // Skip if we already loaded for this exact panel
+    if (!isOpen || !user) {
+      // Reset when panel closes
+      if (!isOpen) {
+        prevMemoKeyRef.current = null;
+        memoFetchedRef.current = null;
+      }
+      return;
+    }
+    // Only fetch if this is a new panel (different project/task) or first open
     if (memoFetchedRef.current === memoKey) return;
     memoFetchedRef.current = memoKey;
+    prevMemoKeyRef.current = memoKey;
     setMemoLoaded(false);
-    (async () => {
+
+    const fetchMemo = async () => {
       let query = supabase.from('task_notes' as any)
         .select('id, content, created_by')
         .eq('project_id', projectId);
@@ -85,16 +96,15 @@ export function TaskDetailPanel({
         query = query.is('task_id', null);
       }
       const { data } = await (query.maybeSingle() as any);
-      setMemo(data?.content || '');
-      setMemoLoaded(true);
-    })();
+      // Only update state if we're still showing the same panel
+      if (memoFetchedRef.current === memoKey) {
+        setMemo(data?.content || '');
+        setMemoLoaded(true);
+      }
+    };
+    fetchMemo();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, memoKey, user?.id]);
-
-  // Reset ref when panel closes so next open re-fetches
-  useEffect(() => {
-    if (!isOpen) memoFetchedRef.current = null;
-  }, [isOpen]);
+  }, [isOpen, memoKey]);
 
   // Save memo (debounced on blur)
   const saveMemo = useCallback(async () => {
