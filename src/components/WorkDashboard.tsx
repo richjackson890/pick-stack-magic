@@ -711,7 +711,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 60, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              className="glass-card rounded-t-2xl sm:rounded-2xl p-5 w-full sm:max-w-sm space-y-4 max-h-[85vh] overflow-y-auto"
+              className="glass-card rounded-t-2xl sm:rounded-2xl p-5 pb-8 w-full sm:max-w-sm space-y-4 max-h-[85vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}

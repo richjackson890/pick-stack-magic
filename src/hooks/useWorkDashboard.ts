@@ -338,7 +338,13 @@ export function useWorkDashboard(teamId: string | undefined) {
     };
     if (resolvedTeamId) payload.team_id = resolvedTeamId;
     console.log('[WorkDashboard] addProject payload:', payload);
-    const { data, error } = await (supabase.from('projects' as any).insert(payload).select('id').single() as any);
+    let { data, error } = await (supabase.from('projects' as any).insert(payload).select('id').single() as any);
+    // Retry without type if CHECK constraint fails (custom type not in allowed list)
+    if (error?.message?.includes('type_check')) {
+      console.warn('[WorkDashboard] type_check constraint - retrying without type:', payload.type);
+      const fallback = { ...payload, type: null };
+      ({ data, error } = await (supabase.from('projects' as any).insert(fallback).select('id').single() as any));
+    }
     if (error) { console.error('[WorkDashboard] addProject error:', error); return; }
     console.log('[WorkDashboard] addProject success:', data);
 
@@ -443,10 +449,18 @@ export function useWorkDashboard(teamId: string | undefined) {
     tasks?: { id?: string; title: string; start_date: string; end_date: string }[],
   ) => {
     console.log('[updateProject] id:', id, 'payload:', { name, type, memberIds, tasks });
-    const { data, error } = await (supabase.from('projects' as any)
+    let { data, error } = await (supabase.from('projects' as any)
       .update({ name, type: type?.trim() || null })
       .eq('id', id)
       .select() as any);
+    // Retry without type if CHECK constraint fails
+    if (error?.message?.includes('type_check')) {
+      console.warn('[updateProject] type_check constraint - retrying without type:', type);
+      ({ data, error } = await (supabase.from('projects' as any)
+        .update({ name, type: null })
+        .eq('id', id)
+        .select() as any));
+    }
     console.log('[updateProject] result:', data, error);
     if (error) { console.error('[WorkDashboard] updateProject error:', error); return; }
 
