@@ -139,8 +139,8 @@ export function TeamTab() {
               {m.profiles?.avatar_url ? (
                 <img src={m.profiles.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
               ) : (
-                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs">
-                  {(m.profiles?.display_name || m.profiles?.name || '?')[0]}
+                <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium">
+                  {(m.profiles?.display_name || m.profiles?.name || '?').slice(-2)}
                 </div>
               )}
               <div className="flex-1 min-w-0">

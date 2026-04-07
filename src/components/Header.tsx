@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, LogOut, Lightbulb, Bell, Heart, MessageCircle, Check, Download } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,6 +7,7 @@ import { ThemeToggle } from '@/components/ThemeToggle';
 import { Notification } from '@/hooks/useNotifications';
 import { usePwaInstall } from '@/hooks/usePwaInstall';
 import { supabase } from '@/integrations/supabase/client';
+import { AvatarEditModal } from '@/components/AvatarEditModal';
 
 interface HeaderProps {
   onSettingsClick?: () => void;
@@ -21,17 +22,20 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
   const { user, signOut } = useAuth();
   const { toast } = useToast();
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showAvatarEdit, setShowAvatarEdit] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [profile, setProfile] = useState<{ display_name: string | null; name: string | null; position: string | null; avatar_url: string | null } | null>(null);
+  const [profile, setProfile] = useState<{ display_name: string | null; name: string | null; position: string | null; avatar_url: string | null; avatar_color: string | null } | null>(null);
 
-  useEffect(() => {
+  const fetchProfile = useCallback(() => {
     if (!user) return;
     (supabase.from('profiles' as any)
-      .select('display_name, name, position, avatar_url')
+      .select('display_name, name, position, avatar_url, avatar_color')
       .eq('id', user.id)
       .single() as any)
       .then(({ data }: any) => { if (data) setProfile(data); });
   }, [user]);
+
+  useEffect(() => { fetchProfile(); }, [fetchProfile]);
 
   const { installable, promptInstall } = usePwaInstall();
   const displayName = profile?.display_name || profile?.name || user?.email?.split('@')[0] || '';
@@ -94,17 +98,26 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
           {/* User indicator */}
           {profile && (
             <div className="flex items-center gap-2 mr-1.5">
-              {profile.avatar_url ? (
-                <img
-                  src={profile.avatar_url}
-                  alt={displayName}
-                  className="w-7 h-7 rounded-full object-cover ring-1 ring-border/50"
-                />
-              ) : (
-                <div className="w-7 h-7 rounded-full bg-primary/15 text-primary text-[11px] font-bold flex items-center justify-center ring-1 ring-border/50">
-                  {initials}
-                </div>
-              )}
+              <button onClick={() => setShowAvatarEdit(true)} className="shrink-0 rounded-full hover:ring-2 hover:ring-primary/30 transition-all">
+                {profile.avatar_url ? (
+                  <img
+                    src={profile.avatar_url}
+                    alt={displayName}
+                    className="w-7 h-7 rounded-full object-cover ring-1 ring-border/50"
+                  />
+                ) : profile.avatar_color ? (
+                  <div
+                    className="w-7 h-7 rounded-full text-white text-[11px] font-bold flex items-center justify-center ring-1 ring-border/50"
+                    style={{ backgroundColor: profile.avatar_color }}
+                  >
+                    {initials}
+                  </div>
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-primary/15 text-primary text-[11px] font-bold flex items-center justify-center ring-1 ring-border/50">
+                    {initials}
+                  </div>
+                )}
+              </button>
               <div className="hidden sm:flex flex-col leading-none">
                 <span className="text-xs font-semibold text-foreground truncate max-w-[100px]">{displayName}</span>
                 {profile.position && (
@@ -250,6 +263,17 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
           </motion.button>
         </div>
       </div>
+      {user && profile && (
+        <AvatarEditModal
+          isOpen={showAvatarEdit}
+          onClose={() => setShowAvatarEdit(false)}
+          userId={user.id}
+          displayName={displayName}
+          currentAvatarUrl={profile.avatar_url}
+          currentColor={profile.avatar_color}
+          onSaved={fetchProfile}
+        />
+      )}
     </header>
   );
 }
