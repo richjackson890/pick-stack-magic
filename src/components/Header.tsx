@@ -24,12 +24,12 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
   const [showNotifications, setShowNotifications] = useState(false);
   const [showAvatarEdit, setShowAvatarEdit] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const [profile, setProfile] = useState<{ display_name: string | null; name: string | null; position: string | null; avatar_url: string | null; avatar_color: string | null } | null>(null);
+  const [profile, setProfile] = useState<{ display_name: string | null; name: string | null; position: string | null; avatar_url: string | null; avatar_color: string | null; custom_initials: string | null } | null>(null);
 
   const fetchProfile = useCallback(() => {
     if (!user) return;
     (supabase.from('profiles' as any)
-      .select('display_name, name, position, avatar_url, avatar_color')
+      .select('display_name, name, position, avatar_url, avatar_color, custom_initials')
       .eq('id', user.id)
       .single() as any)
       .then(({ data }: any) => { if (data) setProfile(data); });
@@ -39,7 +39,7 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
 
   const { installable, promptInstall } = usePwaInstall();
   const displayName = profile?.display_name || profile?.name || user?.email?.split('@')[0] || '';
-  const initials = displayName.slice(-2).toUpperCase();
+  const initials = profile?.custom_initials || displayName.slice(-2).toUpperCase();
 
   const handleLogout = async () => {
     await signOut();
@@ -271,6 +271,7 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
           displayName={displayName}
           currentAvatarUrl={profile.avatar_url}
           currentColor={profile.avatar_color}
+          currentInitials={profile.custom_initials}
           onSaved={fetchProfile}
         />
       )}

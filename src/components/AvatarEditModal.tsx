@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Upload, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 
@@ -19,6 +20,7 @@ interface AvatarEditModalProps {
   displayName: string;
   currentAvatarUrl: string | null;
   currentColor: string | null;
+  currentInitials: string | null;
   onSaved: () => void;
 }
 
@@ -29,16 +31,17 @@ export function AvatarEditModal({
   displayName,
   currentAvatarUrl,
   currentColor,
+  currentInitials,
   onSaved,
 }: AvatarEditModalProps) {
+  const defaultInitials = displayName.slice(-2).toUpperCase();
   const [mode, setMode] = useState<'photo' | 'initials'>(currentAvatarUrl ? 'photo' : 'initials');
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(currentAvatarUrl);
   const [selectedColor, setSelectedColor] = useState(currentColor || '#f97316');
+  const [customInitials, setCustomInitials] = useState(currentInitials || defaultInitials);
   const [saving, setSaving] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  const initials = displayName.slice(-2).toUpperCase();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -50,20 +53,23 @@ export function AvatarEditModal({
       const ext = file.name.split('.').pop() || 'jpg';
       const filePath = `${userId}/${timestamp}.${ext}`;
 
-      const { error } = await supabase.storage
+      console.log('[AvatarEdit] uploading to avatars/', filePath);
+      const { data: uploadData, error } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, { contentType: file.type, upsert: false });
 
+      console.log('[AvatarEdit] upload result:', uploadData, 'error:', error);
       if (error) throw error;
 
       const { data: urlData } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
 
+      console.log('[AvatarEdit] public URL:', urlData.publicUrl);
       setPreviewUrl(urlData.publicUrl);
       setMode('photo');
     } catch (err: any) {
-      console.error('[AvatarEdit] upload error:', err);
+      console.error('[AvatarEdit] upload error:', err.message, err);
     } finally {
       setUploading(false);
     }
@@ -76,19 +82,26 @@ export function AvatarEditModal({
       if (mode === 'photo' && previewUrl) {
         updates.avatar_url = previewUrl;
         updates.avatar_color = null;
+        updates.custom_initials = null;
       } else {
         updates.avatar_url = null;
         updates.avatar_color = selectedColor;
+        updates.custom_initials = customInitials.trim() || null;
       }
 
-      await (supabase.from('profiles' as any)
+      console.log('[AvatarEdit] saving profile updates:', updates);
+      const { data, error } = await (supabase.from('profiles' as any)
         .update(updates)
-        .eq('id', userId) as any);
+        .eq('id', userId)
+        .select() as any);
+
+      console.log('[AvatarEdit] save result:', data, 'error:', error);
+      if (error) throw error;
 
       onSaved();
       onClose();
     } catch (err: any) {
-      console.error('[AvatarEdit] save error:', err);
+      console.error('[AvatarEdit] save error:', err.message, err);
     } finally {
       setSaving(false);
     }
@@ -128,7 +141,7 @@ export function AvatarEditModal({
                   className="w-20 h-20 rounded-full flex items-center justify-center text-white text-xl font-bold ring-2 ring-border/50"
                   style={{ backgroundColor: selectedColor }}
                 >
-                  {initials}
+                  {customInitials || defaultInitials}
                 </div>
               )}
             </div>
@@ -176,22 +189,34 @@ export function AvatarEditModal({
               </div>
             )}
 
-            {/* Color picker for initials */}
+            {/* Initials editor + color picker */}
             {mode === 'initials' && (
-              <div>
-                <label className="text-[11px] text-muted-foreground font-medium mb-2 block">배경 색상</label>
-                <div className="grid grid-cols-6 gap-2">
-                  {COLOR_OPTIONS.map(c => (
-                    <button
-                      key={c}
-                      onClick={() => setSelectedColor(c)}
-                      className={cn(
-                        'w-8 h-8 rounded-full transition-all',
-                        selectedColor === c ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-110' : 'hover:scale-105'
-                      )}
-                      style={{ backgroundColor: c }}
-                    />
-                  ))}
+              <div className="space-y-3">
+                <div>
+                  <label className="text-[11px] text-muted-foreground font-medium mb-1 block">이니셜 (최대 2자)</label>
+                  <Input
+                    value={customInitials}
+                    onChange={e => setCustomInitials(e.target.value.slice(0, 2).toUpperCase())}
+                    maxLength={2}
+                    placeholder={defaultInitials}
+                    className="text-center text-lg font-bold h-10"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-muted-foreground font-medium mb-2 block">배경 색상</label>
+                  <div className="grid grid-cols-6 gap-2">
+                    {COLOR_OPTIONS.map(c => (
+                      <button
+                        key={c}
+                        onClick={() => setSelectedColor(c)}
+                        className={cn(
+                          'w-8 h-8 rounded-full transition-all',
+                          selectedColor === c ? 'ring-2 ring-primary ring-offset-2 ring-offset-background scale-110' : 'hover:scale-105'
+                        )}
+                        style={{ backgroundColor: c }}
+                      />
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
