@@ -356,7 +356,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   </div>
 
   <div class="sec">
-    <div class="sec-t">주간 일정</div>
+    <div class="sec-t">이번 달 일정</div>
     <table>${eventsHtml}</table>
   </div>
 
