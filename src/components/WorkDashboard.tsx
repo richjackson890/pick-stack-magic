@@ -8,9 +8,6 @@ import { ChevronDown, Plus, Briefcase, Calendar, PalmtreeIcon as Palmtree, Trash
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
-import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 
 interface WorkDashboardProps {
   teamId: string | undefined;
@@ -213,23 +210,9 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
 
   const isAdmin = true; // All team members can manage
 
-  // DnD sensors
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (!over || active.id === over.id) return;
-    const oldIndex = projects.findIndex(p => p.id === active.id);
-    const newIndex = projects.findIndex(p => p.id === over.id);
-    if (oldIndex === -1 || newIndex === -1) return;
-    const reordered = [...projects];
-    const [moved] = reordered.splice(oldIndex, 1);
-    reordered.splice(newIndex, 0, moved);
-    updateProjectOrder(reordered.map(p => p.id));
-  };
+  // Native HTML5 drag-and-drop state
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
 
   // 주간 날짜 라벨
   const fmtWeekDate = (d: Date) => {
@@ -477,24 +460,37 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
         {projects.length === 0 ? (
           <p className="text-base text-muted-foreground py-4 text-center">등록된 프로젝트가 없습니다</p>
         ) : (
-          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-            <SortableContext items={projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
-              <div className="divide-y divide-border/30">
-                {projects.map(p => (
-                  <SortableProjectRow
-                    key={p.id}
-                    project={p}
-                    isReadOnly={isReadOnly}
-                    getCreatorName={getCreatorName}
-                    formatShortDate={formatShortDate}
-                    onEdit={() => openEditProject(p)}
-                    onDelete={() => deleteProject(p.id)}
-                    onDeleteTask={(taskId) => deleteProjectTask(taskId)}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
+          <div className="divide-y divide-border/30">
+            {projects.map(p => (
+              <ProjectRow
+                key={p.id}
+                project={p}
+                isReadOnly={isReadOnly}
+                isDragging={dragId === p.id}
+                isDragOver={dragOverId === p.id}
+                getCreatorName={getCreatorName}
+                formatShortDate={formatShortDate}
+                onEdit={() => openEditProject(p)}
+                onDelete={() => deleteProject(p.id)}
+                onDeleteTask={(taskId) => deleteProjectTask(taskId)}
+                onDragStart={() => setDragId(p.id)}
+                onDragEnd={() => { setDragId(null); setDragOverId(null); }}
+                onDragOver={() => setDragOverId(p.id)}
+                onDrop={() => {
+                  if (!dragId || dragId === p.id) return;
+                  const oldIdx = projects.findIndex(pr => pr.id === dragId);
+                  const newIdx = projects.findIndex(pr => pr.id === p.id);
+                  if (oldIdx === -1 || newIdx === -1) return;
+                  const reordered = [...projects];
+                  const [moved] = reordered.splice(oldIdx, 1);
+                  reordered.splice(newIdx, 0, moved);
+                  updateProjectOrder(reordered.map(pr => pr.id));
+                  setDragId(null);
+                  setDragOverId(null);
+                }}
+              />
+            ))}
+          </div>
         )}
         {!isReadOnly && (
           <GuideTooltip name="add_project" message="진행 중인 프로젝트를 등록하세요. 마감일과 담당자를 설정할 수 있어요" position="top">
@@ -916,43 +912,53 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
 
 // --- Sub-components ---
 
-function SortableProjectRow({
+function ProjectRow({
   project: p,
   isReadOnly,
+  isDragging,
+  isDragOver,
   getCreatorName,
   formatShortDate,
   onEdit,
   onDelete,
   onDeleteTask,
+  onDragStart,
+  onDragEnd,
+  onDragOver,
+  onDrop,
 }: {
   project: Project;
   isReadOnly: boolean;
+  isDragging: boolean;
+  isDragOver: boolean;
   getCreatorName: (uid: string) => string;
   formatShortDate: (d: string) => string;
   onEdit: () => void;
   onDelete: () => void;
   onDeleteTask: (taskId: string) => void;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+  onDragOver: () => void;
+  onDrop: () => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: p.id });
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 10 : undefined,
-    opacity: isDragging ? 0.8 : undefined,
-  };
-
   return (
-    <div ref={setNodeRef} style={style} className="py-4 first:pt-0 last:pb-0 space-y-2 group/row">
+    <div
+      draggable={!isReadOnly}
+      onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; onDragStart(); }}
+      onDragEnd={onDragEnd}
+      onDragOver={(e) => { e.preventDefault(); onDragOver(); }}
+      onDrop={(e) => { e.preventDefault(); onDrop(); }}
+      className={cn(
+        "py-4 first:pt-0 last:pb-0 space-y-2 group/row transition-opacity",
+        isDragging && "opacity-50",
+        isDragOver && !isDragging && "border-t-2 border-primary",
+      )}
+    >
       <div className="flex items-start gap-2 min-w-0">
         {!isReadOnly && (
-          <button
-            {...attributes}
-            {...listeners}
-            className="shrink-0 mt-1 cursor-grab active:cursor-grabbing text-muted-foreground/0 group-hover/row:text-muted-foreground transition-colors touch-none"
-            tabIndex={-1}
-          >
+          <span className="shrink-0 mt-1 cursor-grab active:cursor-grabbing text-muted-foreground/0 group-hover/row:text-muted-foreground transition-colors">
             <GripVertical className="h-4 w-4" />
-          </button>
+          </span>
         )}
         <div className="flex-1 min-w-0 overflow-hidden space-y-1">
           <div className="flex items-center gap-2 min-w-0 overflow-hidden">
