@@ -101,7 +101,7 @@ export function AvatarEditModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[9999] bg-black/50"
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50"
           onClick={onClose}
         >
           <motion.div
@@ -109,7 +109,7 @@ export function AvatarEditModal({
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.95, opacity: 0 }}
             transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 glass-card rounded-2xl p-5 w-full max-w-xs space-y-4 mx-auto"
+            className="glass-card rounded-2xl p-5 w-80 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
