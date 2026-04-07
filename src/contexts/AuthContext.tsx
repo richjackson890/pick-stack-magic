@@ -30,12 +30,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const ensureProfile = async (authUser: User) => {
     try {
       const meta = authUser.user_metadata || {};
-      await (supabase.from('profiles' as any).upsert({
-        id: authUser.id,
-        email: authUser.email,
-        name: meta.full_name || meta.name || authUser.email?.split('@')[0] || '',
-        avatar_url: meta.avatar_url || meta.picture || null,
-      }, { onConflict: 'id' }) as any);
+      // Check if profile already exists
+      const { data: existing } = await (supabase.from('profiles' as any)
+        .select('id, avatar_url')
+        .eq('id', authUser.id)
+        .maybeSingle() as any);
+
+      if (existing) {
+        // Profile exists — only update email/name, don't overwrite avatar_url
+        await (supabase.from('profiles' as any).update({
+          email: authUser.email,
+          name: meta.full_name || meta.name || authUser.email?.split('@')[0] || '',
+        }).eq('id', authUser.id) as any);
+      } else {
+        // New profile — set avatar_url from OAuth
+        await (supabase.from('profiles' as any).insert({
+          id: authUser.id,
+          email: authUser.email,
+          name: meta.full_name || meta.name || authUser.email?.split('@')[0] || '',
+          avatar_url: meta.avatar_url || meta.picture || null,
+        }) as any);
+      }
     } catch (err) {
       console.error('Error upserting profile:', err);
     }
