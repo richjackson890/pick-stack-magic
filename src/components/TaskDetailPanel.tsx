@@ -68,34 +68,55 @@ export function TaskDetailPanel({
   const [assignments, setAssignments] = useState<TaskAssignment[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
 
-  const noteKey = taskId || projectId;
-
   // Fetch memo
   useEffect(() => {
     if (!isOpen || !user) return;
     setMemoLoaded(false);
     (async () => {
-      const { data } = await (supabase.from('task_notes' as any)
-        .select('content')
-        .eq('ref_id', noteKey)
-        .eq('user_id', user.id)
-        .maybeSingle() as any);
+      let query = supabase.from('task_notes' as any)
+        .select('id, content')
+        .eq('project_id', projectId)
+        .eq('created_by', user.id);
+      if (taskId) {
+        query = query.eq('task_id', taskId);
+      } else {
+        query = query.is('task_id', null);
+      }
+      console.log('[TaskPanel] task_notes query: project_id=', projectId, 'task_id=', taskId, 'created_by=', user.id);
+      const { data } = await (query.maybeSingle() as any);
       setMemo(data?.content || '');
       setMemoLoaded(true);
     })();
-  }, [isOpen, noteKey, user]);
+  }, [isOpen, projectId, taskId, user]);
 
   // Save memo (debounced on blur)
   const saveMemo = useCallback(async () => {
     if (!user || !memoLoaded) return;
     setMemoSaving(true);
-    await (supabase.from('task_notes' as any).upsert({
-      ref_id: noteKey,
-      user_id: user.id,
-      content: memo,
-    }, { onConflict: 'ref_id,user_id' }) as any);
+    // Check if note exists
+    let existsQuery = supabase.from('task_notes' as any)
+      .select('id')
+      .eq('project_id', projectId)
+      .eq('created_by', user.id);
+    if (taskId) {
+      existsQuery = existsQuery.eq('task_id', taskId);
+    } else {
+      existsQuery = existsQuery.is('task_id', null);
+    }
+    const { data: existing } = await (existsQuery.maybeSingle() as any);
+
+    if (existing) {
+      await (supabase.from('task_notes' as any).update({ content: memo }).eq('id', existing.id) as any);
+    } else {
+      await (supabase.from('task_notes' as any).insert({
+        project_id: projectId,
+        task_id: taskId || null,
+        created_by: user.id,
+        content: memo,
+      }) as any);
+    }
     setMemoSaving(false);
-  }, [user, noteKey, memo, memoLoaded]);
+  }, [user, projectId, taskId, memo, memoLoaded]);
 
   // Fetch assignments
   const fetchAssignments = useCallback(async () => {
@@ -139,7 +160,9 @@ export function TaskDetailPanel({
       status: 'pending',
     };
 
-    const { error } = await (supabase.from('task_assignments' as any).insert(payload) as any);
+    console.log('[TaskPanel] inserting assignment:', payload);
+    const { data: insertResult, error } = await (supabase.from('task_assignments' as any).insert(payload).select() as any);
+    console.log('[TaskPanel] assignment result:', insertResult, 'error:', error);
     if (!error) {
       // Create notification for assigned user
       await (supabase.from('notifications' as any).insert({
@@ -148,7 +171,6 @@ export function TaskDetailPanel({
         from_user_id: user.id,
         tip_id: null,
         project_id: projectId,
-        task_assignment_id: null,
         message: instruction.trim().slice(0, 100),
         read: false,
       }) as any);
