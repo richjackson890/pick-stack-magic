@@ -26,13 +26,16 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [profile, setProfile] = useState<{ display_name: string | null; name: string | null; position: string | null; avatar_url: string | null; avatar_color: string | null; custom_initials: string | null } | null>(null);
 
-  const fetchProfile = useCallback(() => {
+  const fetchProfile = useCallback(async () => {
     if (!user) return;
-    (supabase.from('profiles' as any)
+    const { data } = await (supabase.from('profiles' as any)
       .select('display_name, name, position, avatar_url, avatar_color, custom_initials')
       .eq('id', user.id)
-      .single() as any)
-      .then(({ data }: any) => { if (data) setProfile(data); });
+      .single() as any);
+    if (data) {
+      console.log('[Header] profile updated:', data.avatar_url, data.avatar_color, data.custom_initials);
+      setProfile(data);
+    }
   }, [user]);
 
   useEffect(() => { fetchProfile(); }, [fetchProfile]);
