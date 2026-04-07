@@ -283,9 +283,13 @@ export function useWorkDashboard(teamId: string | undefined) {
     } finally {
       setLoading(false);
     }
-  }, [user, teamId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, teamId]);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  useEffect(() => {
+    console.log('[WorkDashboard] fetchAll triggered — user:', user?.id, 'teamId:', teamId);
+    fetchAll();
+  }, [fetchAll]);
 
   // Resolve team_id from hook parameter or query team_members
   const resolveTeamId = async (): Promise<string | null> => {
@@ -635,7 +639,8 @@ export function useWorkDashboard(teamId: string | undefined) {
         console.error('[snapshot] save failed:', error);
       }
     })();
-  }, [user, loading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, loading]);
 
   // Fetch snapshot list
   useEffect(() => {
@@ -648,7 +653,8 @@ export function useWorkDashboard(teamId: string | undefined) {
         .limit(12) as any);
       setSnapshots(data || []);
     })();
-  }, [user, loading]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, loading]);
 
   const viewSnapshot = (snap: WeekSnapshot | null) => setViewingSnapshot(snap);
 
