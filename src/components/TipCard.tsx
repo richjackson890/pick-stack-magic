@@ -16,6 +16,7 @@ interface TipCardProps {
   onComment?: () => void;
   onLike?: () => void;
   onBookmark?: () => void;
+  onClick?: () => void;
   isLiked?: boolean;
   isBookmarked?: boolean;
   likeCount?: number;
@@ -33,10 +34,19 @@ const CATEGORY_EMOJI: Record<string, string> = {
   'robot': '🤖',
 };
 
-export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, onBookmark, isLiked, isBookmarked, likeCount, commentCount, isAnalyzing, viewMode = 'grid' }: TipCardProps) {
+export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, onBookmark, onClick, isLiked, isBookmarked, likeCount, commentCount, isAnalyzing, viewMode = 'grid' }: TipCardProps) {
   const [showAiSection, setShowAiSection] = useState(false);
   const authorName = tip.profiles?.display_name || tip.profiles?.name || tip.profiles?.email?.split('@')[0] || 'Unknown';
   const hasAiData = tip.ai_status === 'done' && (tip.ai_summary || tip.ai_tags?.length > 0);
+
+  const handleThumbnailClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (tip.url) {
+      window.open(tip.url, '_blank', 'noopener,noreferrer');
+    } else {
+      onClick?.();
+    }
+  };
 
   if (viewMode === 'list') {
     return (
@@ -48,7 +58,7 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
         <div className="flex gap-3 p-3">
           {/* Thumbnail - left */}
           {tip.image_url ? (
-            <div className="w-[120px] h-[80px] rounded-lg overflow-hidden shrink-0">
+            <div className="w-[120px] h-[80px] rounded-lg overflow-hidden shrink-0 cursor-pointer" onClick={handleThumbnailClick}>
               <img
                 src={tip.image_url}
                 alt={tip.title}
@@ -57,7 +67,7 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
               />
             </div>
           ) : (
-            <div className="w-[120px] h-[80px] rounded-lg bg-secondary/50 shrink-0 flex items-center justify-center">
+            <div className="w-[120px] h-[80px] rounded-lg bg-secondary/50 shrink-0 flex items-center justify-center cursor-pointer" onClick={handleThumbnailClick}>
               <span className="text-2xl opacity-30">📌</span>
             </div>
           )}
@@ -82,7 +92,7 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
                   </span>
                 )}
               </div>
-              <h3 className="text-sm font-bold text-foreground leading-snug line-clamp-1">
+              <h3 className="text-sm font-bold text-foreground leading-snug line-clamp-1 cursor-pointer hover:text-primary transition-colors" onClick={handleThumbnailClick}>
                 {tip.title}
               </h3>
               {tip.content && (
@@ -162,7 +172,7 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
     >
       {/* Image */}
       {tip.image_url && (
-        <div className="relative h-40 overflow-hidden">
+        <div className="relative h-40 overflow-hidden cursor-pointer" onClick={handleThumbnailClick}>
           <img
             src={tip.image_url}
             alt={tip.title}
@@ -198,7 +208,7 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
         </div>
 
         {/* Title */}
-        <h3 className="text-base font-bold text-foreground leading-snug line-clamp-2">
+        <h3 className="text-base font-bold text-foreground leading-snug line-clamp-2 cursor-pointer hover:text-primary transition-colors" onClick={handleThumbnailClick}>
           {tip.title}
         </h3>
 

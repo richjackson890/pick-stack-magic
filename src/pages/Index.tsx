@@ -412,6 +412,7 @@ const Index = () => {
                   onLike={() => handleLike(tip.id)}
                   onBookmark={() => toggleBookmark(tip.id)}
                   onComment={() => setDetailTip(tip)}
+                  onClick={() => setDetailTip(tip)}
                   isLiked={isLiked(tip.id)}
                   isBookmarked={isBookmarked(tip.id)}
                   likeCount={getCount(tip.id, tip.likes)}
