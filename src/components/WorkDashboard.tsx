@@ -4,10 +4,13 @@ import { useWorkDashboard, Project, TeamEvent, Leave, WeekSnapshot } from '@/hoo
 import { useAuth } from '@/contexts/AuthContext';
 import { TeamMember } from '@/hooks/useTeam';
 import { GuideTooltip } from '@/components/GuideTooltip';
-import { ChevronDown, Plus, Briefcase, Calendar, PalmtreeIcon as Palmtree, Trash2, Loader2, X, Check, Pencil, Users, Printer, History } from 'lucide-react';
+import { ChevronDown, Plus, Briefcase, Calendar, PalmtreeIcon as Palmtree, Trash2, Loader2, X, Check, Pencil, Users, Printer, History, GripVertical } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface WorkDashboardProps {
   teamId: string | undefined;
@@ -40,6 +43,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     deleteProject, deleteEvent, deleteLeave, deleteProjectTask,
     addProjectType, deleteProjectType,
     upsertLeaveBalance,
+    updateProjectOrder,
     snapshots, viewingSnapshot, viewSnapshot,
   } = useWorkDashboard(teamId);
 
@@ -208,6 +212,24 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   }
 
   const isAdmin = true; // All team members can manage
+
+  // DnD sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = projects.findIndex(p => p.id === active.id);
+    const newIndex = projects.findIndex(p => p.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+    const reordered = [...projects];
+    const [moved] = reordered.splice(oldIndex, 1);
+    reordered.splice(newIndex, 0, moved);
+    updateProjectOrder(reordered.map(p => p.id));
+  };
 
   // 주간 날짜 라벨
   const fmtWeekDate = (d: Date) => {
@@ -455,43 +477,24 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
         {projects.length === 0 ? (
           <p className="text-base text-muted-foreground py-4 text-center">등록된 프로젝트가 없습니다</p>
         ) : (
-          <div className="divide-y divide-border/30">
-            {projects.map(p => (
-              <div key={p.id} className="py-4 first:pt-0 last:pb-0 space-y-2">
-                <div className="flex items-start gap-2 min-w-0">
-                  <div className="flex-1 min-w-0 overflow-hidden space-y-1">
-                    <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-                      <span className="text-base font-semibold truncate min-w-0">{p.name}</span>
-                      {p.type && <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0 whitespace-nowrap">{p.type}</span>}
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground overflow-hidden">
-                      <span className="shrink-0">{getCreatorName(p.created_by)}</span>
-                      {p.members.length > 0 && (
-                        <span className="text-primary font-medium break-all line-clamp-1">
-                          {p.members.map(m => [m.position, m.name].filter(Boolean).join(' ')).join(' · ')}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {!isReadOnly && <button onClick={() => openEditProject(p)} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button>}
-                    {!isReadOnly && <button onClick={() => deleteProject(p.id)} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
-                  </div>
-                </div>
-                {p.tasks.length > 0 && (
-                  <div className="ml-4 space-y-1.5 border-l-2 border-primary/20 pl-4">
-                    {p.tasks.map(t => (
-                      <div key={t.id} className="flex items-center gap-2 group min-w-0">
-                        <span className="text-sm flex-1 min-w-0 truncate text-muted-foreground">{t.title}</span>
-                        <span className="text-xs text-muted-foreground font-mono shrink-0">{formatShortDate(t.start_date)} ~ {formatShortDate(t.end_date)}</span>
-                        {!isReadOnly && <button onClick={() => deleteProjectTask(t.id)} className="text-muted-foreground hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-3.5 w-3.5" /></button>}
-                      </div>
-                    ))}
-                  </div>
-                )}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={projects.map(p => p.id)} strategy={verticalListSortingStrategy}>
+              <div className="divide-y divide-border/30">
+                {projects.map(p => (
+                  <SortableProjectRow
+                    key={p.id}
+                    project={p}
+                    isReadOnly={isReadOnly}
+                    getCreatorName={getCreatorName}
+                    formatShortDate={formatShortDate}
+                    onEdit={() => openEditProject(p)}
+                    onDelete={() => deleteProject(p.id)}
+                    onDeleteTask={(taskId) => deleteProjectTask(taskId)}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
+            </SortableContext>
+          </DndContext>
         )}
         {!isReadOnly && (
           <GuideTooltip name="add_project" message="진행 중인 프로젝트를 등록하세요. 마감일과 담당자를 설정할 수 있어요" position="top">
@@ -912,6 +915,78 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
 }
 
 // --- Sub-components ---
+
+function SortableProjectRow({
+  project: p,
+  isReadOnly,
+  getCreatorName,
+  formatShortDate,
+  onEdit,
+  onDelete,
+  onDeleteTask,
+}: {
+  project: Project;
+  isReadOnly: boolean;
+  getCreatorName: (uid: string) => string;
+  formatShortDate: (d: string) => string;
+  onEdit: () => void;
+  onDelete: () => void;
+  onDeleteTask: (taskId: string) => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: p.id });
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : undefined,
+    opacity: isDragging ? 0.8 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="py-4 first:pt-0 last:pb-0 space-y-2 group/row">
+      <div className="flex items-start gap-2 min-w-0">
+        {!isReadOnly && (
+          <button
+            {...attributes}
+            {...listeners}
+            className="shrink-0 mt-1 cursor-grab active:cursor-grabbing text-muted-foreground/0 group-hover/row:text-muted-foreground transition-colors touch-none"
+            tabIndex={-1}
+          >
+            <GripVertical className="h-4 w-4" />
+          </button>
+        )}
+        <div className="flex-1 min-w-0 overflow-hidden space-y-1">
+          <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+            <span className="text-base font-semibold truncate min-w-0">{p.name}</span>
+            {p.type && <span className="text-xs px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium shrink-0 whitespace-nowrap">{p.type}</span>}
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap text-xs text-muted-foreground overflow-hidden">
+            <span className="shrink-0">{getCreatorName(p.created_by)}</span>
+            {p.members.length > 0 && (
+              <span className="text-primary font-medium break-all line-clamp-1">
+                {p.members.map(m => [m.position, m.name].filter(Boolean).join(' ')).join(' · ')}
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          {!isReadOnly && <button onClick={onEdit} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button>}
+          {!isReadOnly && <button onClick={onDelete} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
+        </div>
+      </div>
+      {p.tasks.length > 0 && (
+        <div className={cn("ml-4 space-y-1.5 border-l-2 border-primary/20 pl-4", !isReadOnly && "ml-9")}>
+          {p.tasks.map(t => (
+            <div key={t.id} className="flex items-center gap-2 group min-w-0">
+              <span className="text-sm flex-1 min-w-0 truncate text-muted-foreground">{t.title}</span>
+              <span className="text-xs text-muted-foreground font-mono shrink-0">{formatShortDate(t.start_date)} ~ {formatShortDate(t.end_date)}</span>
+              {!isReadOnly && <button onClick={() => onDeleteTask(t.id)} className="text-muted-foreground hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-3.5 w-3.5" /></button>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function Section({
   icon, title, count, collapsed, onToggle, children, maxHeight,

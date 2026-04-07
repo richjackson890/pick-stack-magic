@@ -37,6 +37,7 @@ export interface Project {
   deadline: string | null;
   status: string;
   created_by: string;
+  sort_order: number;
   members: { user_id: string; name: string | null; display_name: string | null; position: string | null }[];
   tasks: ProjectTask[];
 }
@@ -132,6 +133,7 @@ export function useWorkDashboard(teamId: string | undefined) {
         .select('*')
         .in('created_by', teamUserIds)
         .eq('status', '진행중')
+        .order('sort_order', { ascending: true })
         .order('created_at', { ascending: false }) as any;
 
       // Also fetch projects where team members are assigned (not just creator)
@@ -623,6 +625,23 @@ export function useWorkDashboard(teamId: string | undefined) {
 
   const viewSnapshot = (snap: WeekSnapshot | null) => setViewingSnapshot(snap);
 
+  const updateProjectOrder = async (orderedIds: string[]) => {
+    // Optimistically update local state
+    const reordered = orderedIds
+      .map((id, idx) => {
+        const p = projects.find(pr => pr.id === id);
+        return p ? { ...p, sort_order: idx } : null;
+      })
+      .filter(Boolean) as Project[];
+    setProjects(reordered);
+
+    // Persist to Supabase
+    const updates = orderedIds.map((id, idx) =>
+      (supabase.from('projects' as any).update({ sort_order: idx }).eq('id', id) as any)
+    );
+    await Promise.all(updates);
+  };
+
   return {
     projects: viewingSnapshot ? viewingSnapshot.snapshot.projects : projects,
     events: viewingSnapshot ? viewingSnapshot.snapshot.events : events,
@@ -635,6 +654,7 @@ export function useWorkDashboard(teamId: string | undefined) {
     addProjectType, deleteProjectType,
     upsertLeaveBalance,
     refetch: fetchAll,
+    updateProjectOrder,
     snapshots, viewingSnapshot, viewSnapshot,
   };
 }
