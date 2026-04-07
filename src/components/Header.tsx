@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Settings, LogOut, Lightbulb, Bell, Heart, MessageCircle, Check, Download, ClipboardList, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -150,96 +151,108 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
               )}
             </motion.button>
 
-            {/* Notification dropdown */}
+            {/* Notification dropdown rendered via portal */}
+          </div>
+          {createPortal(
             <AnimatePresence>
               {showNotifications && (
                 <motion.div
-                  initial={{ opacity: 0, y: -8, scale: 0.95 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -8, scale: 0.95 }}
-                  transition={{ duration: 0.15 }}
-                  className="fixed top-16 left-1/2 -translate-x-1/2 w-[90vw] sm:w-96 max-h-[80vh] glass-card rounded-xl shadow-xl overflow-y-auto z-[9999]"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[9998]"
+                  onClick={() => setShowNotifications(false)}
                 >
-                  {/* Header */}
-                  <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30">
-                    <span className="text-sm font-semibold">Notifications</span>
-                    {unreadCount > 0 && (
-                      <button
-                        onClick={() => onMarkAllAsRead?.()}
-                        className="text-[11px] text-primary hover:underline flex items-center gap-1"
-                      >
-                        <Check className="h-3 w-3" />
-                        Mark all read
-                      </button>
-                    )}
-                  </div>
+                  <motion.div
+                    initial={{ opacity: 0, y: -8, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -8, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="fixed top-14 left-1/2 -translate-x-1/2 w-[90vw] sm:w-96 max-h-[80vh] glass-card rounded-xl shadow-xl overflow-y-auto z-[9999]"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-border/30">
+                      <span className="text-sm font-semibold">Notifications</span>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={() => onMarkAllAsRead?.()}
+                          className="text-[11px] text-primary hover:underline flex items-center gap-1"
+                        >
+                          <Check className="h-3 w-3" />
+                          Mark all read
+                        </button>
+                      )}
+                    </div>
 
-                  {/* List */}
-                  <div className="overflow-y-auto max-h-80">
-                    {notifications.length === 0 ? (
-                      <div className="py-10 text-center">
-                        <Bell className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
-                        <p className="text-xs text-muted-foreground">No notifications</p>
-                      </div>
-                    ) : (
-                      notifications.slice(0, 10).map((n) => {
-                        const fromName = n.from_profile?.display_name || n.from_profile?.name || n.from_profile?.email?.split('@')[0] || 'Someone';
-                        const isTask = n.type === 'task_assignment' || n.type === 'task_acknowledged' || n.type === 'task_completed';
-                        const isComment = n.type === 'comment';
+                    {/* List */}
+                    <div className="overflow-y-auto max-h-80">
+                      {notifications.length === 0 ? (
+                        <div className="py-10 text-center">
+                          <Bell className="h-6 w-6 text-muted-foreground/30 mx-auto mb-2" />
+                          <p className="text-xs text-muted-foreground">No notifications</p>
+                        </div>
+                      ) : (
+                        notifications.slice(0, 10).map((n) => {
+                          const fromName = n.from_profile?.display_name || n.from_profile?.name || n.from_profile?.email?.split('@')[0] || 'Someone';
+                          const isTask = n.type === 'task_assignment' || n.type === 'task_acknowledged' || n.type === 'task_completed';
+                          const isComment = n.type === 'comment';
 
-                        const getNotifText = () => {
-                          if (n.type === 'task_assignment') return `님이 업무를 지시했습니다: ${n.message || ''}`;
-                          if (n.type === 'task_acknowledged') return '님이 업무를 확인했습니다';
-                          if (n.type === 'task_completed') return '님이 업무를 완료했습니다';
-                          if (isComment) return ` commented on ${n.tip?.title || 'a tip'}`;
-                          return ` liked ${n.tip?.title || 'a tip'}`;
-                        };
+                          const getNotifText = () => {
+                            if (n.type === 'task_assignment') return `님이 업무를 지시했습니다: ${n.message || ''}`;
+                            if (n.type === 'task_acknowledged') return '님이 업무를 확인했습니다';
+                            if (n.type === 'task_completed') return '님이 업무를 완료했습니다';
+                            if (isComment) return ` commented on ${n.tip?.title || 'a tip'}`;
+                            return ` liked ${n.tip?.title || 'a tip'}`;
+                          };
 
-                        const getIconStyle = () => {
-                          if (isTask) return 'bg-orange-500/15 text-orange-500';
-                          if (isComment) return 'bg-cyan-500/15 text-cyan-500';
-                          return 'bg-rose-500/15 text-rose-500';
-                        };
+                          const getIconStyle = () => {
+                            if (isTask) return 'bg-orange-500/15 text-orange-500';
+                            if (isComment) return 'bg-cyan-500/15 text-cyan-500';
+                            return 'bg-rose-500/15 text-rose-500';
+                          };
 
-                        return (
-                          <button
-                            key={n.id}
-                            onClick={() => {
-                              if (!n.read) onMarkAsRead?.(n.id);
-                              if (n.tip_id) onNotificationClick?.(n.tip_id);
-                              setShowNotifications(false);
-                            }}
-                            className={`w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-secondary/40 transition-colors border-b border-border/10 ${
-                              !n.read ? 'bg-primary/5' : ''
-                            }`}
-                          >
-                            {/* Icon */}
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${getIconStyle()}`}>
-                              {isTask ? <ClipboardList className="h-3.5 w-3.5" /> : isComment ? <MessageCircle className="h-3.5 w-3.5" /> : <Heart className="h-3.5 w-3.5" />}
-                            </div>
+                          return (
+                            <button
+                              key={n.id}
+                              onClick={() => {
+                                if (!n.read) onMarkAsRead?.(n.id);
+                                if (n.tip_id) onNotificationClick?.(n.tip_id);
+                                setShowNotifications(false);
+                              }}
+                              className={`w-full text-left px-4 py-3 flex items-start gap-3 hover:bg-secondary/40 transition-colors border-b border-border/10 ${
+                                !n.read ? 'bg-primary/5' : ''
+                              }`}
+                            >
+                              {/* Icon */}
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${getIconStyle()}`}>
+                                {isTask ? <ClipboardList className="h-3.5 w-3.5" /> : isComment ? <MessageCircle className="h-3.5 w-3.5" /> : <Heart className="h-3.5 w-3.5" />}
+                              </div>
 
-                            {/* Content */}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs leading-relaxed">
-                                <span className="font-semibold">{fromName}</span>
-                                <span className="line-clamp-2">{getNotifText()}</span>
-                              </p>
-                              <span className="text-[10px] text-muted-foreground">{formatTime(n.created_at)}</span>
-                            </div>
+                              {/* Content */}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs leading-relaxed">
+                                  <span className="font-semibold">{fromName}</span>
+                                  <span className="line-clamp-2">{getNotifText()}</span>
+                                </p>
+                                <span className="text-[10px] text-muted-foreground">{formatTime(n.created_at)}</span>
+                              </div>
 
-                            {/* Unread dot */}
-                            {!n.read && (
-                              <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />
-                            )}
-                          </button>
-                        );
-                      })
-                    )}
-                  </div>
+                              {/* Unread dot */}
+                              {!n.read && (
+                                <span className="w-2 h-2 rounded-full bg-primary shrink-0 mt-2" />
+                              )}
+                            </button>
+                          );
+                        })
+                      )}
+                    </div>
+                  </motion.div>
                 </motion.div>
               )}
-            </AnimatePresence>
-          </div>
+            </AnimatePresence>,
+            document.body
+          )}
 
           {/* PWA Install */}
           {installable && (
