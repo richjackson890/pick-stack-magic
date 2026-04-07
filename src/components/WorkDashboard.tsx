@@ -711,7 +711,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 60, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              className="glass-card rounded-t-2xl sm:rounded-2xl p-5 pb-8 w-full sm:max-w-sm space-y-4 max-h-[85vh] overflow-y-auto"
+              className="glass-card rounded-t-2xl sm:rounded-2xl p-5 pb-8 w-full sm:max-w-lg space-y-4 max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
@@ -729,156 +729,163 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
               {/* ---- Project Form ---- */}
               {activeForm === 'project' && (
                 <div className="space-y-3">
-                  <div>
-                    <label className="text-[11px] text-muted-foreground font-medium mb-1 block">Project Name *</label>
-                    <Input
-                      placeholder="Enter project name"
-                      value={projectName}
-                      onChange={e => setProjectName(e.target.value)}
-                      autoFocus
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-muted-foreground font-medium mb-1 block">Type</label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {projectTypes.map(t => (
-                        <button
-                          key={t.id}
-                          onClick={() => setProjectType(projectType === t.name ? '' : t.name)}
-                          className={cn(
-                            'px-2.5 py-1 rounded-full text-xs font-medium transition-colors border inline-flex items-center gap-1',
-                            projectType === t.name
-                              ? 'bg-primary text-primary-foreground border-primary'
-                              : 'border-border/50 text-muted-foreground hover:border-primary/50'
-                          )}
-                        >
-                          {t.name}
-                          {!t.is_default && (
-                            <span
-                              onClick={(e) => { e.stopPropagation(); deleteProjectType(t.id); if (projectType === t.name) setProjectType(''); }}
-                              className="hover:text-destructive ml-0.5"
-                            >
-                              <X className="h-2.5 w-2.5" />
-                            </span>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="flex gap-1.5 mt-2">
-                      <Input
-                        placeholder="New type..."
-                        value={newTypeName}
-                        onChange={e => setNewTypeName(e.target.value)}
-                        className="flex-1 h-8 text-xs"
-                        onKeyDown={e => { if (e.key === 'Enter' && newTypeName.trim()) { addProjectType(newTypeName); setNewTypeName(''); } }}
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 px-2"
-                        disabled={!newTypeName.trim()}
-                        onClick={() => { addProjectType(newTypeName); setNewTypeName(''); }}
-                      >
-                        <Plus className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Task drafts */}
-                  <div>
-                    <label className="text-[11px] text-muted-foreground font-medium mb-1.5 block">
-                      업무 항목 ({taskDrafts.length})
-                    </label>
-                    {taskDrafts.length > 0 && (
-                      <div className="space-y-2 mb-2">
-                        {taskDrafts.map((td, idx) => (
-                          <div
-                            key={idx}
-                            draggable
-                            onDragStart={() => setDragTaskIdx(idx)}
-                            onDragEnd={() => { setDragTaskIdx(null); setDragOverTaskIdx(null); }}
-                            onDragOver={(e) => { e.preventDefault(); setDragOverTaskIdx(idx); }}
-                            onDrop={(e) => { e.preventDefault(); handleTaskDrop(idx); }}
-                            className={cn(
-                              "p-2.5 rounded-lg border border-border/30 space-y-1.5 transition-opacity",
-                              dragTaskIdx === idx && "opacity-50",
-                              dragOverTaskIdx === idx && dragTaskIdx !== idx && "border-primary",
-                            )}
-                          >
-                            <div className="flex items-center gap-1.5">
-                              <span className="shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors">
-                                <GripVertical className="h-3.5 w-3.5" />
-                              </span>
-                              <Input
-                                placeholder="업무 제목"
-                                value={td.title}
-                                onChange={e => updateTaskDraft(idx, 'title', e.target.value)}
-                                className="flex-1 h-7 text-xs"
-                              />
-                              <button onClick={() => removeTaskDraft(idx)} className="text-muted-foreground hover:text-destructive shrink-0">
-                                <X className="h-3.5 w-3.5" />
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <Input
-                                type="date"
-                                value={td.start_date}
-                                onChange={e => updateTaskDraft(idx, 'start_date', e.target.value)}
-                                className="flex-1 h-7 text-xs"
-                              />
-                              <span className="text-[10px] text-muted-foreground">~</span>
-                              <Input
-                                type="date"
-                                value={td.end_date}
-                                onChange={e => updateTaskDraft(idx, 'end_date', e.target.value)}
-                                className="flex-1 h-7 text-xs"
-                              />
-                            </div>
-                          </div>
-                        ))}
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    {/* Left column: Name, Type, Tasks */}
+                    <div className="flex-1 space-y-3 min-w-0">
+                      <div>
+                        <label className="text-[11px] text-muted-foreground font-medium mb-1 block">Project Name *</label>
+                        <Input
+                          placeholder="Enter project name"
+                          value={projectName}
+                          onChange={e => setProjectName(e.target.value)}
+                          autoFocus
+                        />
                       </div>
-                    )}
-                    <button
-                      onClick={addTaskDraft}
-                      className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-border/50 text-[11px] text-muted-foreground hover:text-primary hover:border-primary/30 transition-colors"
-                    >
-                      <Plus className="h-3 w-3" />
-                      업무 추가
-                    </button>
-                  </div>
-
-                  {teamMembers.length > 0 && (
-                    <div>
-                      <label className="text-[11px] text-muted-foreground font-medium mb-1.5 block">
-                        Members ({selectedMembers.size} selected)
-                      </label>
-                      <div className="space-y-1 rounded-lg border border-border/30 p-2">
-                        {teamMembers.map(m => {
-                          const name = getDisplayName(m.profiles);
-                          const mPos = m.profiles?.position;
-                          const checked = selectedMembers.has(m.user_id);
-                          return (
+                      <div>
+                        <label className="text-[11px] text-muted-foreground font-medium mb-1 block">Type</label>
+                        <div className="flex flex-wrap gap-1.5">
+                          {projectTypes.map(t => (
                             <button
-                              key={m.user_id}
-                              onClick={() => toggleMember(m.user_id)}
+                              key={t.id}
+                              onClick={() => setProjectType(projectType === t.name ? '' : t.name)}
                               className={cn(
-                                'w-full flex items-center gap-2.5 p-1.5 rounded-lg transition-colors text-left',
-                                checked ? 'bg-primary/10' : 'hover:bg-secondary/40'
+                                'px-2.5 py-1 rounded-full text-xs font-medium transition-colors border inline-flex items-center gap-1',
+                                projectType === t.name
+                                  ? 'bg-primary text-primary-foreground border-primary'
+                                  : 'border-border/50 text-muted-foreground hover:border-primary/50'
                               )}
                             >
-                              <span className="text-sm flex-1">{mPos && <span className="text-muted-foreground">{mPos} </span>}{name}</span>
-                              <div className={cn(
-                                'w-4 h-4 rounded border flex items-center justify-center shrink-0',
-                                checked ? 'bg-primary border-primary' : 'border-border'
-                              )}>
-                                {checked && <Check className="h-3 w-3 text-primary-foreground" />}
-                              </div>
+                              {t.name}
+                              {!t.is_default && (
+                                <span
+                                  onClick={(e) => { e.stopPropagation(); deleteProjectType(t.id); if (projectType === t.name) setProjectType(''); }}
+                                  className="hover:text-destructive ml-0.5"
+                                >
+                                  <X className="h-2.5 w-2.5" />
+                                </span>
+                              )}
                             </button>
-                          );
-                        })}
+                          ))}
+                        </div>
+                        <div className="flex gap-1.5 mt-2">
+                          <Input
+                            placeholder="New type..."
+                            value={newTypeName}
+                            onChange={e => setNewTypeName(e.target.value)}
+                            className="flex-1 h-8 text-xs"
+                            onKeyDown={e => { if (e.key === 'Enter' && newTypeName.trim()) { addProjectType(newTypeName); setNewTypeName(''); } }}
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 px-2"
+                            disabled={!newTypeName.trim()}
+                            onClick={() => { addProjectType(newTypeName); setNewTypeName(''); }}
+                          >
+                            <Plus className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Task drafts */}
+                      <div>
+                        <label className="text-[11px] text-muted-foreground font-medium mb-1.5 block">
+                          업무 항목 ({taskDrafts.length})
+                        </label>
+                        {taskDrafts.length > 0 && (
+                          <div className="space-y-2 mb-2">
+                            {taskDrafts.map((td, idx) => (
+                              <div
+                                key={idx}
+                                draggable
+                                onDragStart={() => setDragTaskIdx(idx)}
+                                onDragEnd={() => { setDragTaskIdx(null); setDragOverTaskIdx(null); }}
+                                onDragOver={(e) => { e.preventDefault(); setDragOverTaskIdx(idx); }}
+                                onDrop={(e) => { e.preventDefault(); handleTaskDrop(idx); }}
+                                className={cn(
+                                  "p-2.5 rounded-lg border border-border/30 space-y-1.5 transition-opacity",
+                                  dragTaskIdx === idx && "opacity-50",
+                                  dragOverTaskIdx === idx && dragTaskIdx !== idx && "border-primary",
+                                )}
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <span className="shrink-0 cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground transition-colors">
+                                    <GripVertical className="h-3.5 w-3.5" />
+                                  </span>
+                                  <Input
+                                    placeholder="업무 제목"
+                                    value={td.title}
+                                    onChange={e => updateTaskDraft(idx, 'title', e.target.value)}
+                                    className="flex-1 h-7 text-xs"
+                                  />
+                                  <button onClick={() => removeTaskDraft(idx)} className="text-muted-foreground hover:text-destructive shrink-0">
+                                    <X className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                                <div className="flex items-center gap-1.5">
+                                  <Input
+                                    type="date"
+                                    value={td.start_date}
+                                    onChange={e => updateTaskDraft(idx, 'start_date', e.target.value)}
+                                    className="flex-1 h-7 text-xs"
+                                  />
+                                  <span className="text-[10px] text-muted-foreground">~</span>
+                                  <Input
+                                    type="date"
+                                    value={td.end_date}
+                                    onChange={e => updateTaskDraft(idx, 'end_date', e.target.value)}
+                                    className="flex-1 h-7 text-xs"
+                                  />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        <button
+                          onClick={addTaskDraft}
+                          className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-border/50 text-[11px] text-muted-foreground hover:text-primary hover:border-primary/30 transition-colors"
+                        >
+                          <Plus className="h-3 w-3" />
+                          업무 추가
+                        </button>
                       </div>
                     </div>
-                  )}
+
+                    {/* Right column: Members */}
+                    {teamMembers.length > 0 && (
+                      <div className="sm:w-48 shrink-0">
+                        <label className="text-[11px] text-muted-foreground font-medium mb-1.5 block">
+                          Members ({selectedMembers.size})
+                        </label>
+                        <div className="space-y-1 rounded-lg border border-border/30 p-2">
+                          {teamMembers.map(m => {
+                            const name = getDisplayName(m.profiles);
+                            const mPos = m.profiles?.position;
+                            const checked = selectedMembers.has(m.user_id);
+                            return (
+                              <button
+                                key={m.user_id}
+                                onClick={() => toggleMember(m.user_id)}
+                                className={cn(
+                                  'w-full flex items-center gap-2 p-1.5 rounded-lg transition-colors text-left',
+                                  checked ? 'bg-primary/10' : 'hover:bg-secondary/40'
+                                )}
+                              >
+                                <div className={cn(
+                                  'w-4 h-4 rounded border flex items-center justify-center shrink-0',
+                                  checked ? 'bg-primary border-primary' : 'border-border'
+                                )}>
+                                  {checked && <Check className="h-3 w-3 text-primary-foreground" />}
+                                </div>
+                                <span className="text-xs flex-1 truncate">{mPos && <span className="text-muted-foreground">{mPos} </span>}{name}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <Button className="w-full" onClick={handleSubmitProject} disabled={!projectName.trim() || saving}>
                     {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editProjectId ? 'Save Changes' : 'Add Project'}
                   </Button>
