@@ -97,7 +97,7 @@ export function TeamTab() {
   // Has team — show team info
   const isOwner = team.created_by === user?.id;
 
-  const POSITION_RANK = ['소장', '실장', '팀장/책임', '팀장', '부팀장', '소원', '인턴', '실습'];
+  const POSITION_RANK = ['소장', '실장', '팀장/책임', '팀장', '대리', '소원', '인턴', '실습'];
   const sortedMembers = [...members].sort((a, b) => {
     // Owner always first
     if (a.user_id === team.created_by) return -1;
