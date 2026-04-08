@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Loader2, Clock, User, CheckCircle2, Circle, CheckCheck } from 'lucide-react';
+import { X, Send, Loader2, Clock, User, CheckCircle2, Circle, CheckCheck, Pencil, Trash2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -85,6 +85,9 @@ export function TaskDetailPanel({
   // Assignments list
   const [assignments, setAssignments] = useState<TaskAssignment[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [editingAssignment, setEditingAssignment] = useState<string | null>(null);
+  const [editInstruction, setEditInstruction] = useState('');
+  const [editDueDate, setEditDueDate] = useState('');
 
   // Fetch memo — only on first open when cache is empty AND user hasn't typed
   useEffect(() => {
@@ -232,6 +235,26 @@ export function TaskDetailPanel({
     await fetchAssignments();
   };
 
+  const startEditAssignment = (a: TaskAssignment) => {
+    setEditingAssignment(a.id);
+    setEditInstruction(a.instruction);
+    setEditDueDate(a.due_date ? a.due_date.split('T')[0] : '');
+  };
+
+  const saveEditAssignment = async (assignmentId: string) => {
+    await (supabase.from('task_assignments' as any).update({
+      instruction: editInstruction.trim(),
+      due_date: editDueDate || null,
+    }).eq('id', assignmentId) as any);
+    setEditingAssignment(null);
+    await fetchAssignments();
+  };
+
+  const deleteAssignment = async (assignmentId: string) => {
+    await (supabase.from('task_assignments' as any).delete().eq('id', assignmentId) as any);
+    await fetchAssignments();
+  };
+
   return createPortal(
     <AnimatePresence>
       {isOpen && (
@@ -323,39 +346,79 @@ export function TaskDetailPanel({
                       const cfg = STATUS_CONFIG[a.status];
                       const StatusIcon = cfg.icon;
                       const isAssignee = user?.id === a.assigned_to;
+                      const isAssigner = user?.id === a.assigned_by;
+                      const isEditing = editingAssignment === a.id;
 
                       return (
                         <div key={a.id} className="p-3 rounded-lg border border-border/30 space-y-2">
-                          <div className="flex items-start gap-2">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium">{a.instruction}</p>
-                              <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
-                                <span>{getDisplayName(a.assigner_profile)} → {getDisplayName(a.assignee_profile)}</span>
-                                {a.due_date && (
-                                  <span className="flex items-center gap-0.5">
-                                    <Clock className="h-3 w-3" />
-                                    {a.due_date}
-                                  </span>
-                                )}
+                          {isEditing ? (
+                            <div className="space-y-2">
+                              <Input
+                                value={editInstruction}
+                                onChange={(e) => setEditInstruction(e.target.value)}
+                                className="h-8 text-sm"
+                              />
+                              <Input
+                                type="date"
+                                value={editDueDate}
+                                onChange={(e) => setEditDueDate(e.target.value)}
+                                className="h-8 text-sm"
+                              />
+                              <div className="flex gap-2">
+                                <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => setEditingAssignment(null)}>
+                                  취소
+                                </Button>
+                                <Button size="sm" className="flex-1 h-7 text-xs" onClick={() => saveEditAssignment(a.id)} disabled={!editInstruction.trim()}>
+                                  저장
+                                </Button>
                               </div>
                             </div>
-                            <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium shrink-0', cfg.color)}>
-                              <StatusIcon className="h-3 w-3" />
-                              {cfg.label}
-                            </span>
-                          </div>
-                          {/* Action buttons for assignee */}
-                          {isAssignee && a.status !== 'completed' && (
-                            <div className="flex gap-2">
-                              {a.status === 'pending' && (
-                                <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => updateStatus(a.id, 'acknowledged', a)}>
-                                  확인
-                                </Button>
+                          ) : (
+                            <>
+                              <div className="flex items-start gap-2">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-medium">{a.instruction}</p>
+                                  <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                                    <span>{getDisplayName(a.assigner_profile)} → {getDisplayName(a.assignee_profile)}</span>
+                                    {a.due_date && (
+                                      <span className="flex items-center gap-0.5">
+                                        <Clock className="h-3 w-3" />
+                                        {new Date(a.due_date).toLocaleDateString('ko-KR')}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <span className={cn('inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium', cfg.color)}>
+                                    <StatusIcon className="h-3 w-3" />
+                                    {cfg.label}
+                                  </span>
+                                  {isAssigner && (
+                                    <>
+                                      <button onClick={() => startEditAssignment(a)} className="text-muted-foreground hover:text-foreground p-0.5">
+                                        <Pencil className="h-3 w-3" />
+                                      </button>
+                                      <button onClick={() => deleteAssignment(a.id)} className="text-muted-foreground hover:text-red-500 p-0.5">
+                                        <Trash2 className="h-3 w-3" />
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                              {/* Action buttons for assignee */}
+                              {isAssignee && a.status !== 'completed' && (
+                                <div className="flex gap-2">
+                                  {a.status === 'pending' && (
+                                    <Button size="sm" variant="outline" className="flex-1 h-7 text-xs" onClick={() => updateStatus(a.id, 'acknowledged', a)}>
+                                      확인
+                                    </Button>
+                                  )}
+                                  <Button size="sm" className="flex-1 h-7 text-xs" onClick={() => updateStatus(a.id, 'completed', a)}>
+                                    완료
+                                  </Button>
+                                </div>
                               )}
-                              <Button size="sm" className="flex-1 h-7 text-xs" onClick={() => updateStatus(a.id, 'completed', a)}>
-                                완료
-                              </Button>
-                            </div>
+                            </>
                           )}
                         </div>
                       );

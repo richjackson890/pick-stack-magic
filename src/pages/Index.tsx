@@ -46,12 +46,19 @@ const Index = () => {
   const { toggleBookmark, isBookmarked, bookmarkedIds } = useBookmarks();
   const { notifications, unreadCount, newTaskAssignment, dismissTaskAssignment, markAsRead, markAllAsRead, createNotification } = useNotifications();
 
-  // Auto-dismiss task toast after 5s
+  // Auto-dismiss task toast after 5s and mark as read
+  const handleDismissTaskToast = useCallback(() => {
+    if (newTaskAssignment) {
+      markAsRead(newTaskAssignment.id);
+    }
+    dismissTaskAssignment();
+  }, [newTaskAssignment, markAsRead, dismissTaskAssignment]);
+
   useEffect(() => {
     if (!newTaskAssignment) return;
-    const timer = setTimeout(dismissTaskAssignment, 5000);
+    const timer = setTimeout(handleDismissTaskToast, 5000);
     return () => clearTimeout(timer);
-  }, [newTaskAssignment, dismissTaskAssignment]);
+  }, [newTaskAssignment, handleDismissTaskToast]);
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem('tipViewMode') as ViewMode) || 'grid';
@@ -701,7 +708,7 @@ const Index = () => {
                     <p className="text-sm mt-2 line-clamp-3">{newTaskAssignment.message}</p>
                   )}
                 </div>
-                <button onClick={dismissTaskAssignment} className="text-muted-foreground hover:text-foreground shrink-0">
+                <button onClick={handleDismissTaskToast} className="text-muted-foreground hover:text-foreground shrink-0">
                   <X className="h-4 w-4" />
                 </button>
               </div>
