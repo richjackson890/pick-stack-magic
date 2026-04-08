@@ -198,7 +198,7 @@ export function TaskDetailPanel({
     console.log('[TaskPanel] assignment result:', insertResult, 'error:', error);
     if (!error) {
       // Create notification for assigned user
-      await (supabase.from('notifications' as any).insert({
+      const notifPayload = {
         user_id: assignTo,
         type: 'task_assignment',
         from_user_id: user.id,
@@ -206,7 +206,11 @@ export function TaskDetailPanel({
         project_id: projectId,
         message: instruction.trim().slice(0, 100),
         read: false,
-      }) as any);
+      };
+      console.log('[task notify] inserting:', notifPayload);
+      const { data: notifData, error: notifError } = await (supabase.from('notifications' as any).insert(notifPayload).select() as any);
+      if (notifError) console.error('[task notify] insert error:', notifError);
+      else console.log('[task notify] insert ok:', notifData);
 
       setInstruction('');
       setDueDate('');
@@ -222,7 +226,7 @@ export function TaskDetailPanel({
 
     // Notify the assigner
     if (user) {
-      await (supabase.from('notifications' as any).insert({
+      const statusPayload = {
         user_id: assignment.assigned_by,
         type: newStatus === 'acknowledged' ? 'task_acknowledged' : 'task_completed',
         from_user_id: user.id,
@@ -230,7 +234,11 @@ export function TaskDetailPanel({
         project_id: projectId,
         message: newStatus === 'acknowledged' ? '업무를 확인했습니다' : '업무를 완료했습니다',
         read: false,
-      }) as any);
+      };
+      console.log('[task status notify] inserting:', statusPayload);
+      const { data: sData, error: sError } = await (supabase.from('notifications' as any).insert(statusPayload).select() as any);
+      if (sError) console.error('[task status notify] insert error:', sError);
+      else console.log('[task status notify] insert ok:', sData);
     }
     await fetchAssignments();
   };

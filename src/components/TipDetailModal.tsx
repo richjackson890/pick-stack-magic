@@ -211,7 +211,7 @@ function CommentItem({ comment, isOwn, onDelete }: { comment: TipComment; isOwn:
           <p className="text-sm leading-relaxed">
             {comment.content.split(/(@[^\s@]+)/g).map((part, i) =>
               /^@[^\s@]+$/.test(part)
-                ? <span key={i} className="text-primary font-medium">{part}</span>
+                ? <span key={i} className="bg-primary/20 text-primary font-medium px-1 rounded">{part}</span>
                 : part
             )}
           </p>

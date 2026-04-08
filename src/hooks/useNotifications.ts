@@ -152,15 +152,21 @@ export function useNotifications() {
   ) => {
     if (!user || user.id === targetUserId) return;
 
-    await (supabase
+    const payload = {
+      user_id: targetUserId,
+      type,
+      tip_id: tipId,
+      from_user_id: user.id,
+      read: false,
+      ...(message ? { message } : {}),
+    };
+    console.log('[notification] inserting:', payload);
+    const { data, error } = await (supabase
       .from('notifications' as any)
-      .insert({
-        user_id: targetUserId,
-        type,
-        tip_id: tipId,
-        from_user_id: user.id,
-        ...(message ? { message } : {}),
-      }) as any);
+      .insert(payload)
+      .select() as any);
+    if (error) console.error('[notification] insert error:', error);
+    else console.log('[notification] insert ok:', data);
   };
 
   return {
