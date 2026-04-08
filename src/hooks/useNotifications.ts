@@ -28,6 +28,7 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [newTaskAssignment, setNewTaskAssignment] = useState<Notification | null>(null);
+  const [newMentionNotification, setNewMentionNotification] = useState<Notification | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
@@ -73,6 +74,12 @@ export function useNotifications() {
 
     setNotifications(enriched);
     setUnreadCount(enriched.filter((n: any) => !n.read).length);
+
+    // Show toast for most recent unread mention (on initial load)
+    const unreadMention = enriched.find((n: any) => n.type === 'mention' && !n.read);
+    if (unreadMention && !newMentionNotification) {
+      setNewMentionNotification(unreadMention);
+    }
   }, [user]);
 
   useEffect(() => { fetchNotifications(); }, [fetchNotifications]);
@@ -96,7 +103,7 @@ export function useNotifications() {
         filter: `user_id=eq.${user.id}`,
       }, async (payload: any) => {
         const row = payload.new;
-        if (row.type === 'task_assignment' || row.type === 'task_acknowledged' || row.type === 'task_completed') {
+        if (row.type === 'task_assignment' || row.type === 'task_acknowledged' || row.type === 'task_completed' || row.type === 'mention') {
           // Enrich with profile
           const { data: profile } = await (supabase.from('profiles' as any)
             .select('id, name, display_name, avatar_url, email')
@@ -108,6 +115,8 @@ export function useNotifications() {
           };
           if (row.type === 'task_assignment') {
             setNewTaskAssignment(enriched);
+          } else if (row.type === 'mention') {
+            setNewMentionNotification(enriched);
           }
           fetchNotifications();
         } else {
@@ -120,6 +129,7 @@ export function useNotifications() {
   }, [user, fetchNotifications]);
 
   const dismissTaskAssignment = () => setNewTaskAssignment(null);
+  const dismissMention = () => setNewMentionNotification(null);
 
   const markAsRead = async (id: string) => {
     await (supabase
@@ -174,6 +184,8 @@ export function useNotifications() {
     unreadCount,
     newTaskAssignment,
     dismissTaskAssignment,
+    newMentionNotification,
+    dismissMention,
     fetchNotifications,
     markAsRead,
     markAllAsRead,

@@ -44,7 +44,7 @@ const Index = () => {
   const { toggleLike, isLiked, setInitialCount, getCount } = useTipLikes();
   const { fetchCommentCount, getCount: getCommentCount, commentCounts } = useTipComments();
   const { toggleBookmark, isBookmarked, bookmarkedIds } = useBookmarks();
-  const { notifications, unreadCount, newTaskAssignment, dismissTaskAssignment, markAsRead, markAllAsRead, createNotification } = useNotifications();
+  const { notifications, unreadCount, newTaskAssignment, dismissTaskAssignment, newMentionNotification, dismissMention, markAsRead, markAllAsRead, createNotification } = useNotifications();
 
   // Auto-dismiss task toast after 5s and mark as read
   const handleDismissTaskToast = useCallback(() => {
@@ -59,6 +59,20 @@ const Index = () => {
     const timer = setTimeout(handleDismissTaskToast, 5000);
     return () => clearTimeout(timer);
   }, [newTaskAssignment, handleDismissTaskToast]);
+
+  // Auto-dismiss mention toast after 5s and mark as read
+  const handleDismissMentionToast = useCallback(() => {
+    if (newMentionNotification) {
+      markAsRead(newMentionNotification.id);
+    }
+    dismissMention();
+  }, [newMentionNotification, markAsRead, dismissMention]);
+
+  useEffect(() => {
+    if (!newMentionNotification) return;
+    const timer = setTimeout(handleDismissMentionToast, 5000);
+    return () => clearTimeout(timer);
+  }, [newMentionNotification, handleDismissMentionToast]);
 
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem('tipViewMode') as ViewMode) || 'grid';
@@ -557,8 +571,7 @@ const Index = () => {
         onCommentAdded={(tipId, tipOwnerId, commentText) => {
           console.log('[mention] comment:', commentText);
           console.log('[mention] teamMembers count:', teamMembers.length);
-          console.log('[mention] first member keys:', Object.keys(teamMembers[0] || {}));
-          console.log('[mention] first member:', JSON.stringify(teamMembers[0]));
+          console.log('[mention] full member[0]:', JSON.stringify(teamMembers[0]));
           createNotification(tipOwnerId, 'comment', tipId);
           // Parse @mentions and notify mentioned users
           const mentions = commentText.match(/@([^\s@]+)/g)?.map(m => m.slice(1)) || [];
@@ -739,6 +752,39 @@ const Index = () => {
                   )}
                 </div>
                 <button onClick={handleDismissTaskToast} className="text-muted-foreground hover:text-foreground shrink-0">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+              <div className="mt-3 h-1 bg-primary/20 rounded-full overflow-hidden">
+                <div className="h-1 bg-primary rounded-full animate-shrink" />
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Mention toast */}
+      <AnimatePresence>
+        {newMentionNotification && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            className="fixed inset-0 flex items-center justify-center z-[9999] pointer-events-none"
+          >
+            <div className="glass-card rounded-2xl p-6 shadow-2xl max-w-sm w-[90vw] pointer-events-auto">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl shrink-0">💬</span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm">댓글에서 언급됨</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {newMentionNotification.from_profile?.display_name || newMentionNotification.from_profile?.name || 'Someone'}님이 회원님을 언급했습니다
+                  </p>
+                  {newMentionNotification.message && (
+                    <p className="text-sm mt-2 line-clamp-3">{newMentionNotification.message}</p>
+                  )}
+                </div>
+                <button onClick={handleDismissMentionToast} className="text-muted-foreground hover:text-foreground shrink-0">
                   <X className="h-4 w-4" />
                 </button>
               </div>
