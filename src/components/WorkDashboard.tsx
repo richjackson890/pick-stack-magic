@@ -34,6 +34,18 @@ interface TaskDraft {
   end_date: string;
 }
 
+const getWeekRange = (weeksAhead: number) => {
+  const now = new Date();
+  const day = now.getDay(); // 0=Sun, 1=Mon...
+  const monday = new Date(now);
+  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1) + (weeksAhead * 7));
+  monday.setHours(0, 0, 0, 0);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+  return { start: monday, end: sunday };
+};
+
 export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   const { user } = useAuth();
   const {
@@ -97,6 +109,22 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   // Task detail panel
   const [taskDetail, setTaskDetail] = useState<{ projectId: string; projectName: string; taskId?: string; taskTitle?: string } | null>(null);
   const memoCache = useRef<Record<string, string>>({});
+
+  // Filter leaves to current + next week
+  const thisWeek = getWeekRange(0);
+  const nextWeek = getWeekRange(1);
+  const visibleLeaves = leaves.filter(l => {
+    const d = new Date(l.leave_date);
+    return d >= thisWeek.start && d <= nextWeek.end;
+  });
+  const thisWeekLeaves = visibleLeaves.filter(l => {
+    const d = new Date(l.leave_date);
+    return d >= thisWeek.start && d <= thisWeek.end;
+  });
+  const nextWeekLeaves = visibleLeaves.filter(l => {
+    const d = new Date(l.leave_date);
+    return d >= nextWeek.start && d <= nextWeek.end;
+  });
 
   const handleConfirmDelete = async () => {
     if (!deleteConfirm) return;
@@ -572,36 +600,28 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
           )}
         </Section>
 
-      {/* 3. Leaves */}
-      <Section icon={<Palmtree className="h-5 w-5" />} title="Leaves" count={leaves.length} collapsed={!!collapsed.leaves} onToggle={() => toggle('leaves')}>
-          {leaves.length === 0 ? (
-            <p className="text-base text-muted-foreground py-4 text-center">No leaves</p>
+      {/* 3. Leaves (this week + next week) */}
+      <Section icon={<Palmtree className="h-5 w-5" />} title="Leaves" count={visibleLeaves.length} collapsed={!!collapsed.leaves} onToggle={() => toggle('leaves')}>
+          {visibleLeaves.length === 0 ? (
+            <p className="text-base text-muted-foreground py-4 text-center">이번 주 / 다음 주 연차 없음</p>
           ) : (
             <div className="space-y-2">
-              {leaves.map(l => (
-                <div key={l.id} className="flex items-center gap-2 py-2 px-3 rounded-lg bg-secondary/20 min-w-0">
-                  <span className="text-xs text-muted-foreground font-mono shrink-0">{formatDate(l.leave_date)}</span>
-                  <span className={cn(
-                    "text-sm px-2 py-0.5 rounded-full font-medium shrink-0 whitespace-nowrap",
-                    l.type === '연차' ? 'bg-rose-500/15 text-rose-400' :
-                    l.type === '외출' ? 'bg-blue-500/15 text-blue-400' :
-                    (l.type === '오전반차' || l.type === '오후반차') ? 'bg-amber-500/15 text-amber-400' :
-                    'bg-violet-500/15 text-violet-400'
-                  )}>{leaveLabel(l.type)}</span>
-                  <span className="text-sm font-medium min-w-0 truncate">{l.profile?.display_name || l.profile?.name || 'Unknown'}</span>
-                  {l.type === '외출' && (l.start_time || l.reason) && (
-                    <span className="text-xs text-muted-foreground truncate">
-                      {l.start_time && l.end_time ? `${l.start_time.slice(0,5)}~${l.end_time.slice(0,5)}` : l.start_time ? l.start_time.slice(0,5) : ''}
-                      {l.reason ? ` ${l.reason}` : ''}
-                    </span>
-                  )}
-                  <span className="flex-1" />
-                  <div className="flex items-center gap-1 shrink-0">
-                    {!isReadOnly && <button onClick={() => openEditLeave(l)} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button>}
-                    {!isReadOnly && <button onClick={() => setDeleteConfirm({ type: 'leave', id: l.id })} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
-                  </div>
-                </div>
-              ))}
+              {thisWeekLeaves.length > 0 && (
+                <>
+                  <p className="text-[11px] text-muted-foreground font-medium px-1">이번 주</p>
+                  {thisWeekLeaves.map(l => (
+                    <LeaveRow key={l.id} l={l} isReadOnly={isReadOnly} formatDate={formatDate} leaveLabel={leaveLabel} onEdit={() => openEditLeave(l)} onDelete={() => setDeleteConfirm({ type: 'leave', id: l.id })} />
+                  ))}
+                </>
+              )}
+              {nextWeekLeaves.length > 0 && (
+                <>
+                  <p className={cn("text-[11px] text-muted-foreground font-medium px-1", thisWeekLeaves.length > 0 && "mt-3")}>다음 주</p>
+                  {nextWeekLeaves.map(l => (
+                    <LeaveRow key={l.id} l={l} isReadOnly={isReadOnly} formatDate={formatDate} leaveLabel={leaveLabel} onEdit={() => openEditLeave(l)} onDelete={() => setDeleteConfirm({ type: 'leave', id: l.id })} />
+                  ))}
+                </>
+              )}
             </div>
           )}
           {!isReadOnly && (
@@ -1180,6 +1200,35 @@ function Section({
           </motion.div>
         )}
       </AnimatePresence>
+    </div>
+  );
+}
+
+function LeaveRow({ l, isReadOnly, formatDate, leaveLabel, onEdit, onDelete }: {
+  l: Leave; isReadOnly: boolean; formatDate: (d: string) => string; leaveLabel: (t: string) => string; onEdit: () => void; onDelete: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-2 py-2 px-3 rounded-lg bg-secondary/20 min-w-0">
+      <span className="text-xs text-muted-foreground font-mono shrink-0">{formatDate(l.leave_date)}</span>
+      <span className={cn(
+        "text-sm px-2 py-0.5 rounded-full font-medium shrink-0 whitespace-nowrap",
+        l.type === '연차' ? 'bg-rose-500/15 text-rose-400' :
+        l.type === '외출' ? 'bg-blue-500/15 text-blue-400' :
+        (l.type === '오전반차' || l.type === '오후반차') ? 'bg-amber-500/15 text-amber-400' :
+        'bg-violet-500/15 text-violet-400'
+      )}>{leaveLabel(l.type)}</span>
+      <span className="text-sm font-medium min-w-0 truncate">{l.profile?.display_name || l.profile?.name || 'Unknown'}</span>
+      {l.type === '외출' && (l.start_time || l.reason) && (
+        <span className="text-xs text-muted-foreground truncate">
+          {l.start_time && l.end_time ? `${l.start_time.slice(0,5)}~${l.end_time.slice(0,5)}` : l.start_time ? l.start_time.slice(0,5) : ''}
+          {l.reason ? ` ${l.reason}` : ''}
+        </span>
+      )}
+      <span className="flex-1" />
+      <div className="flex items-center gap-1 shrink-0">
+        {!isReadOnly && <button onClick={onEdit} className="text-muted-foreground hover:text-primary"><Pencil className="h-4 w-4" /></button>}
+        {!isReadOnly && <button onClick={onDelete} className="text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>}
+      </div>
     </div>
   );
 }
