@@ -750,7 +750,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
               {/* ---- Project Form ---- */}
               {activeForm === 'project' && (
                 <div className="space-y-3">
-                  <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="flex flex-col sm:flex-row gap-6">
                     {/* Left column: Name, Type, Tasks */}
                     <div className="flex-1 space-y-3 min-w-0">
                       <div>
@@ -874,7 +874,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
 
                     {/* Right column: Members */}
                     {teamMembers.length > 0 && (
-                      <div className="sm:w-48 shrink-0">
+                      <div className="sm:w-52 shrink-0">
                         <label className="text-[11px] text-muted-foreground font-medium mb-1.5 block">
                           Members ({selectedMembers.size})
                         </label>
