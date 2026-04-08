@@ -158,7 +158,8 @@ export function useWorkDashboard(teamId: string | undefined) {
           .from('projects') as any)
           .select('*')
           .in('id', missingIds)
-          .eq('status', '진행중') as any;
+          .eq('status', '진행중')
+          .or('is_deleted.is.null,is_deleted.eq.false') as any;
         extraProjects = extraData || [];
       }
 
