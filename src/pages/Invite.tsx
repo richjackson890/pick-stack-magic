@@ -9,7 +9,7 @@ const PENDING_INVITE_KEY = 'pending_invite_token';
 export default function Invite() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, recheckTeam } = useAuth();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const hasAttempted = useRef(false);
@@ -60,6 +60,7 @@ export default function Invite() {
 
         setStatus('success');
         setMessage('팀에 합류했습니다! 팀장이 초대한 DLab 팀에 참여되었습니다.');
+        await recheckTeam();
         setTimeout(() => navigate('/', { replace: true }), 2000);
       } catch (err: any) {
         console.error('[Invite] accept error:', err);

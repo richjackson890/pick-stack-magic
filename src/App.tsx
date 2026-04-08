@@ -40,7 +40,7 @@ function useTheme() {
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading, profileComplete, recheckProfile } = useAuth();
+  const { user, loading, profileComplete, teamVerified, recheckProfile, recheckTeam, signOut } = useAuth();
 
   if (loading) {
     return (
@@ -58,6 +58,34 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const pendingInvite = localStorage.getItem('pending_invite_token');
   if (pendingInvite) {
     return <Navigate to={`/invite?token=${encodeURIComponent(pendingInvite)}`} replace />;
+  }
+
+  // Invite-only: check team membership
+  if (teamVerified === null) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <LiquidSpinner size="lg" />
+      </div>
+    );
+  }
+
+  if (!teamVerified) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <div className="text-5xl">🔒</div>
+        <h2 className="text-lg font-bold">초대받지 않은 계정입니다</h2>
+        <p className="text-sm text-muted-foreground max-w-xs">
+          이 서비스는 초대받은 팀원만 사용할 수 있습니다.<br />
+          관리자에게 초대 링크를 요청하세요.
+        </p>
+        <button
+          onClick={() => signOut()}
+          className="mt-2 px-6 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 transition-opacity"
+        >
+          로그아웃
+        </button>
+      </div>
+    );
   }
 
   // Block UI until profile is complete (display_name set)
