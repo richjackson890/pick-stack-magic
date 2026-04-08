@@ -85,18 +85,13 @@ export function TaskDetailPanel({
   const [assignments, setAssignments] = useState<TaskAssignment[]>([]);
   const [loadingAssignments, setLoadingAssignments] = useState(false);
 
-  // Fetch memo — only on first open when no cache exists and user hasn't typed
+  // Fetch memo — only on first open when cache is empty AND user hasn't typed
   useEffect(() => {
     if (!isOpen || !user) return;
-    // Already fetched for this panel
+    // Cache exists (user typed or previously fetched) — always skip DB
+    if (memoCache.current[memoKey] !== undefined) return;
+    // Already fetched for this key
     if (memoFetchedRef.current === memoKey) return;
-    // Cache exists (user typed or previously fetched) — use cache, skip DB
-    if (memoKey in memoCache.current) {
-      setMemoState(memoCache.current[memoKey]);
-      setMemoLoaded(true);
-      memoFetchedRef.current = memoKey;
-      return;
-    }
     memoFetchedRef.current = memoKey;
     setMemoLoaded(false);
 
@@ -110,15 +105,13 @@ export function TaskDetailPanel({
         query = query.is('task_id', null);
       }
       const { data } = await (query.maybeSingle() as any);
-      // Only write to state if user hasn't typed in the meantime
-      if (!memoDirtyRef.current[memoKey] && memoFetchedRef.current === memoKey) {
-        const content = data?.content || '';
-        setMemoState(content);
-        memoCache.current[memoKey] = content;
-        setMemoLoaded(true);
-      } else {
-        setMemoLoaded(true);
+      const dbValue = data?.content || '';
+      // Only write if user hasn't typed while fetch was in-flight
+      if (!memoDirtyRef.current[memoKey]) {
+        setMemoState(dbValue);
+        memoCache.current[memoKey] = dbValue;
       }
+      setMemoLoaded(true);
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, memoKey]);
