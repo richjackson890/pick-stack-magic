@@ -10,7 +10,7 @@ import { TaskDetailPanel } from '@/components/TaskDetailPanel';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { sortByPosition, getPositionOrder } from '@/utils/sortMembers';
+import { sortByPosition, getMemberOrder } from '@/utils/sortMembers';
 
 interface WorkDashboardProps {
   teamId: string | undefined;
@@ -282,7 +282,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     const esc = (s: string) => s.replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
     const projectsHtml = projects.map(p => {
-      const memberNames = [...p.members].sort((a, b) => getPositionOrder(a.position) - getPositionOrder(b.position)).map(m => [m.position, m.name].filter(Boolean).join(' ')).join(', ');
+      const memberNames = [...p.members].sort((a, b) => getMemberOrder(a.name) - getMemberOrder(b.name)).map(m => [m.position, m.name].filter(Boolean).join(' ')).join(', ');
       const tasksHtml = (p.tasks || []).map(t =>
         `<tr class="sub"><td class="sub-name">└ ${esc(t.title)}</td><td></td><td></td><td class="r mono">${formatShortDate(t.start_date)} ~ ${formatShortDate(t.end_date)}</td></tr>`
       ).join('');
@@ -1122,7 +1122,7 @@ function ProjectRow({
             <span className="shrink-0">{getCreatorName(p.created_by)}</span>
             {p.members.length > 0 && (
               <span className="text-primary font-medium break-all line-clamp-1">
-                {[...p.members].sort((a, b) => getPositionOrder(a.position) - getPositionOrder(b.position)).map(m => [m.position, m.name].filter(Boolean).join(' ')).join(' · ')}
+                {[...p.members].sort((a, b) => getMemberOrder(a.name) - getMemberOrder(b.name)).map(m => [m.position, m.name].filter(Boolean).join(' ')).join(' · ')}
               </span>
             )}
           </div>
