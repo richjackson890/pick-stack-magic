@@ -557,6 +557,8 @@ const Index = () => {
         onCommentAdded={(tipId, tipOwnerId, commentText) => {
           console.log('[mention] comment:', commentText);
           console.log('[mention] teamMembers count:', teamMembers.length);
+          console.log('[mention] first member keys:', Object.keys(teamMembers[0] || {}));
+          console.log('[mention] first member:', JSON.stringify(teamMembers[0]));
           createNotification(tipOwnerId, 'comment', tipId);
           // Parse @mentions and notify mentioned users
           const mentions = commentText.match(/@([^\s@]+)/g)?.map(m => m.slice(1)) || [];

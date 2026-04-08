@@ -83,7 +83,10 @@ export function TipDetailModal({ tip, isOpen, onClose, onCommentAdded, onTipUpda
 
         {/* Thumbnail image */}
         {tip.image_url && (
-          <div className="shrink-0 w-full px-6">
+          <div
+            className={`shrink-0 w-full px-6 ${tip.url ? 'cursor-pointer' : ''}`}
+            onClick={() => tip.url && window.open(tip.url, '_blank')}
+          >
             <img
               src={tip.image_url}
               alt={tip.title}
@@ -211,7 +214,7 @@ function CommentItem({ comment, isOwn, onDelete }: { comment: TipComment; isOwn:
           <p className="text-sm leading-relaxed">
             {comment.content.split(/(@[^\s@]+)/g).map((part, i) =>
               /^@[^\s@]+$/.test(part)
-                ? <span key={i} className="bg-primary/20 text-primary font-medium px-1 rounded">{part}</span>
+                ? <span key={i} style={{backgroundColor: '#f97316', color: 'white', padding: '1px 6px', borderRadius: '4px', fontWeight: 600}}>{part}</span>
                 : part
             )}
           </p>
