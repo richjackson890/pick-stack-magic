@@ -732,7 +732,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 60, opacity: 0 }}
               transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-              className="glass-card rounded-t-2xl sm:rounded-2xl p-5 pb-8 w-full sm:max-w-lg space-y-4 max-h-[90vh] overflow-y-auto"
+              className="glass-card rounded-t-2xl sm:rounded-2xl p-5 pb-8 w-full sm:max-w-2xl space-y-4 max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
@@ -874,7 +874,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
 
                     {/* Right column: Members */}
                     {teamMembers.length > 0 && (
-                      <div className="sm:w-52 shrink-0">
+                      <div className="w-[200px] shrink-0 pl-4 border-l border-border/30">
                         <label className="text-[11px] text-muted-foreground font-medium mb-1.5 block">
                           Members ({selectedMembers.size})
                         </label>
