@@ -555,9 +555,12 @@ const Index = () => {
         isOpen={!!detailTip}
         onClose={() => setDetailTip(null)}
         onCommentAdded={(tipId, tipOwnerId, commentText) => {
+          console.log('[mention] comment:', commentText);
+          console.log('[mention] teamMembers count:', teamMembers.length);
           createNotification(tipOwnerId, 'comment', tipId);
           // Parse @mentions and notify mentioned users
           const mentions = commentText.match(/@([^\s@]+)/g)?.map(m => m.slice(1)) || [];
+          console.log('[mention] mentions found:', mentions);
           if (mentions.length > 0) {
             const currentName = teamMembers.find(m => m.user_id === user?.id)?.profiles?.display_name
               || teamMembers.find(m => m.user_id === user?.id)?.profiles?.name || '';
@@ -565,8 +568,10 @@ const Index = () => {
               const name = m.profiles?.display_name || m.profiles?.name || '';
               return mentions.some(mention => name.includes(mention));
             });
+            console.log('[mention] matched users:', mentionedUsers.map(u => u.profiles?.display_name));
             mentionedUsers.forEach(m => {
               if (m.user_id !== user?.id) {
+                console.log('[mention] sending notification to:', m.profiles?.display_name, m.user_id);
                 createNotification(
                   m.user_id,
                   'mention',
