@@ -448,7 +448,8 @@ export function useWorkDashboard(teamId: string | undefined) {
     memberIds?: string[],
     tasks?: { id?: string; title: string; start_date: string; end_date: string }[],
   ) => {
-    console.log('[updateProject] id:', id, 'payload:', { name, type, memberIds, tasks });
+    console.log('[updateProject] teamId:', teamId, 'userId:', user?.id, 'id:', id, 'payload:', { name, type, memberIds, tasks });
+    if (!user) { console.error('[updateProject] user not loaded'); return; }
     let { data, error } = await (supabase.from('projects' as any)
       .update({ name, type: type?.trim() || null })
       .eq('id', id)
@@ -463,6 +464,7 @@ export function useWorkDashboard(teamId: string | undefined) {
     }
     console.log('[updateProject] result:', data, error);
     if (error) { console.error('[WorkDashboard] updateProject error:', error); return; }
+    if (!data || data.length === 0) { console.warn('[updateProject] no rows updated — RLS policy may be blocking'); }
 
     // Update members: upsert new, delete removed
     if (memberIds) {
@@ -526,8 +528,12 @@ export function useWorkDashboard(teamId: string | undefined) {
   };
 
   const deleteProject = async (id: string) => {
-    const { error } = await (supabase.from('projects' as any).update({ is_deleted: true, deleted_at: new Date().toISOString() }).eq('id', id) as any);
+    console.log('[deleteProject] teamId:', teamId, 'projectId:', id, 'userId:', user?.id);
+    if (!user) { console.error('[deleteProject] user not loaded'); return; }
+    const { data, error } = await (supabase.from('projects' as any).update({ is_deleted: true, deleted_at: new Date().toISOString() }).eq('id', id).select() as any);
+    console.log('[deleteProject] result:', data, error);
     if (error) { console.error('[WorkDashboard] deleteProject error:', error); return; }
+    if (!data || data.length === 0) { console.warn('[deleteProject] no rows updated — RLS policy may be blocking'); }
     await fetchAll();
   };
 
@@ -540,8 +546,11 @@ export function useWorkDashboard(teamId: string | undefined) {
   };
 
   const deleteEvent = async (id: string) => {
-    const { error } = await (supabase.from('team_events' as any).update({ is_deleted: true, deleted_at: new Date().toISOString() }).eq('id', id) as any);
+    console.log('[deleteEvent] teamId:', teamId, 'eventId:', id, 'userId:', user?.id);
+    const { data, error } = await (supabase.from('team_events' as any).update({ is_deleted: true, deleted_at: new Date().toISOString() }).eq('id', id).select() as any);
+    console.log('[deleteEvent] result:', data, error);
     if (error) { console.error('[WorkDashboard] deleteEvent error:', error); return; }
+    if (!data || data.length === 0) { console.warn('[deleteEvent] no rows updated — RLS policy may be blocking'); }
     await fetchAll();
   };
 
