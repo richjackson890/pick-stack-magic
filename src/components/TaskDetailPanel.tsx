@@ -116,34 +116,37 @@ export function TaskDetailPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, memoKey]);
 
-  // Save memo (debounced on blur)
-  const saveMemo = useCallback(async () => {
-    if (!user || !memoLoaded) return;
+  // Auto-save memo — debounced 1s on every keystroke
+  useEffect(() => {
+    if (!user || !memoLoaded || !memoDirtyRef.current[memoKey]) return;
     setMemoSaving(true);
-    // Check if note exists for this project/task
-    let existsQuery = supabase.from('task_notes' as any)
-      .select('id')
-      .eq('project_id', projectId);
-    if (taskId) {
-      existsQuery = existsQuery.eq('task_id', taskId);
-    } else {
-      existsQuery = existsQuery.is('task_id', null);
-    }
-    const { data: existing } = await (existsQuery.maybeSingle() as any);
+    const timer = setTimeout(async () => {
+      let existsQuery = supabase.from('task_notes' as any)
+        .select('id')
+        .eq('project_id', projectId);
+      if (taskId) {
+        existsQuery = existsQuery.eq('task_id', taskId);
+      } else {
+        existsQuery = existsQuery.is('task_id', null);
+      }
+      const { data: existing } = await (existsQuery.maybeSingle() as any);
+      const currentContent = memoCache.current[memoKey] ?? memo;
 
-    if (existing) {
-      await (supabase.from('task_notes' as any).update({ content: memo }).eq('id', existing.id) as any);
-    } else {
-      await (supabase.from('task_notes' as any).insert({
-        project_id: projectId,
-        task_id: taskId || null,
-        created_by: user.id,
-        content: memo,
-      }) as any);
-    }
-    setMemoSaving(false);
+      if (existing) {
+        await (supabase.from('task_notes' as any).update({ content: currentContent }).eq('id', existing.id) as any);
+      } else {
+        await (supabase.from('task_notes' as any).insert({
+          project_id: projectId,
+          task_id: taskId || null,
+          created_by: user.id,
+          content: currentContent,
+        }) as any);
+      }
+      setMemoSaving(false);
+    }, 1000);
+    return () => { clearTimeout(timer); setMemoSaving(false); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, projectId, taskId, memo, memoLoaded]);
+  }, [memo]);
 
   // Fetch assignments
   const fetchAssignments = useCallback(async () => {
@@ -269,7 +272,6 @@ export function TaskDetailPanel({
                 <textarea
                   value={memo}
                   onChange={(e) => setMemo(e.target.value)}
-                  onBlur={saveMemo}
                   placeholder="자유 메모..."
                   className="w-full h-24 rounded-lg border border-border/30 bg-secondary/20 px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-ring"
                 />

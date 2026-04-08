@@ -518,7 +518,6 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                 onDelete={() => setDeleteConfirm({ type: 'project', id: p.id })}
                 onDeleteTask={(taskId) => deleteProjectTask(taskId)}
                 onProjectClick={() => setTaskDetail({ projectId: p.id, projectName: p.name })}
-                onTaskClick={(taskId, taskTitle) => setTaskDetail({ projectId: p.id, projectName: p.name, taskId, taskTitle })}
                 onDragStart={() => setDragId(p.id)}
                 onDragEnd={() => { setDragId(null); setDragOverId(null); }}
                 onDragOver={() => setDragOverId(p.id)}
@@ -1074,7 +1073,6 @@ function ProjectRow({
   onDelete,
   onDeleteTask,
   onProjectClick,
-  onTaskClick,
   onDragStart,
   onDragEnd,
   onDragOver,
@@ -1090,7 +1088,6 @@ function ProjectRow({
   onDelete: () => void;
   onDeleteTask: (taskId: string) => void;
   onProjectClick: () => void;
-  onTaskClick: (taskId: string, taskTitle: string) => void;
   onDragStart: () => void;
   onDragEnd: () => void;
   onDragOver: () => void;
@@ -1138,7 +1135,7 @@ function ProjectRow({
         <div className={cn("ml-4 space-y-1.5 border-l-2 border-primary/20 pl-4", !isReadOnly && "ml-9")}>
           {p.tasks.map(t => (
             <div key={t.id} className="flex items-center gap-2 group min-w-0">
-              <span className="text-sm flex-1 min-w-0 truncate text-muted-foreground cursor-pointer hover:text-primary transition-colors" onClick={() => onTaskClick(t.id, t.title)}>{t.title}</span>
+              <span className="text-sm flex-1 min-w-0 truncate text-muted-foreground">{t.title}</span>
               <span className="text-xs text-muted-foreground font-mono shrink-0">{formatShortDate(t.start_date)} ~ {formatShortDate(t.end_date)}</span>
               {!isReadOnly && <button onClick={() => onDeleteTask(t.id)} className="text-muted-foreground hover:text-destructive shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"><X className="h-3.5 w-3.5" /></button>}
             </div>
