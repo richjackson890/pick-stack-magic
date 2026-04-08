@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 export interface Notification {
   id: string;
   user_id: string;
-  type: 'comment' | 'like' | 'task_assignment' | 'task_acknowledged' | 'task_completed';
+  type: 'comment' | 'like' | 'mention' | 'task_assignment' | 'task_acknowledged' | 'task_completed';
   tip_id: string | null;
   project_id?: string | null;
   from_user_id: string;
@@ -146,8 +146,9 @@ export function useNotifications() {
 
   const createNotification = async (
     targetUserId: string,
-    type: 'comment' | 'like',
+    type: 'comment' | 'like' | 'mention',
     tipId: string,
+    message?: string,
   ) => {
     if (!user || user.id === targetUserId) return;
 
@@ -158,6 +159,7 @@ export function useNotifications() {
         type,
         tip_id: tipId,
         from_user_id: user.id,
+        ...(message ? { message } : {}),
       }) as any);
   };
 

@@ -8,16 +8,18 @@ import { useTipComments, TipComment } from '@/hooks/useTipComments';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Send, Trash2, User, Loader2, MessageCircle, Trophy, Save } from 'lucide-react';
+import { TeamMember } from '@/hooks/useTeam';
 
 interface TipDetailModalProps {
   tip: Tip | null;
   isOpen: boolean;
   onClose: () => void;
-  onCommentAdded?: (tipId: string, tipOwnerId: string) => void;
+  onCommentAdded?: (tipId: string, tipOwnerId: string, commentText: string) => void;
   onTipUpdated?: () => void;
+  teamMembers?: TeamMember[];
 }
 
-export function TipDetailModal({ tip, isOpen, onClose, onCommentAdded, onTipUpdated }: TipDetailModalProps) {
+export function TipDetailModal({ tip, isOpen, onClose, onCommentAdded, onTipUpdated, teamMembers }: TipDetailModalProps) {
   const { user } = useAuth();
   const { comments, loading, fetchComments, addComment, deleteComment } = useTipComments();
   const [newComment, setNewComment] = useState('');
@@ -47,8 +49,9 @@ export function TipDetailModal({ tip, isOpen, onClose, onCommentAdded, onTipUpda
   const handleSend = async () => {
     if (!tip || !newComment.trim()) return;
     setSending(true);
-    const success = await addComment(tip.id, newComment);
-    if (success) onCommentAdded?.(tip.id, tip.user_id);
+    const commentText = newComment.trim();
+    const success = await addComment(tip.id, commentText);
+    if (success) onCommentAdded?.(tip.id, tip.user_id, commentText);
     setNewComment('');
     setSending(false);
   };
@@ -205,7 +208,13 @@ function CommentItem({ comment, isOwn, onDelete }: { comment: TipComment; isOwn:
             ? 'bg-primary text-primary-foreground rounded-tr-sm'
             : 'bg-muted rounded-tl-sm'
         }`}>
-          <p className="text-sm leading-relaxed">{comment.content}</p>
+          <p className="text-sm leading-relaxed">
+            {comment.content.split(/(@[^\s@]+)/g).map((part, i) =>
+              /^@[^\s@]+$/.test(part)
+                ? <span key={i} className="text-primary font-medium">{part}</span>
+                : part
+            )}
+          </p>
           {isOwn && (
             <button
               onClick={onDelete}

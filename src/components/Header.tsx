@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, LogOut, Lightbulb, Bell, Heart, MessageCircle, Check, Download, ClipboardList, CheckCircle2 } from 'lucide-react';
+import { Settings, LogOut, Lightbulb, Bell, Heart, MessageCircle, Check, Download, ClipboardList, CheckCircle2, AtSign } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -197,17 +197,20 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
                           const fromName = n.from_profile?.display_name || n.from_profile?.name || n.from_profile?.email?.split('@')[0] || 'Someone';
                           const isTask = n.type === 'task_assignment' || n.type === 'task_acknowledged' || n.type === 'task_completed';
                           const isComment = n.type === 'comment';
+                          const isMention = n.type === 'mention';
 
                           const getNotifText = () => {
                             if (n.type === 'task_assignment') return `님이 업무를 지시했습니다: ${n.message || ''}`;
                             if (n.type === 'task_acknowledged') return '님이 업무를 확인했습니다';
                             if (n.type === 'task_completed') return '님이 업무를 완료했습니다';
+                            if (isMention) return `님이 댓글에서 회원님을 언급했습니다`;
                             if (isComment) return ` commented on ${n.tip?.title || 'a tip'}`;
                             return ` liked ${n.tip?.title || 'a tip'}`;
                           };
 
                           const getIconStyle = () => {
                             if (isTask) return 'bg-orange-500/15 text-orange-500';
+                            if (isMention) return 'bg-violet-500/15 text-violet-500';
                             if (isComment) return 'bg-cyan-500/15 text-cyan-500';
                             return 'bg-rose-500/15 text-rose-500';
                           };
@@ -226,7 +229,7 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
                             >
                               {/* Icon */}
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${getIconStyle()}`}>
-                                {isTask ? <ClipboardList className="h-3.5 w-3.5" /> : isComment ? <MessageCircle className="h-3.5 w-3.5" /> : <Heart className="h-3.5 w-3.5" />}
+                                {isTask ? <ClipboardList className="h-3.5 w-3.5" /> : isMention ? <AtSign className="h-3.5 w-3.5" /> : isComment ? <MessageCircle className="h-3.5 w-3.5" /> : <Heart className="h-3.5 w-3.5" />}
                               </div>
 
                               {/* Content */}

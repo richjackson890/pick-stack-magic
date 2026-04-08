@@ -554,8 +554,31 @@ const Index = () => {
         tip={detailTip}
         isOpen={!!detailTip}
         onClose={() => setDetailTip(null)}
-        onCommentAdded={(tipId, tipOwnerId) => createNotification(tipOwnerId, 'comment', tipId)}
+        onCommentAdded={(tipId, tipOwnerId, commentText) => {
+          createNotification(tipOwnerId, 'comment', tipId);
+          // Parse @mentions and notify mentioned users
+          const mentions = commentText.match(/@([^\s@]+)/g)?.map(m => m.slice(1)) || [];
+          if (mentions.length > 0) {
+            const currentName = teamMembers.find(m => m.user_id === user?.id)?.profiles?.display_name
+              || teamMembers.find(m => m.user_id === user?.id)?.profiles?.name || '';
+            const mentionedUsers = teamMembers.filter(m => {
+              const name = m.profiles?.display_name || m.profiles?.name || '';
+              return mentions.some(mention => name.includes(mention));
+            });
+            mentionedUsers.forEach(m => {
+              if (m.user_id !== user?.id) {
+                createNotification(
+                  m.user_id,
+                  'mention',
+                  tipId,
+                  `${currentName}님이 댓글에서 회원님을 언급했습니다: "${commentText.slice(0, 50)}"`
+                );
+              }
+            });
+          }
+        }}
         onTipUpdated={refetch}
+        teamMembers={teamMembers}
       />
 
       <GlassToast
