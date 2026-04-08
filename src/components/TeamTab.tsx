@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Users, UserPlus, Copy, Check, Crown, Link, Loader2, Trash2 } from 'lucide-react';
 import { LiquidSpinner } from '@/components/LiquidSpinner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { sortByPosition } from '@/utils/sortMembers';
 
 export function TeamTab() {
   const { user } = useAuth();
@@ -99,15 +100,7 @@ export function TeamTab() {
   // Has team — show team info
   const isOwner = team.created_by === user?.id;
 
-  const POSITION_RANK = ['소장', '실장', '팀장/책임', '팀장', '대리', '소원', '인턴', '실습'];
-  const sortedMembers = [...members].sort((a, b) => {
-    // Owner always first
-    if (a.user_id === team.created_by) return -1;
-    if (b.user_id === team.created_by) return 1;
-    const rankA = POSITION_RANK.indexOf(a.profiles?.position || '');
-    const rankB = POSITION_RANK.indexOf(b.profiles?.position || '');
-    return (rankA === -1 ? 999 : rankA) - (rankB === -1 ? 999 : rankB);
-  });
+  const sortedMembers = sortByPosition(members);
 
   const handleCopyToken = (token: string) => {
     const baseUrl = import.meta.env.VITE_APP_URL || window.location.origin;

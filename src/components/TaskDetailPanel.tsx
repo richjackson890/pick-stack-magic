@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { TeamMember } from '@/hooks/useTeam';
 import { cn } from '@/lib/utils';
+import { sortByPosition } from '@/utils/sortMembers';
 
 interface TaskAssignment {
   id: string;
@@ -292,7 +293,7 @@ export function TaskDetailPanel({
                   className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
                 >
                   <option value="">담당자 선택</option>
-                  {teamMembers.map(m => (
+                  {sortByPosition(teamMembers).map(m => (
                     <option key={m.user_id} value={m.user_id}>
                       {m.profiles?.position ? `${m.profiles.position} ` : ''}{getDisplayName(m.profiles)}
                     </option>

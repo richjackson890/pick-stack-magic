@@ -10,6 +10,7 @@ import { TaskDetailPanel } from '@/components/TaskDetailPanel';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { sortByPosition, getPositionOrder } from '@/utils/sortMembers';
 
 interface WorkDashboardProps {
   teamId: string | undefined;
@@ -281,7 +282,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     const esc = (s: string) => s.replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
     const projectsHtml = projects.map(p => {
-      const memberNames = p.members.map(m => [m.position, m.name].filter(Boolean).join(' ')).join(', ');
+      const memberNames = [...p.members].sort((a, b) => getPositionOrder(a.position) - getPositionOrder(b.position)).map(m => [m.position, m.name].filter(Boolean).join(' ')).join(', ');
       const tasksHtml = (p.tasks || []).map(t =>
         `<tr class="sub"><td class="sub-name">└ ${esc(t.title)}</td><td></td><td></td><td class="r mono">${formatShortDate(t.start_date)} ~ ${formatShortDate(t.end_date)}</td></tr>`
       ).join('');
@@ -310,7 +311,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
       </tr>`;
     }).join('') || '<tr><td colspan="3" class="empty">연차 없음</td></tr>';
 
-    const balanceRows = teamMembers.map(m => {
+    const balanceRows = sortByPosition(teamMembers).map(m => {
       const bal = balances.find(b => b.user_id === m.user_id);
       const name = getDisplayName(m.profiles);
       const pos = m.profiles?.position || '';
@@ -622,7 +623,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
           <p className="text-base text-muted-foreground py-4 text-center">팀원이 없습니다</p>
         ) : (
           <div className="space-y-2">
-            {teamMembers.map(m => {
+            {sortByPosition(teamMembers).map(m => {
               const bal = balances.find(b => b.user_id === m.user_id);
               const isMe = user?.id === m.user_id;
               const canEdit = isMe || isAdmin;
@@ -858,7 +859,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                           Members ({selectedMembers.size})
                         </label>
                         <div className="space-y-1 rounded-lg border border-border/30 p-2">
-                          {teamMembers.map(m => {
+                          {sortByPosition(teamMembers).map(m => {
                             const name = getDisplayName(m.profiles);
                             const mPos = m.profiles?.position;
                             const checked = selectedMembers.has(m.user_id);
@@ -930,7 +931,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                         className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
                       >
                         {isAdmin ? (
-                          teamMembers.map(m => (
+                          sortByPosition(teamMembers).map(m => (
                             <option key={m.user_id} value={m.user_id}>
                               {m.profiles?.position ? `${m.profiles.position} ` : ''}{getDisplayName(m.profiles)}
                             </option>
@@ -1121,7 +1122,7 @@ function ProjectRow({
             <span className="shrink-0">{getCreatorName(p.created_by)}</span>
             {p.members.length > 0 && (
               <span className="text-primary font-medium break-all line-clamp-1">
-                {p.members.map(m => [m.position, m.name].filter(Boolean).join(' ')).join(' · ')}
+                {[...p.members].sort((a, b) => getPositionOrder(a.position) - getPositionOrder(b.position)).map(m => [m.position, m.name].filter(Boolean).join(' ')).join(' · ')}
               </span>
             )}
           </div>
