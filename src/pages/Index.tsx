@@ -512,14 +512,14 @@ const Index = () => {
       {/* Desktop: side-by-side layout */}
       <div id="desktop-layout" className="hidden lg:flex h-screen overflow-hidden">
         {/* Left: Tips feed */}
-        <main id="tips-feed" className="flex-1 overflow-y-auto h-full">
+        <main id="tips-feed" className="w-[60%] overflow-y-auto h-full">
           <div className="container pt-3">
             {tipsFeed}
           </div>
         </main>
 
         {/* Right: Work dashboard */}
-        <aside id="dashboard-aside" className="w-[420px] shrink-0 overflow-y-auto h-full border-l border-border/30">
+        <aside id="dashboard-aside" className="w-[40%] shrink-0 overflow-y-auto h-full border-l border-border/30">
           <div className="pt-3 px-4">
             <WorkDashboard teamId={team?.id} teamMembers={teamMembers} />
           </div>
