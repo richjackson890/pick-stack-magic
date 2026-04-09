@@ -510,16 +510,16 @@ const Index = () => {
       </div>
 
       {/* Desktop: side-by-side layout */}
-      <div id="desktop-layout" className="hidden lg:flex h-screen overflow-hidden">
+      <div id="desktop-layout" className="hidden lg:flex h-screen overflow-hidden px-4 gap-6">
         {/* Left: Tips feed */}
-        <main id="tips-feed" className="w-[60%] overflow-y-auto h-full">
+        <main id="tips-feed" className="w-[60%] overflow-y-auto h-full pr-2 pt-3">
           <div className="container pt-3">
             {tipsFeed}
           </div>
         </main>
 
         {/* Right: Work dashboard */}
-        <aside id="dashboard-aside" className="w-[40%] shrink-0 overflow-y-auto h-full border-l border-border/30">
+        <aside id="dashboard-aside" className="w-[40%] shrink-0 overflow-y-auto h-full pl-2 pt-3">
           <div className="pt-3 px-4">
             <WorkDashboard teamId={team?.id} teamMembers={teamMembers} />
           </div>
