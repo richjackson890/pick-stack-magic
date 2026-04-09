@@ -73,7 +73,7 @@ export function Header({ onSettingsClick, notifications = [], unreadCount = 0, o
 
   return (
     <header className="sticky top-0 z-[100] glass-dock border-b-0">
-      <div className="max-w-[1200px] mx-auto flex items-center justify-between h-12 px-6">
+      <div className="max-w-[1600px] mx-auto flex items-center justify-between h-12 px-6">
         <motion.div
           className="flex items-center gap-2"
           initial={{ opacity: 0, x: -20 }}
