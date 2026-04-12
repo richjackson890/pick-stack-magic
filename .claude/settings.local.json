@@ -31,7 +31,13 @@
       "Bash(npx vercel:*)",
       "Bash(curl:*)",
       "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(m['name']\\) for m in data.get\\('models',[]\\)]\")",
-      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(m['name']\\) for m in data.get\\('models',[]\\)]\")"
+      "Bash(python -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(m['name']\\) for m in data.get\\('models',[]\\)]\")",
+      "Bash(grep:*)",
+      "Bash(npm ls:*)",
+      "Bash(npm uninstall:*)",
+      "Bash(kill %1)",
+      "Bash(ls -ltr /d/Users/SYlee/pick-stack-magic/supabase/migrations/*.sql)",
+      "Bash(find:*)"
     ]
   }
 }

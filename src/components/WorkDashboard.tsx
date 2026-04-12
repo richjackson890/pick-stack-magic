@@ -330,7 +330,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
       </tr>`
     ).join('') || '<tr><td colspan="3" class="empty">일정 없음</td></tr>';
 
-    const leavesHtml = leaves.map(l => {
+    const leavesHtml = visibleLeaves.map(l => {
       const lname = l.profile?.display_name || l.profile?.name || '';
       return `<tr>
         <td class="mono" style="width:90px">${formatDate(l.leave_date)}</td>
