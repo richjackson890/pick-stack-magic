@@ -110,21 +110,46 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   const [taskDetail, setTaskDetail] = useState<{ projectId: string; projectName: string; taskId?: string; taskTitle?: string } | null>(null);
   const memoCache = useRef<Record<string, string>>({});
 
-  // Filter leaves to current + next week
+  // Dashboard shows leaves from today through 2 months ahead.
+  // Print (leavesHtml) keeps its narrower current+next week window.
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const twoMonthsLater = new Date(today);
+  twoMonthsLater.setMonth(twoMonthsLater.getMonth() + 2);
+  twoMonthsLater.setHours(23, 59, 59, 999);
+  const visibleLeaves = leaves.filter(l => {
+    const d = new Date(l.leave_date);
+    return d >= today && d <= twoMonthsLater;
+  });
+
   const thisWeek = getWeekRange(0);
   const nextWeek = getWeekRange(1);
-  const visibleLeaves = leaves.filter(l => {
+  const printableLeaves = leaves.filter(l => {
     const d = new Date(l.leave_date);
     return d >= thisWeek.start && d <= nextWeek.end;
   });
-  const thisWeekLeaves = visibleLeaves.filter(l => {
-    const d = new Date(l.leave_date);
-    return d >= thisWeek.start && d <= thisWeek.end;
-  });
-  const nextWeekLeaves = visibleLeaves.filter(l => {
-    const d = new Date(l.leave_date);
-    return d >= nextWeek.start && d <= nextWeek.end;
-  });
+
+  // Group visibleLeaves by week (Monday-start) for sectioned display
+  const weekStartOf = (date: Date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+    d.setHours(0, 0, 0, 0);
+    return d;
+  };
+  const formatWeekRange = (weekStart: Date) => {
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    return `${weekStart.getMonth() + 1}/${weekStart.getDate()} (월) ~ ${weekEnd.getMonth() + 1}/${weekEnd.getDate()} (일)`;
+  };
+  const leavesByWeek = new Map<string, { start: Date; leaves: Leave[] }>();
+  for (const l of visibleLeaves) {
+    const ws = weekStartOf(new Date(l.leave_date));
+    const key = ws.toISOString();
+    if (!leavesByWeek.has(key)) leavesByWeek.set(key, { start: ws, leaves: [] });
+    leavesByWeek.get(key)!.leaves.push(l);
+  }
+  const weekGroups = Array.from(leavesByWeek.values()).sort((a, b) => a.start.getTime() - b.start.getTime());
 
   const handleConfirmDelete = async () => {
     if (!deleteConfirm) return;
@@ -330,7 +355,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
       </tr>`
     ).join('') || '<tr><td colspan="3" class="empty">일정 없음</td></tr>';
 
-    const leavesHtml = visibleLeaves.map(l => {
+    const leavesHtml = printableLeaves.map(l => {
       const lname = l.profile?.display_name || l.profile?.name || '';
       return `<tr>
         <td class="mono" style="width:90px">${formatDate(l.leave_date)}</td>
@@ -600,28 +625,20 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
           )}
         </Section>
 
-      {/* 3. Leaves (this week + next week) */}
+      {/* 3. Leaves (today through 2 months ahead, grouped by week) */}
       <Section icon={<Palmtree className="h-5 w-5" />} title="Leaves" count={visibleLeaves.length} collapsed={!!collapsed.leaves} onToggle={() => toggle('leaves')}>
           {visibleLeaves.length === 0 ? (
-            <p className="text-base text-muted-foreground py-4 text-center">이번 주 / 다음 주 연차 없음</p>
+            <p className="text-base text-muted-foreground py-4 text-center">예정된 연차 없음</p>
           ) : (
             <div className="space-y-2">
-              {thisWeekLeaves.length > 0 && (
-                <>
-                  <p className="text-[11px] text-muted-foreground font-medium px-1">이번 주</p>
-                  {thisWeekLeaves.map(l => (
+              {weekGroups.map((g, idx) => (
+                <div key={g.start.toISOString()}>
+                  <p className={cn("text-[11px] text-muted-foreground font-medium px-1", idx > 0 && "mt-3")}>{formatWeekRange(g.start)}</p>
+                  {g.leaves.map(l => (
                     <LeaveRow key={l.id} l={l} isReadOnly={isReadOnly} formatDate={formatDate} leaveLabel={leaveLabel} onEdit={() => openEditLeave(l)} onDelete={() => setDeleteConfirm({ type: 'leave', id: l.id })} />
                   ))}
-                </>
-              )}
-              {nextWeekLeaves.length > 0 && (
-                <>
-                  <p className={cn("text-[11px] text-muted-foreground font-medium px-1", thisWeekLeaves.length > 0 && "mt-3")}>다음 주</p>
-                  {nextWeekLeaves.map(l => (
-                    <LeaveRow key={l.id} l={l} isReadOnly={isReadOnly} formatDate={formatDate} leaveLabel={leaveLabel} onEdit={() => openEditLeave(l)} onDelete={() => setDeleteConfirm({ type: 'leave', id: l.id })} />
-                  ))}
-                </>
-              )}
+                </div>
+              ))}
             </div>
           )}
           {!isReadOnly && (
