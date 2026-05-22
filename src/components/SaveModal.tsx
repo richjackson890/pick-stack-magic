@@ -360,7 +360,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
 
   const uploadAttachment = async (file: File): Promise<string> => {
     const userId = user?.id || 'anonymous';
-    const safeName = file.name.replace(/[^\w.\-가-힣]/g, '_');
+    const safeName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
     const path = `${userId}/${Date.now()}_${safeName}`;
 
     const { error: uploadError } = await supabase.storage
