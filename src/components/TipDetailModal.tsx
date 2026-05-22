@@ -10,12 +10,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { Send, Trash2, User, Loader2, MessageCircle, Trophy, Save, Paperclip, ExternalLink } from 'lucide-react';
 import { TeamMember } from '@/hooks/useTeam';
 
-const getAttachmentIcon = (url: string): string => {
-  const ext = url.split('.').pop()?.toLowerCase().split('?')[0] || '';
+const getAttachmentIcon = (filename: string): string => {
+  const ext = filename.split('.').pop()?.toLowerCase().split('?')[0] || '';
   if (ext === 'pdf') return '📄';
   if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) return '🖼️';
   if (['xlsx', 'pptx'].includes(ext)) return '📊';
   return '📎';
+};
+
+const getAttachmentName = (url: string): string => {
+  try {
+    const path = new URL(url).pathname;
+    const last = decodeURIComponent(path.split('/').pop() || '');
+    return last.replace(/^\d+\./, '') || last;
+  } catch {
+    return url;
+  }
 };
 
 interface TipDetailModalProps {
@@ -146,24 +156,27 @@ export function TipDetailModal({ tip, isOpen, onClose, onCommentAdded, onTipUpda
               첨부파일 ({tip.attachments.length})
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {tip.attachments.map((att, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-secondary/40 text-xs min-w-0"
-                >
-                  <span className="text-base shrink-0" aria-hidden>{getAttachmentIcon(att.url)}</span>
-                  <span className="truncate flex-1 font-medium" title={att.label}>{att.label}</span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 px-2 shrink-0"
-                    onClick={() => window.open(att.url, '_blank', 'noopener,noreferrer')}
+              {tip.attachments.map((url, i) => {
+                const name = getAttachmentName(url);
+                return (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-secondary/40 text-xs min-w-0"
                   >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    열기
-                  </Button>
-                </div>
-              ))}
+                    <span className="text-base shrink-0" aria-hidden>{getAttachmentIcon(name)}</span>
+                    <span className="truncate flex-1" title={name}>{name}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 shrink-0"
+                      onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      열기
+                    </Button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}

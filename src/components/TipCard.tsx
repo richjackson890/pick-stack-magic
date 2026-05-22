@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tip } from '@/hooks/useTips';
 import { ArchiCategory } from '@/hooks/useArchiCategories';
-import { ExternalLink, Trash2, Heart, User, Sparkles, Loader2, ChevronDown, Pencil, MessageCircle, Bookmark } from 'lucide-react';
+import { ExternalLink, Trash2, Heart, User, Sparkles, Loader2, ChevronDown, Pencil, MessageCircle, Bookmark, Paperclip } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GuideTooltip } from '@/components/GuideTooltip';
 
@@ -43,9 +43,12 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
     e.stopPropagation();
     if (tip.url) {
       window.open(tip.url, '_blank', 'noopener,noreferrer');
-    } else {
-      onClick?.();
     }
+  };
+
+  const handleDetailClick = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onClick?.();
   };
 
   if (viewMode === 'list') {
@@ -92,11 +95,11 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
                   </span>
                 )}
               </div>
-              <h3 className="text-sm font-bold text-foreground leading-snug line-clamp-1 cursor-pointer hover:text-primary transition-colors" onClick={handleThumbnailClick}>
+              <h3 className="text-sm font-bold text-foreground leading-snug line-clamp-1 cursor-pointer hover:text-primary transition-colors" onClick={handleDetailClick}>
                 {tip.title}
               </h3>
               {tip.content && (
-                <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed">
+                <p className="text-xs text-muted-foreground line-clamp-1 leading-relaxed cursor-pointer" onClick={handleDetailClick}>
                   {tip.content}
                 </p>
               )}
@@ -115,6 +118,12 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
                 ))}
               </div>
               <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                {tip.attachments?.length > 0 && (
+                  <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <Paperclip className="h-3 w-3" />
+                    {tip.attachments.length}
+                  </span>
+                )}
                 <button
                   onClick={(e) => { e.stopPropagation(); onLike?.(); }}
                   className={cn("flex items-center gap-0.5 text-[10px] transition-colors", isLiked ? "text-red-500" : "text-muted-foreground")}
@@ -208,13 +217,13 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
         </div>
 
         {/* Title */}
-        <h3 className="text-base font-bold text-foreground leading-snug line-clamp-2 cursor-pointer hover:text-primary transition-colors" onClick={handleThumbnailClick}>
+        <h3 className="text-base font-bold text-foreground leading-snug line-clamp-2 cursor-pointer hover:text-primary transition-colors" onClick={handleDetailClick}>
           {tip.title}
         </h3>
 
         {/* Content preview */}
         {tip.content && (
-          <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+          <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed cursor-pointer" onClick={handleDetailClick}>
             {tip.content}
           </p>
         )}
@@ -298,21 +307,6 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
           </div>
         )}
 
-        {/* Attachment buttons */}
-        {tip.attachments && tip.attachments.length > 0 && (
-          <div className="grid grid-cols-2 gap-1.5 mt-2">
-            {tip.attachments.map((att, i) => (
-              <button
-                key={i}
-                onClick={(e) => { e.stopPropagation(); window.open(att.url, '_blank', 'noopener,noreferrer'); }}
-                className="text-xs py-1.5 px-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-medium"
-              >
-                {att.label}
-              </button>
-            ))}
-          </div>
-        )}
-
         {/* Footer: author + actions */}
         <div className="flex items-center justify-between pt-1.5 border-t border-border/30">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -333,6 +327,12 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
           </div>
 
           <div className="flex items-center gap-2">
+            {tip.attachments?.length > 0 && (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <Paperclip className="h-3 w-3" />
+                {tip.attachments.length}
+              </span>
+            )}
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={(e) => { e.stopPropagation(); onLike?.(); }}
