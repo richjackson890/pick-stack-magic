@@ -38,6 +38,8 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
   const [showAiSection, setShowAiSection] = useState(false);
   const authorName = tip.profiles?.display_name || tip.profiles?.name || tip.profiles?.email?.split('@')[0] || 'Unknown';
   const hasAiData = tip.ai_status === 'done' && (tip.ai_summary || tip.ai_tags?.length > 0);
+  const labeledAttachments = (tip.attachments || []).filter(a => a && a.label);
+  const freeAttachmentsCount = (tip.attachments || []).filter(a => a && !a.label).length;
 
   const handleThumbnailClick = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -118,10 +120,10 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
                 ))}
               </div>
               <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                {tip.attachments?.length > 0 && (
+                {freeAttachmentsCount > 0 && (
                   <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                     <Paperclip className="h-3 w-3" />
-                    {tip.attachments.length}
+                    {freeAttachmentsCount}
                   </span>
                 )}
                 <button
@@ -307,6 +309,21 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
           </div>
         )}
 
+        {/* Labeled attachment buttons */}
+        {labeledAttachments.length > 0 && (
+          <div className="grid grid-cols-2 gap-1.5 mt-2">
+            {labeledAttachments.map((att, i) => (
+              <button
+                key={i}
+                onClick={(e) => { e.stopPropagation(); window.open(att.url, '_blank', 'noopener,noreferrer'); }}
+                className="text-xs py-1.5 px-2 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary font-medium"
+              >
+                {att.label}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Footer: author + actions */}
         <div className="flex items-center justify-between pt-1.5 border-t border-border/30">
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -327,10 +344,10 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
           </div>
 
           <div className="flex items-center gap-2">
-            {tip.attachments?.length > 0 && (
+            {freeAttachmentsCount > 0 && (
               <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
                 <Paperclip className="h-3 w-3" />
-                {tip.attachments.length}
+                {freeAttachmentsCount}
               </span>
             )}
             <motion.button
