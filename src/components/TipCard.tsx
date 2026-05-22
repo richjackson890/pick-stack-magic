@@ -37,9 +37,10 @@ const CATEGORY_EMOJI: Record<string, string> = {
 export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, onBookmark, onClick, isLiked, isBookmarked, likeCount, commentCount, isAnalyzing, viewMode = 'grid' }: TipCardProps) {
   const [showAiSection, setShowAiSection] = useState(false);
   const authorName = tip.profiles?.display_name || tip.profiles?.name || tip.profiles?.email?.split('@')[0] || 'Unknown';
-  const hasAiData = tip.ai_status === 'done' && (tip.ai_summary || tip.ai_tags?.length > 0);
   const labeledAttachments = (tip.attachments || []).filter(a => a && a.label);
+  const hasLabeled = labeledAttachments.length > 0;
   const freeAttachmentsCount = (tip.attachments || []).filter(a => a && !a.label).length;
+  const hasAiData = !hasLabeled && tip.ai_status === 'done' && (tip.ai_summary || tip.ai_tags?.length > 0);
 
   const handleThumbnailClick = (e: React.MouseEvent) => {
     e.stopPropagation();
