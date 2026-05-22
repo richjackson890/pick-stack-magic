@@ -3,6 +3,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
+export const ATTACHMENT_LABELS = ['스크립트', '내용요약', '인포그래픽', '마인드맵'] as const;
+export type AttachmentLabel = typeof ATTACHMENT_LABELS[number];
+
+export interface TipAttachment {
+  label: string;
+  url: string;
+}
+
 export interface Tip {
   id: string;
   user_id: string;
@@ -15,7 +23,7 @@ export interface Tip {
   competition_name: string | null;
   likes: number;
   team_id: string | null;
-  attachments: string[];
+  attachments: TipAttachment[];
   created_at: string;
   // AI analysis fields
   ai_summary: string | null;
@@ -39,7 +47,7 @@ export type TipInsert = {
   tags?: string[];
   competition_name?: string;
   team_id?: string | null;
-  attachments?: string[];
+  attachments?: TipAttachment[];
 };
 
 export function useTips() {
