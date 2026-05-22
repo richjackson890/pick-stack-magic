@@ -183,8 +183,7 @@ export function useTips() {
       const { error } = await (supabase
         .from('tips' as any)
         .update(updates)
-        .eq('id', id)
-        .eq('user_id', user.id) as any);
+        .eq('id', id) as any);
 
       if (error) throw error;
 

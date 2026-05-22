@@ -26,7 +26,7 @@ const getFileNameFromUrl = (url: string): string => {
   try {
     const path = new URL(url).pathname;
     const last = decodeURIComponent(path.split('/').pop() || '');
-    return last.replace(/^\d+\./, '') || last;
+    return last.replace(/^\d+_/, '') || last;
   } catch {
     return url;
   }
@@ -359,9 +359,8 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
 
   const uploadAttachment = async (file: File): Promise<string> => {
     const userId = user?.id || 'anonymous';
-    const ext = (file.name.split('.').pop() || '').toLowerCase();
-    const safeName = ext ? `${Date.now()}.${ext}` : `${Date.now()}`;
-    const path = `${userId}/${safeName}`;
+    const safeName = file.name.replace(/[^a-zA-Z0-9.]/g, '_');
+    const path = `${userId}/${Date.now()}_${safeName}`;
 
     const { error: uploadError } = await supabase.storage
       .from('tip-attachments')

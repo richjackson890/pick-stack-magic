@@ -22,7 +22,7 @@ const getAttachmentName = (url: string): string => {
   try {
     const path = new URL(url).pathname;
     const last = decodeURIComponent(path.split('/').pop() || '');
-    return last.replace(/^\d+\./, '') || last;
+    return last.replace(/^\d+_/, '') || last;
   } catch {
     return url;
   }
