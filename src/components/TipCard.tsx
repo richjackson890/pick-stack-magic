@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tip } from '@/hooks/useTips';
 import { ArchiCategory } from '@/hooks/useArchiCategories';
-import { ExternalLink, Trash2, Heart, User, Sparkles, Loader2, ChevronDown, Pencil, MessageCircle, Bookmark } from 'lucide-react';
+import { ExternalLink, Trash2, Heart, User, Sparkles, Loader2, ChevronDown, Pencil, MessageCircle, Bookmark, Paperclip } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GuideTooltip } from '@/components/GuideTooltip';
 
@@ -41,11 +41,7 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
 
   const handleThumbnailClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (tip.url) {
-      window.open(tip.url, '_blank', 'noopener,noreferrer');
-    } else {
-      onClick?.();
-    }
+    onClick?.();
   };
 
   if (viewMode === 'list') {
@@ -115,6 +111,12 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
                 ))}
               </div>
               <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                {tip.attachments?.length > 0 && (
+                  <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                    <Paperclip className="h-3 w-3" />
+                    {tip.attachments.length}
+                  </span>
+                )}
                 <button
                   onClick={(e) => { e.stopPropagation(); onLike?.(); }}
                   className={cn("flex items-center gap-0.5 text-[10px] transition-colors", isLiked ? "text-red-500" : "text-muted-foreground")}
@@ -318,6 +320,12 @@ export function TipCard({ tip, category, onDelete, onEdit, onComment, onLike, on
           </div>
 
           <div className="flex items-center gap-2">
+            {tip.attachments?.length > 0 && (
+              <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                <Paperclip className="h-3 w-3" />
+                {tip.attachments.length}
+              </span>
+            )}
             <motion.button
               whileTap={{ scale: 0.9 }}
               onClick={(e) => { e.stopPropagation(); onLike?.(); }}
