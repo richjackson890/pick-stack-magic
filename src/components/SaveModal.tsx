@@ -8,13 +8,36 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { Check, Sparkles, ChevronDown, Plus, X, Loader2, ExternalLink, Upload } from 'lucide-react';
+import { Check, Sparkles, ChevronDown, Plus, X, Loader2, ExternalLink, Upload, Paperclip } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { GuideTooltip } from '@/components/GuideTooltip';
 import { ArchiCategory } from '@/hooks/useArchiCategories';
 import { Tip, TipInsert } from '@/hooks/useTips';
 import { useUrlPreview } from '@/hooks/useUrlPreview';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+
+const MAX_ATTACHMENTS = 10;
+const MAX_ATTACHMENT_SIZE = 20 * 1024 * 1024; // 20MB
+const ALLOWED_ATTACHMENT_EXTS = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'pptx', 'docx', 'xlsx', 'zip'];
+const ATTACHMENT_ACCEPT = '.pdf,.png,.jpg,.jpeg,.gif,.pptx,.docx,.xlsx,.zip';
+
+const getFileNameFromUrl = (url: string): string => {
+  try {
+    const path = new URL(url).pathname;
+    const last = decodeURIComponent(path.split('/').pop() || '');
+    // strip "<timestamp>_" prefix if present
+    return last.replace(/^\d+_/, '') || last;
+  } catch {
+    return url;
+  }
+};
+
+const formatBytes = (bytes: number): string => {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+};
 
 interface SaveModalProps {
   isOpen: boolean;
@@ -36,6 +59,7 @@ const CATEGORY_EMOJI: Record<string, string> = {
 };
 
 export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onSave, editingTip, teamId }: SaveModalProps) {
+  const { user } = useAuth();
   const { preview, loading: previewLoading, error: previewError, fetchPreview, clearPreview } = useUrlPreview();
   const [isSaved, setIsSaved] = useState(false);
   const [title, setTitle] = useState('');
@@ -50,8 +74,12 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
   const [privateOnly, setPrivateOnly] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [analyzingImage, setAnalyzingImage] = useState(false);
+  const [existingAttachments, setExistingAttachments] = useState<string[]>([]);
+  const [pendingAttachments, setPendingAttachments] = useState<File[]>([]);
+  const [uploadingAttachments, setUploadingAttachments] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -217,6 +245,8 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
       clearPreview();
       setTagInput('');
 
+      setPendingAttachments([]);
+
       if (editingTip) {
         setTitle(editingTip.title || '');
         setContent(editingTip.content || '');
@@ -226,6 +256,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
         setCompetitionName(editingTip.competition_name || '');
         setSelectedCategoryId(editingTip.category || '');
         setPrivateOnly(!editingTip.team_id);
+        setExistingAttachments(editingTip.attachments || []);
       } else {
         setTitle('');
         setContent('');
@@ -234,6 +265,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
         setTags([]);
         setCompetitionName('');
         setPrivateOnly(false);
+        setExistingAttachments([]);
         const defaultCat = getDefaultCategory();
         if (defaultCat) setSelectedCategoryId(defaultCat.id);
       }
@@ -282,8 +314,87 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
     setTags(prev => prev.filter(t => t !== tag));
   };
 
-  const handleSave = () => {
+  const handleAddAttachments = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    const totalCount = existingAttachments.length + pendingAttachments.length;
+    const remaining = MAX_ATTACHMENTS - totalCount;
+    if (remaining <= 0) {
+      alert(`첨부파일은 최대 ${MAX_ATTACHMENTS}개까지 추가할 수 있습니다.`);
+      if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+      return;
+    }
+
+    const accepted: File[] = [];
+    const rejected: string[] = [];
+    for (const file of Array.from(files)) {
+      if (accepted.length >= remaining) {
+        rejected.push(`${file.name} (개수 초과)`);
+        continue;
+      }
+      const ext = (file.name.split('.').pop() || '').toLowerCase();
+      if (!ALLOWED_ATTACHMENT_EXTS.includes(ext)) {
+        rejected.push(`${file.name} (지원하지 않는 형식)`);
+        continue;
+      }
+      if (file.size > MAX_ATTACHMENT_SIZE) {
+        rejected.push(`${file.name} (20MB 초과)`);
+        continue;
+      }
+      accepted.push(file);
+    }
+
+    if (accepted.length > 0) setPendingAttachments(prev => [...prev, ...accepted]);
+    if (rejected.length > 0) alert(`다음 파일은 추가되지 않았습니다:\n${rejected.join('\n')}`);
+    if (attachmentInputRef.current) attachmentInputRef.current.value = '';
+  };
+
+  const handleRemovePending = (index: number) => {
+    setPendingAttachments(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveExisting = (urlToRemove: string) => {
+    setExistingAttachments(prev => prev.filter(u => u !== urlToRemove));
+  };
+
+  const uploadAttachment = async (file: File): Promise<string> => {
+    const userId = user?.id || 'anonymous';
+    const safeName = file.name.replace(/[^\w.\-가-힣]/g, '_');
+    const path = `${userId}/${Date.now()}_${safeName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from('tip-attachments')
+      .upload(path, file, { contentType: file.type || 'application/octet-stream' });
+
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = supabase.storage
+      .from('tip-attachments')
+      .getPublicUrl(path);
+
+    return urlData.publicUrl;
+  };
+
+  const handleSave = async () => {
     if (!title.trim()) return;
+
+    let finalAttachments = [...existingAttachments];
+    if (pendingAttachments.length > 0) {
+      setUploadingAttachments(true);
+      try {
+        for (const file of pendingAttachments) {
+          const url = await uploadAttachment(file);
+          finalAttachments.push(url);
+        }
+      } catch (err: any) {
+        console.error('[SaveModal] Attachment upload error:', err);
+        alert('첨부파일 업로드 실패: ' + (err.message || ''));
+        setUploadingAttachments(false);
+        return;
+      }
+      setUploadingAttachments(false);
+    }
 
     setIsSaved(true);
 
@@ -296,6 +407,7 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
       tags: tags.length > 0 ? tags : undefined,
       competition_name: competitionName.trim() || undefined,
       team_id: !privateOnly && teamId ? teamId : null,
+      attachments: finalAttachments,
     });
 
     setTimeout(() => {
@@ -543,6 +655,76 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
               )}
             </div>
 
+            {/* Attachments */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium flex items-center gap-1.5">
+                <Paperclip className="h-3.5 w-3.5" />
+                첨부파일 (최대 {MAX_ATTACHMENTS}개, PDF/이미지/문서)
+              </label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => attachmentInputRef.current?.click()}
+                  disabled={existingAttachments.length + pendingAttachments.length >= MAX_ATTACHMENTS}
+                  className="flex-1"
+                >
+                  <Plus className="h-4 w-4 mr-1" />
+                  파일 추가
+                </Button>
+                <input
+                  ref={attachmentInputRef}
+                  type="file"
+                  accept={ATTACHMENT_ACCEPT}
+                  multiple
+                  onChange={handleAddAttachments}
+                  className="hidden"
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground">
+                PDF, PNG, JPG, GIF, PPTX, DOCX, XLSX, ZIP · 파일당 최대 20MB
+              </p>
+
+              {(existingAttachments.length > 0 || pendingAttachments.length > 0) && (
+                <div className="space-y-1.5">
+                  {existingAttachments.map((u, i) => (
+                    <div key={`exist-${i}`} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-secondary/50 text-xs">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <Paperclip className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        <span className="truncate" title={getFileNameFromUrl(u)}>{getFileNameFromUrl(u)}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveExisting(u)}
+                        className="text-muted-foreground hover:text-destructive shrink-0"
+                        title="제거"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                  {pendingAttachments.map((f, i) => (
+                    <div key={`pend-${i}`} className="flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-md bg-primary/5 text-xs">
+                      <div className="flex items-center gap-2 min-w-0 flex-1">
+                        <Paperclip className="h-3 w-3 shrink-0 text-primary" />
+                        <span className="truncate" title={f.name}>{f.name}</span>
+                        <span className="text-muted-foreground shrink-0">{formatBytes(f.size)}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePending(i)}
+                        className="text-muted-foreground hover:text-destructive shrink-0"
+                        title="제거"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Team Share Toggle */}
             {teamId && (
               <GuideTooltip name="share_team" message="팀원들과 팁을 공유할 수 있어요" position="bottom">
@@ -571,9 +753,16 @@ export function SaveModal({ isOpen, categories, getDefaultCategory, onClose, onS
             <Button
               className="w-full h-12 text-base font-semibold gradient-primary hover:opacity-90"
               onClick={handleSave}
-              disabled={!title.trim()}
+              disabled={!title.trim() || uploadingAttachments}
             >
-              {editingTip ? 'Update Tip' : 'Save Tip'}
+              {uploadingAttachments ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  첨부파일 업로드 중...
+                </span>
+              ) : (
+                editingTip ? 'Update Tip' : 'Save Tip'
+              )}
             </Button>
           </div>
         )}

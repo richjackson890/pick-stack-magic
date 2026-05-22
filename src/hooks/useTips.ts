@@ -15,6 +15,7 @@ export interface Tip {
   competition_name: string | null;
   likes: number;
   team_id: string | null;
+  attachments: string[];
   created_at: string;
   // AI analysis fields
   ai_summary: string | null;
@@ -38,6 +39,7 @@ export type TipInsert = {
   tags?: string[];
   competition_name?: string;
   team_id?: string | null;
+  attachments?: string[];
 };
 
 export function useTips() {
@@ -62,6 +64,7 @@ export function useTips() {
         ...tip,
         tags: tip.tags || [],
         likes: tip.likes || 0,
+        attachments: tip.attachments || [],
         ai_summary: tip.ai_summary || null,
         ai_tags: tip.ai_tags || [],
         ai_suggested_category: tip.ai_suggested_category || null,
@@ -97,7 +100,7 @@ export function useTips() {
         .eq('is_deleted', true)
         .gte('deleted_at', thirtyDaysAgo)
         .order('deleted_at', { ascending: false }) as any);
-      setDeletedTips((delData || []).map((tip: any) => ({ ...tip, tags: tip.tags || [], likes: tip.likes || 0, ai_tags: tip.ai_tags || [] })));
+      setDeletedTips((delData || []).map((tip: any) => ({ ...tip, tags: tip.tags || [], likes: tip.likes || 0, attachments: tip.attachments || [], ai_tags: tip.ai_tags || [] })));
     } catch (error: any) {
       console.error('Error fetching tips:', error);
       toast({
@@ -130,6 +133,7 @@ export function useTips() {
           tags: tip.tags || [],
           competition_name: tip.competition_name || null,
           team_id: tip.team_id || null,
+          attachments: tip.attachments || [],
         })
         .select('*')
         .single() as any);
@@ -151,6 +155,7 @@ export function useTips() {
         ...data,
         tags: data.tags || [],
         likes: data.likes || 0,
+        attachments: data.attachments || [],
         ai_summary: data.ai_summary || null,
         ai_tags: data.ai_tags || [],
         ai_suggested_category: data.ai_suggested_category || null,

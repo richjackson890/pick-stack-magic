@@ -7,8 +7,26 @@ import { Tip } from '@/hooks/useTips';
 import { useTipComments, TipComment } from '@/hooks/useTipComments';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
-import { Send, Trash2, User, Loader2, MessageCircle, Trophy, Save } from 'lucide-react';
+import { Send, Trash2, User, Loader2, MessageCircle, Trophy, Save, Paperclip, ExternalLink } from 'lucide-react';
 import { TeamMember } from '@/hooks/useTeam';
+
+const getAttachmentIcon = (filename: string): string => {
+  const ext = filename.split('.').pop()?.toLowerCase() || '';
+  if (ext === 'pdf') return '📄';
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) return '🖼️';
+  if (['xlsx', 'pptx'].includes(ext)) return '📊';
+  return '📎';
+};
+
+const getAttachmentName = (url: string): string => {
+  try {
+    const path = new URL(url).pathname;
+    const last = decodeURIComponent(path.split('/').pop() || '');
+    return last.replace(/^\d+_/, '') || last;
+  } catch {
+    return url;
+  }
+};
 
 interface TipDetailModalProps {
   tip: Tip | null;
@@ -129,6 +147,40 @@ export function TipDetailModal({ tip, isOpen, onClose, onCommentAdded, onTipUpda
             )
           )}
         </div>
+
+        {/* Attachments */}
+        {tip.attachments && tip.attachments.length > 0 && (
+          <div className="shrink-0 px-6 py-3 space-y-2 border-b border-border/20">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+              <Paperclip className="h-3.5 w-3.5" />
+              첨부파일 ({tip.attachments.length})
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {tip.attachments.map((url, i) => {
+                const name = getAttachmentName(url);
+                const icon = getAttachmentIcon(name);
+                return (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 px-2.5 py-2 rounded-md bg-secondary/40 text-xs min-w-0"
+                  >
+                    <span className="text-base shrink-0" aria-hidden>{icon}</span>
+                    <span className="truncate flex-1" title={name}>{name}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 shrink-0"
+                      onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}
+                    >
+                      <ExternalLink className="h-3 w-3 mr-1" />
+                      열기
+                    </Button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Comments list - scrollable */}
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-4 space-y-4 min-h-0">
