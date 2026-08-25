@@ -88,22 +88,21 @@ export interface ProjectType {
   created_by: string | null;
 }
 
-export interface WeekSnapshot {
+// The history list only needs the week labels. The `snapshot` jsonb holds a full
+// copy of that week's projects/events/leaves/balances — ~65KB for 12 weeks — so
+// it is fetched one row at a time, when a week is actually opened.
+export interface WeekSnapshotMeta {
   id: string;
   week_start: string;
   week_end: string;
-  snapshot: { projects: Project[]; events: TeamEvent[]; leaves: Leave[]; balances: LeaveBalance[] };
   created_at: string;
 }
 
-export function useWorkDashboard(teamId: string | undefined) {
-  // TEMP debug — tracing the fetchAll remount loop. Remove once the driver is found.
-  const instanceId = useRef(Math.random().toString(36).slice(2, 6));
-  useEffect(() => {
-    console.log('[WD] MOUNT', instanceId.current, teamId);
-    return () => console.log('[WD] UNMOUNT', instanceId.current);
-  }, []);
+export interface WeekSnapshot extends WeekSnapshotMeta {
+  snapshot: { projects: Project[]; events: TeamEvent[]; leaves: Leave[]; balances: LeaveBalance[] };
+}
 
+export function useWorkDashboard(teamId: string | undefined) {
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [events, setEvents] = useState<TeamEvent[]>([]);
@@ -113,7 +112,7 @@ export function useWorkDashboard(teamId: string | undefined) {
   const carryYear = getMonthKST() <= CARRY_OVER_END_MONTH ? getYearKST() - 1 : null;
   const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
   const [loading, setLoading] = useState(true);
-  const [snapshots, setSnapshots] = useState<WeekSnapshot[]>([]);
+  const [snapshots, setSnapshots] = useState<WeekSnapshotMeta[]>([]);
   const [viewingSnapshot, setViewingSnapshot] = useState<WeekSnapshot | null>(null);
   const [deletedProjects, setDeletedProjects] = useState<Project[]>([]);
   const [deletedEvents, setDeletedEvents] = useState<TeamEvent[]>([]);
@@ -142,7 +141,7 @@ export function useWorkDashboard(teamId: string | undefined) {
     console.log('[WorkDashboard] fetchAll - week:', week);
 
     try {
-      // Fetch team member user_ids
+      // Round 1 — team member user_ids. Everything below filters on these.
       let teamUserIds: string[] = [user.id];
       if (teamId) {
         const { data: tmRows } = await (supabase
@@ -151,151 +150,119 @@ export function useWorkDashboard(teamId: string | undefined) {
           .eq('team_id', teamId)
           .eq('status', 'active') as any);
         if (tmRows && tmRows.length > 0) {
-          teamUserIds = [...new Set(tmRows.map((r: any) => r.user_id).filter(Boolean))];
+          teamUserIds = [...new Set(tmRows.map((r: any) => r.user_id).filter(Boolean))] as string[];
         }
       }
 
-      // Projects (active) — created by team OR assigned to team members
-      const { data: projectsData } = await (supabase
-        .from('projects') as any)
-        .select('*')
-        .in('created_by', teamUserIds)
-        .eq('status', '진행중')
-        .or('is_deleted.is.null,is_deleted.eq.false')
-        .order('sort_order', { ascending: true })
-        .order('created_at', { ascending: false }) as any;
+      const yearStr = String(getYearKST());
+      const yearStart = `${yearStr}-01-01`;
+      const yearEnd = `${yearStr}-12-31`;
+      // 1~2월에는 아직 살아 있는 전년도 이월분도 함께 가져온다.
+      const balanceYears = carryYear ? [carryYear, getYearKST()] : [getYearKST()];
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
-      // Also fetch projects where team members are assigned (not just creator)
-      const { data: memberProjectRows } = await (supabase
-        .from('project_members' as any)
-        .select('project_id')
-        .in('user_id', teamUserIds) as any);
-      const memberProjectIds = [...new Set((memberProjectRows || []).map((r: any) => r.project_id))];
+      // Round 2 — everything that needs nothing but teamUserIds, in parallel.
+      const [
+        projectsRes, memberProjectRes, eventsRes, leavesRes, balRes, typesRes,
+        delProjectsRes, delEventsRes, delLeavesRes,
+      ] = await Promise.all([
+        (supabase.from('projects' as any).select('*').in('created_by', teamUserIds).eq('status', '진행중').or('is_deleted.is.null,is_deleted.eq.false').order('sort_order', { ascending: true }).order('created_at', { ascending: false }) as any),
+        (supabase.from('project_members' as any).select('project_id').in('user_id', teamUserIds) as any),
+        (supabase.from('team_events' as any).select('*').in('created_by', teamUserIds).gte('event_date', yearStart).lte('event_date', yearEnd).or('is_deleted.is.null,is_deleted.eq.false').order('event_date') as any),
+        (supabase.from('leaves' as any).select('*').in('user_id', teamUserIds).gte('leave_date', yearStart).lte('leave_date', yearEnd).or('is_deleted.is.null,is_deleted.eq.false').order('leave_date') as any),
+        (supabase.from('leave_balance' as any).select('*').in('user_id', teamUserIds).in('year', balanceYears) as any),
+        (supabase.from('project_types' as any).select('*').order('is_default', { ascending: false }) as any),
+        (supabase.from('projects' as any).select('*').in('created_by', teamUserIds).eq('is_deleted', true).gte('deleted_at', thirtyDaysAgo).order('deleted_at', { ascending: false }) as any),
+        (supabase.from('team_events' as any).select('*').in('created_by', teamUserIds).eq('is_deleted', true).gte('deleted_at', thirtyDaysAgo).order('deleted_at', { ascending: false }) as any),
+        (supabase.from('leaves' as any).select('*').in('user_id', teamUserIds).eq('is_deleted', true).gte('deleted_at', thirtyDaysAgo).order('deleted_at', { ascending: false }) as any),
+      ]);
 
-      // Fetch those projects that aren't already in projectsData
-      const existingIds = new Set((projectsData || []).map((p: any) => p.id));
-      const missingIds = memberProjectIds.filter((id: string) => !existingIds.has(id));
+      // Round 3 — projects a member is assigned to but didn't create.
+      const projectsData = projectsRes.data || [];
+      const memberProjectIds = [...new Set((memberProjectRes.data || []).map((r: any) => r.project_id))];
+      const existingIds = new Set(projectsData.map((p: any) => p.id));
+      const missingIds = memberProjectIds.filter((id: any) => !existingIds.has(id)) as string[];
       let extraProjects: any[] = [];
       if (missingIds.length > 0) {
         const { data: extraData } = await (supabase
-          .from('projects') as any)
+          .from('projects' as any)
           .select('*')
           .in('id', missingIds)
           .eq('status', '진행중')
-          .or('is_deleted.is.null,is_deleted.eq.false') as any;
+          .or('is_deleted.is.null,is_deleted.eq.false') as any);
         extraProjects = extraData || [];
       }
 
-      const rawProjects: Project[] = [...(projectsData || []), ...extraProjects].map((p: any) => ({ ...p, members: [], tasks: [] }));
+      const rawProjects: Project[] = [...projectsData, ...extraProjects].map((p: any) => ({ ...p, members: [], tasks: [] }));
+      const rawLeaves: Leave[] = leavesRes.data || [];
+      const rawBal: LeaveBalance[] = balRes.data || [];
 
-      if (rawProjects.length > 0) {
-        const projectIds = rawProjects.map(p => p.id);
+      const projectIds = rawProjects.map(p => p.id);
+      const leaveUids = [...new Set(rawLeaves.map(l => l.user_id))];
+      const balUids = [...new Set(rawBal.map(b => b.user_id))];
+      const empty = Promise.resolve({ data: [] as any[] });
 
-        // Fetch project members + profiles
-        const { data: membersData } = await (supabase
-          .from('project_members' as any)
-          .select('*')
-          .in('project_id', projectIds) as any);
+      // Round 4 — project detail plus the profile lookups for leaves/balances.
+      const [pMembersRes, tasksRes, leaveProfRes, balProfRes] = await Promise.all([
+        projectIds.length ? (supabase.from('project_members' as any).select('*').in('project_id', projectIds) as any) : empty,
+        projectIds.length ? (supabase.from('project_tasks' as any).select('*').in('project_id', projectIds).order('sort_order', { ascending: true }).order('start_date') as any) : empty,
+        leaveUids.length ? (supabase.from('profiles' as any).select('id, name, display_name, avatar_url').in('id', leaveUids) as any) : empty,
+        balUids.length ? (supabase.from('profiles' as any).select('id, name, display_name, avatar_url').in('id', balUids) as any) : empty,
+      ]);
 
-        if (membersData && membersData.length > 0) {
-          const userIds = [...new Set(membersData.map((m: any) => m.user_id))];
-          const { data: profiles } = await (supabase
-            .from('profiles' as any)
-            .select('id, name, display_name, position, seniority, avatar_url')
-            .in('id', userIds) as any);
+      const membersData: any[] = pMembersRes.data || [];
+      const tasksData: any[] = tasksRes.data || [];
 
-          const profileMap: Record<string, any> = {};
-          (profiles || []).forEach((p: any) => { profileMap[p.id] = p; });
-
-          rawProjects.forEach(proj => {
-            proj.members = (membersData as any[])
-              .filter((m: any) => m.project_id === proj.id)
-              .map((m: any) => ({
-                user_id: m.user_id,
-                name: profileMap[m.user_id]?.display_name || profileMap[m.user_id]?.name || null,
-                display_name: profileMap[m.user_id]?.display_name || null,
-                position: profileMap[m.user_id]?.position || null,
-                seniority: profileMap[m.user_id]?.seniority ?? null,
-              }));
-          });
-        }
-
-        // Fetch project tasks
-        const { data: tasksData } = await (supabase
-          .from('project_tasks' as any)
-          .select('*')
-          .in('project_id', projectIds)
-          .order('sort_order', { ascending: true })
-          .order('start_date') as any);
-
-        if (tasksData && tasksData.length > 0) {
-          rawProjects.forEach(proj => {
-            proj.tasks = (tasksData as any[]).filter((t: any) => t.project_id === proj.id);
-          });
-        }
+      // Round 5 — profiles for project members (needs the member rows first).
+      const memberUids = [...new Set(membersData.map((m: any) => m.user_id))];
+      let memberProfiles: any[] = [];
+      if (memberUids.length > 0) {
+        const { data } = await (supabase
+          .from('profiles' as any)
+          .select('id, name, display_name, position, seniority, avatar_url')
+          .in('id', memberUids) as any);
+        memberProfiles = data || [];
       }
+
+      const profileMap: Record<string, any> = {};
+      memberProfiles.forEach((p: any) => { profileMap[p.id] = p; });
+      rawProjects.forEach(proj => {
+        proj.members = membersData
+          .filter((m: any) => m.project_id === proj.id)
+          .map((m: any) => ({
+            user_id: m.user_id,
+            name: profileMap[m.user_id]?.display_name || profileMap[m.user_id]?.name || null,
+            display_name: profileMap[m.user_id]?.display_name || null,
+            position: profileMap[m.user_id]?.position || null,
+            seniority: profileMap[m.user_id]?.seniority ?? null,
+          }));
+        proj.tasks = tasksData.filter((t: any) => t.project_id === proj.id);
+      });
+
+      const leavePMap: Record<string, any> = {};
+      (leaveProfRes.data || []).forEach((p: any) => { leavePMap[p.id] = { name: p.display_name || p.name, avatar_url: p.avatar_url }; });
+      rawLeaves.forEach(l => { l.profile = leavePMap[l.user_id]; });
+
+      const balPMap: Record<string, any> = {};
+      (balProfRes.data || []).forEach((p: any) => { balPMap[p.id] = { name: p.display_name || p.name, avatar_url: p.avatar_url }; });
+      rawBal.forEach(b => { b.profile = balPMap[b.user_id]; });
+
       console.log('[WorkDashboard] fetched projects:', rawProjects.length);
-      setProjects([...rawProjects]);
-
-      // Events — current year, all team members
-      const eventYearStr = String(getYearKST());
-      const eventYearStart = `${eventYearStr}-01-01`;
-      const eventYearEnd = `${eventYearStr}-12-31`;
-      const eventQuery = (supabase.from('team_events' as any).select('*').in('created_by', teamUserIds).gte('event_date', eventYearStart).lte('event_date', eventYearEnd).or('is_deleted.is.null,is_deleted.eq.false').order('event_date') as any);
-      const { data: eventsData } = await eventQuery;
-      console.log('[WorkDashboard] fetched events:', (eventsData || []).length);
-      setEvents([...(eventsData || [])]);
-
-      // Leaves — current year, all team members
-      const currentYearStr = String(getYearKST());
-      const leaveYearStart = `${currentYearStr}-01-01`;
-      const leaveYearEnd = `${currentYearStr}-12-31`;
-      const leaveQuery = (supabase.from('leaves' as any).select('*').in('user_id', teamUserIds).gte('leave_date', leaveYearStart).lte('leave_date', leaveYearEnd).or('is_deleted.is.null,is_deleted.eq.false').order('leave_date') as any);
-      const { data: leavesData } = await leaveQuery;
-
-      const rawLeaves: Leave[] = leavesData || [];
-      if (rawLeaves.length > 0) {
-        const uids = [...new Set(rawLeaves.map(l => l.user_id))];
-        const { data: profiles } = await (supabase.from('profiles' as any).select('id, name, display_name, avatar_url').in('id', uids) as any);
-        const pMap: Record<string, any> = {};
-        (profiles || []).forEach((p: any) => { pMap[p.id] = { name: p.display_name || p.name, avatar_url: p.avatar_url }; });
-        rawLeaves.forEach(l => { l.profile = pMap[l.user_id]; });
-      }
+      console.log('[WorkDashboard] fetched events:', (eventsRes.data || []).length);
       console.log('[WorkDashboard] fetched leaves:', rawLeaves.length);
-      setLeaves([...rawLeaves]);
 
-      // Leave balances — 1~2월에는 아직 살아 있는 전년도 이월분도 함께 가져온다.
-      const currentYear = getYearKST();
-      const balanceYears = carryYear ? [carryYear, currentYear] : [currentYear];
-      const { data: balData } = await (supabase.from('leave_balance' as any).select('*').in('user_id', teamUserIds).in('year', balanceYears) as any);
-      const rawBal: LeaveBalance[] = balData || [];
-      if (rawBal.length > 0) {
-        const uids = [...new Set(rawBal.map(b => b.user_id))];
-        const { data: profiles } = await (supabase.from('profiles' as any).select('id, name, display_name, avatar_url').in('id', uids) as any);
-        const pMap: Record<string, any> = {};
-        (profiles || []).forEach((p: any) => { pMap[p.id] = { name: p.display_name || p.name, avatar_url: p.avatar_url }; });
-        rawBal.forEach(b => { b.profile = pMap[b.user_id]; });
-      }
+      setProjects(rawProjects);
+      setEvents(eventsRes.data || []);
+      setLeaves(rawLeaves);
       setBalances(rawBal);
-      // Project types
-      const { data: typesData } = await (supabase
-        .from('project_types' as any)
-        .select('*')
-        .order('is_default', { ascending: false }) as any);
-      setProjectTypes(typesData || []);
+      setProjectTypes(typesRes.data || []);
 
       // used_days sync is handled by the DB trigger trg_sync_leave_balance on leaves changes.
 
-      // Fetch recently deleted items (last 30 days)
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-      const { data: delProjects } = await (supabase.from('projects' as any).select('*').in('created_by', teamUserIds).eq('is_deleted', true).gte('deleted_at', thirtyDaysAgo).order('deleted_at', { ascending: false }) as any);
-      setDeletedProjects((delProjects || []).map((p: any) => ({ ...p, members: [], tasks: [] })));
-
-      const { data: delEvents } = await (supabase.from('team_events' as any).select('*').in('created_by', teamUserIds).eq('is_deleted', true).gte('deleted_at', thirtyDaysAgo).order('deleted_at', { ascending: false }) as any);
-      setDeletedEvents(delEvents || []);
-
-      const { data: delLeaves } = await (supabase.from('leaves' as any).select('*').in('user_id', teamUserIds).eq('is_deleted', true).gte('deleted_at', thirtyDaysAgo).order('deleted_at', { ascending: false }) as any);
-      setDeletedLeaves(delLeaves || []);
+      // Recently deleted items (last 30 days)
+      setDeletedProjects((delProjectsRes.data || []).map((p: any) => ({ ...p, members: [], tasks: [] })));
+      setDeletedEvents(delEventsRes.data || []);
+      setDeletedLeaves(delLeavesRes.data || []);
 
     } catch {
       // Silently handle — tables may not exist yet
@@ -306,7 +273,7 @@ export function useWorkDashboard(teamId: string | undefined) {
   }, [user?.id, teamId, carryYear]);
 
   useEffect(() => {
-    console.log('[WorkDashboard] fetchAll triggered —', instanceId.current, 'user:', user?.id, 'teamId:', teamId);
+    console.log('[WorkDashboard] fetchAll triggered — user:', user?.id, 'teamId:', teamId);
     fetchAll();
   }, [fetchAll]);
 
@@ -757,21 +724,31 @@ export function useWorkDashboard(teamId: string | undefined) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, loading]);
 
-  // Fetch snapshot list
+  // Fetch snapshot list — metadata only. Not keyed on `loading`: that made it
+  // run twice per mount for a list that never changes between the two runs.
   useEffect(() => {
     if (!user) return;
     (async () => {
       const { data } = await (supabase.from('weekly_snapshots' as any)
-        .select('*')
+        .select('id, week_start, week_end, created_at')
         .eq('user_id', user.id)
         .order('week_start', { ascending: false })
         .limit(12) as any);
       setSnapshots(data || []);
     })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, loading]);
+  }, [user?.id]);
 
-  const viewSnapshot = (snap: WeekSnapshot | null) => setViewingSnapshot(snap);
+  // Pulls the snapshot body for the one week being opened.
+  const viewSnapshot = async (snap: WeekSnapshotMeta | null) => {
+    if (!snap) { setViewingSnapshot(null); return; }
+    const { data } = await (supabase.from('weekly_snapshots' as any)
+      .select('snapshot')
+      .eq('id', snap.id)
+      .maybeSingle() as any);
+    if (!data?.snapshot) return;
+    setViewingSnapshot({ ...snap, snapshot: data.snapshot });
+  };
 
   const updateProjectOrder = async (orderedIds: string[]) => {
     // Optimistically update local state

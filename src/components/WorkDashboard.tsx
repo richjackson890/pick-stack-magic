@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useWorkDashboard, Project, TeamEvent, Leave, WeekSnapshot } from '@/hooks/useWorkDashboard';
+import { Project, TeamEvent, Leave, WeekSnapshotMeta } from '@/hooks/useWorkDashboard';
+import { useWorkDashboardContext } from '@/contexts/WorkDashboardContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { TeamMember } from '@/hooks/useTeam';
 import { GuideTooltip } from '@/components/GuideTooltip';
@@ -59,7 +60,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     restoreProject, restoreEvent, restoreLeave,
     updateProjectOrder,
     snapshots, viewingSnapshot, viewSnapshot,
-  } = useWorkDashboard(teamId);
+  } = useWorkDashboardContext();
 
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [showHistory, setShowHistory] = useState(false);
@@ -342,7 +343,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     const now = new Date();
     return `${now.getFullYear()}년 ${now.getMonth() + 1}월`;
   };
-  const getSnapshotLabel = (s: WeekSnapshot) => {
+  const getSnapshotLabel = (s: WeekSnapshotMeta) => {
     const mon = new Date(s.week_start + 'T00:00:00');
     const fri = new Date(s.week_end + 'T00:00:00');
     return `${fmtWeekDate(mon)} ~ ${fmtWeekDate(fri)}`;

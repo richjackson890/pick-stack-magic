@@ -26,6 +26,7 @@ import { InstallBanner } from '@/components/InstallBanner';
 import { WorkDashboard } from '@/components/WorkDashboard';
 import { CalendarView } from '@/components/CalendarView';
 import { useWorkDashboard } from '@/hooks/useWorkDashboard';
+import { WorkDashboardProvider } from '@/contexts/WorkDashboardContext';
 import { OnboardingModal } from '@/components/OnboardingModal';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { TaskAssignmentPopup } from '@/components/TaskAssignmentPopup';
@@ -39,7 +40,10 @@ const Index = () => {
   const { categories, loading: categoriesLoading, getCategoryById, getDefaultCategory, addCategory, updateCategory, deleteCategory } = useArchiCategories();
   const { analyzeTip, analyzingIds } = useGroqAnalysis();
   const { team, members: teamMembers } = useTeam();
-  const { projects: calProjects, events: calEvents, leaves: calLeaves } = useWorkDashboard(team?.id);
+  // Single useWorkDashboard instance for the whole page — CalendarView reads it
+  // directly, WorkDashboard gets it through WorkDashboardProvider.
+  const workDashboard = useWorkDashboard(team?.id);
+  const { projects: calProjects, events: calEvents, leaves: calLeaves } = workDashboard;
   const { toggleLike, isLiked, setInitialCount, getCount } = useTipLikes();
   const { toggleBookmark, isBookmarked, bookmarkedIds } = useBookmarks();
   const { notifications, unreadCount, newTaskAssignment, dismissTaskAssignment, newMentionNotification, dismissMention, markAsRead, markAllAsRead, createNotification } = useNotifications();
@@ -474,6 +478,7 @@ const Index = () => {
   );
 
   return (
+    <WorkDashboardProvider value={workDashboard}>
     <div className="min-h-screen pb-24">
       <Header
         notifications={notifications}
@@ -798,6 +803,7 @@ const Index = () => {
         )}
       </AnimatePresence>
     </div>
+    </WorkDashboardProvider>
   );
 };
 
