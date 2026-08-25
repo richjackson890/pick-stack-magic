@@ -32,6 +32,10 @@ export function useNotifications() {
   // Mentions already surfaced this session — a dismissed toast must not
   // reappear while markAsRead is still in flight and the poll still sees unread.
   const shownMentionIds = useRef<Set<string>>(new Set());
+  // The mention currently on screen. Kept in a ref because the poll and the
+  // realtime callback capture this closure and would otherwise read a stale
+  // newMentionNotification.
+  const currentMentionRef = useRef<Notification | null>(null);
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
@@ -78,16 +82,16 @@ export function useNotifications() {
     setNotifications(enriched);
     setUnreadCount(enriched.filter((n: any) => !n.read).length);
 
-    // Show toast for most recent unread mention (on initial load).
-    // Functional update: this callback is captured by the 30s poll and the
-    // realtime subscription, so reading newMentionNotification directly would
-    // always see the first-render value and re-open a dismissed toast.
+    // Show toast for the most recent unread mention. A mention is marked shown
+    // only when the toast actually takes it — one skipped because another toast
+    // was still up has to stay eligible for the next poll.
     const unreadMention = enriched.find(
       (n: any) => n.type === 'mention' && !n.read && !shownMentionIds.current.has(n.id)
     );
-    if (unreadMention) {
+    if (unreadMention && !currentMentionRef.current) {
+      currentMentionRef.current = unreadMention;
       shownMentionIds.current.add(unreadMention.id);
-      setNewMentionNotification(prev => prev ?? unreadMention);
+      setNewMentionNotification(unreadMention);
     }
   }, [user]);
 
@@ -125,6 +129,7 @@ export function useNotifications() {
           if (row.type === 'task_assignment') {
             setNewTaskAssignment(enriched);
           } else if (row.type === 'mention') {
+            currentMentionRef.current = enriched;
             shownMentionIds.current.add(row.id);
             setNewMentionNotification(enriched);
           }
@@ -139,7 +144,10 @@ export function useNotifications() {
   }, [user, fetchNotifications]);
 
   const dismissTaskAssignment = () => setNewTaskAssignment(null);
-  const dismissMention = () => setNewMentionNotification(null);
+  const dismissMention = () => {
+    currentMentionRef.current = null;
+    setNewMentionNotification(null);
+  };
 
   const markAsRead = async (id: string) => {
     await (supabase
