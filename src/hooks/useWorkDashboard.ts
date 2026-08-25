@@ -41,7 +41,7 @@ export interface Project {
   status: string;
   created_by: string;
   sort_order: number;
-  members: { user_id: string; name: string | null; display_name: string | null; position: string | null }[];
+  members: { user_id: string; name: string | null; display_name: string | null; position: string | null; seniority: number | null }[];
   tasks: ProjectTask[];
 }
 
@@ -194,7 +194,7 @@ export function useWorkDashboard(teamId: string | undefined) {
           const userIds = [...new Set(membersData.map((m: any) => m.user_id))];
           const { data: profiles } = await (supabase
             .from('profiles' as any)
-            .select('id, name, display_name, position, avatar_url')
+            .select('id, name, display_name, position, seniority, avatar_url')
             .in('id', userIds) as any);
 
           const profileMap: Record<string, any> = {};
@@ -208,6 +208,7 @@ export function useWorkDashboard(teamId: string | undefined) {
                 name: profileMap[m.user_id]?.display_name || profileMap[m.user_id]?.name || null,
                 display_name: profileMap[m.user_id]?.display_name || null,
                 position: profileMap[m.user_id]?.position || null,
+                seniority: profileMap[m.user_id]?.seniority ?? null,
               }));
           });
         }

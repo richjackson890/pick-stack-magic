@@ -27,7 +27,9 @@
   차감 내역은 leaves.deducted_years (jsonb) 에 기록한다. 예: [{"year":2026,"days":0.5}]
 - leaves 삭제는 소프트 삭제(is_deleted=true)다. 집계 시 항상 제외할 것.
 - 스키마를 추측하지 말 것. 제약은 pg_constraint 로 확인한다.
-- 직급 정렬 기준: 소장>실장>팀장/책임>팀장>대리>소원, 동일 직급은 가나다순.
+- 직급 정렬 기준: 소장>실장>팀장/책임>팀장>대리>소원, 동일 직급은 seniority 오름차순,
+  seniority 가 같거나 없으면 가나다순. seniority 는 profiles 컬럼이며
+  신규 입사자는 SQL 로 값을 넣어야 한다.
   ProfileSetupModal 의 선택지와 정렬 배열(src/utils/sortMembers.ts)은 항상 일치해야 한다.
 - team_members.leave_tracked=false 는 연차 화면에서만 제외한다.
   팁/프로젝트 등 다른 기능에서는 제외하지 않는다.
@@ -47,5 +49,8 @@
 - 퇴사자 2명(1999alswo, chun1995)의 leave_balance 행이 남아 있음
 - 표시명 '부설연구소 김은주' 정리 필요
 - balance_deducted 컬럼은 죽은 플래그. 쓰기만 하고 읽지 않음. 정리 대상
+- 관리자가 팀원의 직급·seniority 를 수정할 UI 가 없다.
+  ProfileSetupModal 에서 본인이 최초 1회 고르는 것이 전부라
+  승진·오타 정정은 SQL 로만 가능하다
 - leave_balance.total_days/used_days 수동 보정이 유일한 교정 수단.
   델타 차감이 네트워크 실패로 어긋나도 자동 복구되지 않는다.

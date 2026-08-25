@@ -23,6 +23,7 @@ export interface TeamMember {
     name: string | null;
     display_name: string | null;
     position: string | null;
+    seniority?: number | null;
     avatar_url: string | null;
     email: string;
   };
@@ -93,13 +94,13 @@ export function useTeam() {
         const userIds = [...new Set(rawMembers.map(m => m.user_id).filter(Boolean))];
         const { data: profiles } = await (supabase
           .from('profiles' as any)
-          .select('id, name, display_name, position, avatar_url, email')
+          .select('id, name, display_name, position, seniority, avatar_url, email')
           .in('id', userIds) as any);
 
         if (profiles) {
           const profileMap: Record<string, TeamMember['profiles']> = {};
           profiles.forEach((p: any) => {
-            profileMap[p.id] = { name: p.name, display_name: p.display_name, position: p.position, avatar_url: p.avatar_url, email: p.email };
+            profileMap[p.id] = { name: p.name, display_name: p.display_name, position: p.position, seniority: p.seniority, avatar_url: p.avatar_url, email: p.email };
           });
           rawMembers.forEach(m => { m.profiles = profileMap[m.user_id]; });
         }

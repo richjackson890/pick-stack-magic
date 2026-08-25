@@ -26,30 +26,42 @@ export function getPositionOrder(position: string | null | undefined): number {
 
 interface SortableMember {
   position?: string | null
+  seniority?: number | null
   name?: string | null
 }
 
-// 직급 우선, 같은 직급 안에서는 이름순(가나다). 팀원 리스트·연차 리스트 공통.
+// seniority 미입력(null)은 맨 아래로
+const seniorityOf = (seniority: number | null | undefined): number =>
+  seniority == null ? Number.MAX_SAFE_INTEGER : seniority
+
+// 직급 → 경력 서열 → 이름 3단계. 팀원 리스트·연차 리스트 공통.
+// 직급이 1순위인 이유: 승진으로 서열이 엇갈려도 직급 그룹은 유지되어야 한다.
 export function compareMembers(a: SortableMember, b: SortableMember): number {
   const byPosition = getPositionOrder(a.position) - getPositionOrder(b.position)
   if (byPosition !== 0) return byPosition
+
+  const bySeniority = seniorityOf(a.seniority) - seniorityOf(b.seniority)
+  if (bySeniority !== 0) return bySeniority
+
   return (a.name || '').localeCompare(b.name || '', 'ko')
 }
 
 type WithProfile = {
   profiles?: {
     position?: string | null
+    seniority?: number | null
     display_name?: string | null
     name?: string | null
     full_name?: string | null
   } | null
 }
 
+const toSortable = (m: WithProfile): SortableMember => ({
+  position: m.profiles?.position,
+  seniority: m.profiles?.seniority,
+  name: m.profiles?.display_name || m.profiles?.name || m.profiles?.full_name,
+})
+
 export function sortByPosition<T extends WithProfile>(members: T[]): T[] {
-  return [...members].sort((a, b) =>
-    compareMembers(
-      { position: a.profiles?.position, name: a.profiles?.display_name || a.profiles?.name || a.profiles?.full_name },
-      { position: b.profiles?.position, name: b.profiles?.display_name || b.profiles?.name || b.profiles?.full_name },
-    ),
-  )
+  return [...members].sort((a, b) => compareMembers(toSortable(a), toSortable(b)))
 }
