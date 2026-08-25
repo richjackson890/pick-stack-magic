@@ -70,7 +70,6 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   // Leave balance edit
   const [editBalanceUserId, setEditBalanceUserId] = useState<string | null>(null);
   const [editTotal, setEditTotal] = useState('');
-  const [editUsed, setEditUsed] = useState('');
 
   // Edit target IDs (null = create mode)
   const [editProjectId, setEditProjectId] = useState<string | null>(null);
@@ -681,12 +680,14 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                         <Input type="number" value={editTotal} onChange={e => setEditTotal(e.target.value)} className="h-9 text-base" step="0.25" min="0" />
                       </div>
                       <div className="flex-1">
-                        <label className="text-sm text-muted-foreground block mb-1">사용</label>
-                        <Input type="number" value={editUsed} onChange={e => setEditUsed(e.target.value)} className="h-9 text-base" step="0.25" min="0" />
+                        <label className="text-sm text-muted-foreground block mb-1">사용 (자동)</label>
+                        <div className="h-9 flex items-center px-3 rounded-md border border-input bg-muted/40 text-base font-mono text-muted-foreground">
+                          {bal?.used_days ?? 0}
+                        </div>
                       </div>
                       <Button className="h-9 px-5 mt-6" disabled={saving} onClick={async () => {
                         setSaving(true);
-                        await upsertLeaveBalance(parseFloat(editTotal) || 0, parseFloat(editUsed) || 0, m.user_id);
+                        await upsertLeaveBalance(parseFloat(editTotal) || 0, m.user_id);
                         setSaving(false);
                         setEditBalanceUserId(null);
                       }}>
@@ -703,7 +704,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                     <span className="text-base font-medium flex-1 truncate">{pos && <span className="text-muted-foreground text-sm">{pos}</span>} {name}</span>
                     <span className="text-sm text-muted-foreground">미등록</span>
                     {canEdit && (
-                      <button onClick={() => { setEditBalanceUserId(m.user_id); setEditTotal('15'); setEditUsed('0'); }} className="text-sm text-primary font-medium hover:underline shrink-0">등록</button>
+                      <button onClick={() => { setEditBalanceUserId(m.user_id); setEditTotal('15'); }} className="text-sm text-primary font-medium hover:underline shrink-0">등록</button>
                     )}
                   </div>
                 );
@@ -721,7 +722,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                     <span className="text-sm text-muted-foreground font-mono">{bal.used_days}/{bal.total_days}</span>
                     <span className={cn("text-base font-bold font-mono w-9 text-right", colorClass)}>{remaining}</span>
                     {canEdit && (
-                      <button onClick={() => { setEditBalanceUserId(m.user_id); setEditTotal(String(bal.total_days)); setEditUsed(String(bal.used_days)); }} className="text-muted-foreground hover:text-primary shrink-0"><Pencil className="h-4 w-4" /></button>
+                      <button onClick={() => { setEditBalanceUserId(m.user_id); setEditTotal(String(bal.total_days)); }} className="text-muted-foreground hover:text-primary shrink-0"><Pencil className="h-4 w-4" /></button>
                     )}
                   </div>
                   <div className="h-3 rounded-full bg-secondary/50 overflow-hidden">

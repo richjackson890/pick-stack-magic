@@ -259,30 +259,7 @@ export function useWorkDashboard(teamId: string | undefined) {
         .order('is_default', { ascending: false }) as any);
       setProjectTypes(typesData || []);
 
-      // Sync pending balance deductions (leave_date <= today AND not yet deducted) — team scope
-      const todayStr = getTodayKST();
-      const { data: pendingLeaves } = await (supabase.from('leaves' as any)
-        .select('id, user_id, type')
-        .in('user_id', teamUserIds)
-        .eq('balance_deducted', false)
-        .lte('leave_date', todayStr) as any);
-
-      if (pendingLeaves && pendingLeaves.length > 0) {
-        console.log('[WorkDashboard] syncing pending deductions:', pendingLeaves.length);
-        for (const pl of pendingLeaves) {
-          const ded = leaveDeduction(pl.type);
-          if (ded > 0) {
-            const yr = getYearKST();
-            const { data: bal } = await (supabase.from('leave_balance' as any)
-              .select('used_days').eq('user_id', pl.user_id).eq('year', yr).single() as any);
-            if (bal) {
-              await (supabase.from('leave_balance' as any)
-                .update({ used_days: bal.used_days + ded }).eq('user_id', pl.user_id).eq('year', yr) as any);
-            }
-          }
-          await (supabase.from('leaves' as any).update({ balance_deducted: true }).eq('id', pl.id) as any);
-        }
-      }
+      // used_days sync is handled by the DB trigger trg_sync_leave_balance on leaves changes.
 
       // Fetch recently deleted items (last 30 days)
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
@@ -387,27 +364,6 @@ export function useWorkDashboard(teamId: string | undefined) {
     await fetchAll();
   };
 
-  const leaveDeduction = (type: string): number => {
-    if (type === '연차') return 1;
-    if (type === '오전반차' || type === '오후반차') return 0.5;
-    if (type === '오전반반차' || type === '오후반반차') return 0.25;
-    return 0;
-  };
-
-  const deductBalance = async (uid: string, type: string) => {
-    const deduction = leaveDeduction(type);
-    if (deduction <= 0) return;
-    const currentYear = getYearKST();
-    const { data: bal, error: balFetchErr } = await (supabase.from('leave_balance' as any)
-      .select('used_days').eq('user_id', uid).eq('year', currentYear).single() as any);
-    if (balFetchErr) { console.error('[deductBalance] fetch error:', balFetchErr); return; }
-    if (!bal) return;
-    const { error: balUpdateErr } = await (supabase.from('leave_balance' as any)
-      .update({ used_days: bal.used_days + deduction }).eq('user_id', uid).eq('year', currentYear) as any);
-    if (balUpdateErr) console.error('[deductBalance] update error:', balUpdateErr);
-    else console.log('[deductBalance] deducted:', deduction, 'new used_days:', bal.used_days + deduction);
-  };
-
   const addLeave = async (
     leaveDate: string,
     type: '연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차' | '외출',
@@ -433,12 +389,7 @@ export function useWorkDashboard(teamId: string | undefined) {
     const { data, error } = await (supabase.from('leaves' as any).insert(payload).select('id').single() as any);
     if (error) { console.error('[WorkDashboard] addLeave error:', error); return; }
     console.log('[WorkDashboard] addLeave success:', data);
-
-    if (shouldDeduct) {
-      await deductBalance(uid, type);
-    } else {
-      console.log('[WorkDashboard] addLeave - future date, deduction deferred');
-    }
+    // used_days is recalculated by the DB trigger trg_sync_leave_balance.
     await fetchAll();
   };
 
@@ -556,29 +507,9 @@ export function useWorkDashboard(teamId: string | undefined) {
   };
 
   const deleteLeave = async (id: string) => {
-    // Fetch leave first to know type, user, and deduction status
-    const { data: leaveRow } = await (supabase.from('leaves' as any).select('user_id, type, balance_deducted').eq('id', id).single() as any);
+    // Soft delete — the DB trigger trg_sync_leave_balance restores used_days.
     const { error } = await (supabase.from('leaves' as any).update({ is_deleted: true, deleted_at: new Date().toISOString() }).eq('id', id) as any);
     if (error) { console.error('[WorkDashboard] deleteLeave error:', error); return; }
-
-    // Restore leave_balance only if it was already deducted
-    if (leaveRow && leaveRow.balance_deducted) {
-      const deduction = leaveDeduction(leaveRow.type);
-      if (deduction > 0) {
-        const currentYear = getYearKST();
-        const { data: bal } = await (supabase.from('leave_balance' as any)
-          .select('used_days')
-          .eq('user_id', leaveRow.user_id)
-          .eq('year', currentYear)
-          .single() as any);
-        if (bal) {
-          await (supabase.from('leave_balance' as any)
-            .update({ used_days: Math.max(0, bal.used_days - deduction) })
-            .eq('user_id', leaveRow.user_id)
-            .eq('year', currentYear) as any);
-        }
-      }
-    }
     await fetchAll();
   };
 
@@ -608,11 +539,12 @@ export function useWorkDashboard(teamId: string | undefined) {
     await fetchAll();
   };
 
-  const upsertLeaveBalance = async (totalDays: number, usedDays: number, targetUserId?: string) => {
+  // total_days only — used_days is maintained by the DB trigger trg_sync_leave_balance.
+  const upsertLeaveBalance = async (totalDays: number, targetUserId?: string) => {
     if (!user) return;
     const currentYear = getYearKST();
     const uid = targetUserId || user.id;
-    const payload = { user_id: uid, total_days: totalDays, used_days: usedDays, year: currentYear };
+    const payload = { user_id: uid, total_days: totalDays, year: currentYear };
     console.log('[upsertLeaveBalance] payload:', payload);
     const { data, error } = await (supabase.from('leave_balance' as any)
       .upsert(payload, { onConflict: 'user_id,year' })
