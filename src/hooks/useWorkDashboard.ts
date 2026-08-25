@@ -97,6 +97,12 @@ export interface WeekSnapshot {
 }
 
 export function useWorkDashboard(teamId: string | undefined) {
+  // TEMP debug — tracing the fetchAll remount loop. Remove once the driver is found.
+  useEffect(() => {
+    console.log('[WD] MOUNT');
+    return () => console.log('[WD] UNMOUNT');
+  }, []);
+
   const { user } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
   const [events, setEvents] = useState<TeamEvent[]>([]);
