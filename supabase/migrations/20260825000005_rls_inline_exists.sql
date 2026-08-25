@@ -18,22 +18,22 @@
 -- 루프는 커밋 5213274 에서 제거됐다.
 --
 --
--- 주의 — 이 파일은 재구성본이다
--- ----------------------------
--- 2026-07-24 정책 전면 재작성이 마이그레이션 없이 운영 DB 에 직접 적용됐고,
--- is_team_member() 의 본문도 리포지토리에 없다. 아래 조건절은 헬퍼 함수의
+-- 운영 DB 와 대조 완료 (2026-08-25)
+-- --------------------------------
+-- 2026-07-24 정책 전면 재작성이 마이그레이션 없이 운영 DB 에 직접 적용됐고
+-- is_team_member() 의 본문도 리포지토리에 없어, 아래 조건절은 헬퍼 함수의
 -- 의미(= 현재 사용자가 status='active' 인 team_members 행을 가지는가)에서
--- 역으로 구성한 것이다.
+-- 역으로 구성했다. 이후 pg_policies 조회로 대조했고 **정확히 일치**함을
+-- 확인했다. 아래 정의가 운영 DB 의 현재 상태다.
 --
--- 적용 전 반드시 실제 정의와 대조할 것:
+-- 재확인이 필요하면:
 --
 --   select polname, cmd, qual, with_check
 --     from pg_policies
 --    where schemaname = 'public'
 --      and tablename in ('tips','tip_comments');
 --
--- 조건절이 다르면 이 파일을 실제 정의에 맞춰 고친 뒤 적용한다.
--- ALTER POLICY 는 멱등이므로 운영 DB 가 이미 이 상태라면 무해하다.
+-- ALTER POLICY 는 멱등이라 이미 이 상태인 DB 에 적용해도 무해하다.
 
 
 -- ---------------------------------------------------------------------------
@@ -66,16 +66,26 @@ ALTER POLICY tip_comments_sel ON public.tip_comments
 -- ---------------------------------------------------------------------------
 -- TODO — 아직 is_team_member() 를 직접 호출하는 정책
 -- ---------------------------------------------------------------------------
--- 아래 테이블의 정책은 전환하지 않았다. 하나씩 바꾸고 그때마다
+-- 아래 정책은 전환하지 않았다. 하나씩 바꾸고 그때마다
 -- pg_stat_user_tables.seq_scan 으로 효과를 확인할 것.
 -- (전환 전 수치를 기록해 두어야 비교가 된다.)
 --
---   leaves
---   leave_balance
---   projects
---   project_members
---   project_tasks
---   team_events
+-- (a) tips / tip_comments 의 나머지 CUD 정책 — 우선순위 낮음
+--     이번에 전환한 건 두 테이블의 SELECT 뿐이다. 아래는 대상 행이
+--     한 건 수준이라 행마다 재평가돼도 실측 이득이 작다. 나중에 정리.
+--
+--       tips_ins          tips_upd          tips_del
+--       tip_comments_ins  tip_comments_upd  tip_comments_del
+--
+-- (b) 다른 테이블 — 우선순위 높음
+--     목록 조회라 행 수가 많고, SELECT 정책이 곧 병목이다.
+--
+--       leaves
+--       leave_balance
+--       projects
+--       project_members
+--       project_tasks
+--       team_events
 --
 -- 확인 쿼리 — is_team_member() 를 쓰는 정책 전수 조회:
 --
