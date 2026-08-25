@@ -7,7 +7,8 @@
 - 관리 기능(멤버 삭제, 팀 수정): public.is_team_admin()
 - 개인 데이터(notifications, bookmarks, weekly_snapshots): auth.uid() = user_id
 - leave_balance(lb_upd/lb_ins): auth.uid() = user_id or is_team_admin() — 본인 행은 본인이 수정
-- team_members를 정책 안에서 직접 조회 금지 — SECURITY DEFINER 함수 경유 (무한 재귀 발생)
+- team_members **자신의** 정책에서 team_members 직접 조회 금지 — SECURITY DEFINER 함수 경유 (무한 재귀 발생).
+  다른 테이블의 정책이 team_members 를 EXISTS 로 조회하는 것은 재귀가 아니므로 허용 — 아래 설계 규칙의 인라인 항목 참고.
 - 정책 변경 시 supabase/migrations/ 에 마이그레이션 파일로 남길 것
 - 2026-07-24 전체 정책 재작성 완료. 이 구조를 임의로 변경하지 말 것.
 
@@ -33,6 +34,13 @@
   ProfileSetupModal 의 선택지와 정렬 배열(src/utils/sortMembers.ts)은 항상 일치해야 한다.
 - team_members.leave_tracked=false 는 연차 화면에서만 제외한다.
   팁/프로젝트 등 다른 기능에서는 제외하지 않는다.
+- RLS 정책에 is_team_member() 같은 헬퍼 함수를 직접 호출하지 말 것.
+  stable + security definer + (select auth.uid()) 를 다 해도
+  플래너가 행마다 재평가한다. EXISTS 서브쿼리로 인라인하면
+  InitPlan 으로 승격되어 쿼리당 1회만 평가된다.
+  2026-08-25 이 문제로 team_members(13행)가 누적 6.8억 회 스캔됐다.
+  예외: team_members 자신의 정책은 무한 재귀 때문에 헬퍼 함수를 유지해야 한다.
+  전환 현황과 남은 대상은 supabase/migrations/20260825000005_rls_inline_exists.sql 참고.
 
 ## 배포 전 로컬 테스트 기준
 - UI 표시·정렬·문구 변경은 로컬 테스트 생략하고 배포 후 확인 가능
@@ -65,3 +73,7 @@
   첫 번째는 버려지는 결과인데 16쿼리를 다 쏜다. teamId 확정 전 실행을 막을 것.
 - 뮤테이션 17곳이 await fetchAll() 로 끝나 연차 하나 추가에 16쿼리를 재조회한다.
   로컬 patch 방식으로 바꿀 것.
+- 배포해도 이미 열려 있는 탭은 옛 번들을 계속 돌린다.
+  2026-08-25 무한 루프 수정 후에도 팀원 브라우저의 옛 코드가 계속 돌아
+  팀 전체에 새로고침을 공지해야 했다. Service Worker 가 이미 있으니
+  새 배포 감지 시 자동 새로고침을 유도할 것.
