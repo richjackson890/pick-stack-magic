@@ -15,6 +15,11 @@ const getYearKST = () => {
   return parseInt(getTodayKST().slice(0, 4), 10);
 };
 
+// KST 기준 현재 월 (1~12)
+const getMonthKST = () => {
+  return parseInt(getTodayKST().slice(5, 7), 10);
+};
+
 // KST 기준 Date를 YYYY-MM-DD로 변환
 const toDateStrKST = (d: Date) => {
   return d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
@@ -59,6 +64,15 @@ export interface Leave {
   profile?: { name: string | null; avatar_url: string | null };
 }
 
+// 이월 잔여분 소멸 기준월 — 다음 해 2월 말일까지 소진, 3월 1일부터 소멸
+const CARRY_OVER_END_MONTH = 2;
+
+// 어느 연도 잔여에서 며칠을 뺐는지. leaves.deducted_years 에 그대로 저장된다.
+export interface LeaveDeduction {
+  year: number;
+  days: number;
+}
+
 export interface LeaveBalance {
   user_id: string;
   total_days: number;
@@ -88,6 +102,8 @@ export function useWorkDashboard(teamId: string | undefined) {
   const [events, setEvents] = useState<TeamEvent[]>([]);
   const [leaves, setLeaves] = useState<Leave[]>([]);
   const [balances, setBalances] = useState<LeaveBalance[]>([]);
+  // 1~2월에만 전년도 이월분이 살아 있다. 3월부터는 null.
+  const carryYear = getMonthKST() <= CARRY_OVER_END_MONTH ? getYearKST() - 1 : null;
   const [projectTypes, setProjectTypes] = useState<ProjectType[]>([]);
   const [loading, setLoading] = useState(true);
   const [snapshots, setSnapshots] = useState<WeekSnapshot[]>([]);
@@ -240,9 +256,10 @@ export function useWorkDashboard(teamId: string | undefined) {
       console.log('[WorkDashboard] fetched leaves:', rawLeaves.length);
       setLeaves([...rawLeaves]);
 
-      // Leave balances (current year) — all team members
+      // Leave balances — 1~2월에는 아직 살아 있는 전년도 이월분도 함께 가져온다.
       const currentYear = getYearKST();
-      const { data: balData } = await (supabase.from('leave_balance' as any).select('*').in('user_id', teamUserIds).eq('year', currentYear) as any);
+      const balanceYears = carryYear ? [carryYear, currentYear] : [currentYear];
+      const { data: balData } = await (supabase.from('leave_balance' as any).select('*').in('user_id', teamUserIds).in('year', balanceYears) as any);
       const rawBal: LeaveBalance[] = balData || [];
       if (rawBal.length > 0) {
         const uids = [...new Set(rawBal.map(b => b.user_id))];
@@ -278,7 +295,7 @@ export function useWorkDashboard(teamId: string | undefined) {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id, teamId]);
+  }, [user?.id, teamId, carryYear]);
 
   useEffect(() => {
     console.log('[WorkDashboard] fetchAll triggered — user:', user?.id, 'teamId:', teamId);
@@ -364,6 +381,77 @@ export function useWorkDashboard(teamId: string | undefined) {
     await fetchAll();
   };
 
+  const leaveDeduction = (type: string): number => {
+    if (type === '연차') return 1;
+    if (type === '반차' || type === '오전반차' || type === '오후반차') return 0.5;
+    if (type === '오전반반차' || type === '오후반반차') return 0.25;
+    return 0;
+  };
+
+  // Delta-based: adjusts used_days of (uid, targetYear) by `delta`
+  // (positive deducts, negative restores).
+  // Never recalculates from leaves — app records are incomplete, so a SUM would
+  // wipe out days that were taken but never registered here.
+  const deductBalance = async (uid: string, delta: number, targetYear: number) => {
+    if (delta === 0) return;
+    const { data: bal, error: balFetchErr } = await (supabase.from('leave_balance' as any)
+      .select('used_days').eq('user_id', uid).eq('year', targetYear).maybeSingle() as any);
+    if (balFetchErr) { console.error('[deductBalance] fetch error:', balFetchErr); return; }
+
+    if (!bal) {
+      // No balance row yet (new member) — create one carrying this delta.
+      const { error: insErr } = await (supabase.from('leave_balance' as any)
+        .upsert({ user_id: uid, total_days: 15, used_days: Math.max(0, delta), year: targetYear }, { onConflict: 'user_id,year' }) as any);
+      if (insErr) console.error('[deductBalance] upsert error:', insErr);
+      else console.log('[deductBalance] created', targetYear, 'balance row, used_days:', Math.max(0, delta));
+      return;
+    }
+
+    const next = Math.max(0, Number(bal.used_days) + delta);
+    const { error: balUpdateErr } = await (supabase.from('leave_balance' as any)
+      .update({ used_days: next }).eq('user_id', uid).eq('year', targetYear) as any);
+    if (balUpdateErr) console.error('[deductBalance] update error:', balUpdateErr);
+    else console.log('[deductBalance]', targetYear, 'delta:', delta, '→ used_days:', next);
+  };
+
+  // 연차 회계연도는 1~12월. 미사용 잔여분은 다음 해 2월 말일까지만 소진 가능(3/1 소멸).
+  // 따라서 1~2월 연차는 전년도 잔여분에서 먼저 빼고, 모자란 만큼만 당해년도에서 뺀다.
+  // 분할 차감이 생기므로 대상 연도는 항상 배열로 다룬다.
+  const resolveLeaveYear = async (uid: string, leaveDate: string, amount: number): Promise<LeaveDeduction[]> => {
+    if (amount <= 0) return [];
+    const year = parseInt(leaveDate.slice(0, 4), 10);
+    const month = parseInt(leaveDate.slice(5, 7), 10);
+    if (month > CARRY_OVER_END_MONTH) return [{ year, days: amount }];
+
+    const prevYear = year - 1;
+    const { data: prevBal } = await (supabase.from('leave_balance' as any)
+      .select('total_days, used_days').eq('user_id', uid).eq('year', prevYear).maybeSingle() as any);
+    const carry = prevBal ? Math.max(0, Number(prevBal.total_days) - Number(prevBal.used_days)) : 0;
+
+    if (carry <= 0) return [{ year, days: amount }];
+    if (carry >= amount) return [{ year: prevYear, days: amount }];
+    return [{ year: prevYear, days: carry }, { year, days: amount - carry }];
+  };
+
+  // leaves.deducted_years (jsonb) — 등록 시 차감한 연도별 일수. 삭제/복원은 이 값을 그대로 되돌린다.
+  // 비어 있으면 아무것도 가감하지 않는다. 컬럼 도입 이전 행은 balance 에 반영됐는지 알 수 없고,
+  // 반영됐다고 추정해 되돌리면 없던 잔여일수가 생긴다. (balance_deducted 는 근거 없는 죽은 플래그)
+  const parseDeductions = (row: any): LeaveDeduction[] => {
+    const raw = row?.deducted_years;
+    let arr: any = raw;
+    if (typeof raw === 'string') { try { arr = JSON.parse(raw); } catch { arr = null; } }
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((d: any) => d && Number.isFinite(Number(d.year)) && Number(d.days) > 0)
+      .map((d: any) => ({ year: Number(d.year), days: Number(d.days) }));
+  };
+
+  const applyDeductions = async (uid: string, plan: LeaveDeduction[], sign: 1 | -1) => {
+    for (const d of plan) await deductBalance(uid, sign * d.days, d.year);
+  };
+
+  const planTotal = (plan: LeaveDeduction[]) => plan.reduce((sum, d) => sum + d.days, 0);
+
   const addLeave = async (
     leaveDate: string,
     type: '연차' | '오전반차' | '오후반차' | '오전반반차' | '오후반반차' | '외출',
@@ -372,14 +460,14 @@ export function useWorkDashboard(teamId: string | undefined) {
   ) => {
     if (!user) return;
     const uid = targetUserId || user.id;
-    const todayKST = getTodayKST();
-    const shouldDeduct = type !== '외출' && leaveDate <= todayKST;
+    const plan = await resolveLeaveYear(uid, leaveDate, leaveDeduction(type));
     const resolvedTeamId = await resolveTeamId();
     const payload: Record<string, any> = {
       user_id: uid,
       leave_date: leaveDate,
       type,
-      balance_deducted: shouldDeduct,
+      balance_deducted: plan.length > 0,
+      deducted_years: plan,
     };
     if (extra?.start_time) payload.start_time = extra.start_time.length === 5 ? extra.start_time + ':00' : extra.start_time;
     if (extra?.end_time) payload.end_time = extra.end_time.length === 5 ? extra.end_time + ':00' : extra.end_time;
@@ -388,8 +476,8 @@ export function useWorkDashboard(teamId: string | undefined) {
     console.log('[addLeave] inserting:', payload);
     const { data, error } = await (supabase.from('leaves' as any).insert(payload).select('id').single() as any);
     if (error) { console.error('[WorkDashboard] addLeave error:', error); return; }
-    console.log('[WorkDashboard] addLeave success:', data);
-    // used_days is recalculated by the DB trigger trg_sync_leave_balance.
+    console.log('[WorkDashboard] addLeave success:', data, 'plan:', plan);
+    await applyDeductions(uid, plan, 1);
     await fetchAll();
   };
 
@@ -469,13 +557,35 @@ export function useWorkDashboard(teamId: string | undefined) {
       updatePayload.end_time = null;
       updatePayload.reason = null;
     }
+    // 기존 차감 내역을 알아야 연도별로 되돌릴 수 있다.
+    const { data: prev } = await (supabase.from('leaves' as any)
+      .select('user_id, type, leave_date, deducted_years').eq('id', id).maybeSingle() as any);
+    const prevPlan = prev ? parseDeductions(prev) : [];
+    const newDeduction = leaveDeduction(type);
+    // 날짜나 차감일수가 바뀌면 대상 연도가 달라질 수 있으므로 원복 후 재산정한다.
+    const rebalance = !!prev && (prev.leave_date !== leaveDate || planTotal(prevPlan) !== newDeduction);
+
+    let nextPlan = prevPlan;
+    if (rebalance) {
+      await applyDeductions(prev.user_id, prevPlan, -1);
+      nextPlan = await resolveLeaveYear(prev.user_id, leaveDate, newDeduction);
+      updatePayload.balance_deducted = nextPlan.length > 0;
+      updatePayload.deducted_years = nextPlan;
+    }
+
     console.log('[updateLeave] id:', id, 'payload:', updatePayload);
     const { data, error } = await (supabase.from('leaves' as any)
       .update(updatePayload)
       .eq('id', id)
       .select() as any);
     console.log('[updateLeave] result:', data, error);
-    if (error) { console.error('[WorkDashboard] updateLeave error:', error); return; }
+    if (error) {
+      console.error('[WorkDashboard] updateLeave error:', error);
+      if (rebalance) await applyDeductions(prev.user_id, prevPlan, 1); // 행 수정 실패 → 차감 원상복구
+      return;
+    }
+
+    if (rebalance) await applyDeductions(prev.user_id, nextPlan, 1);
     await fetchAll();
   };
 
@@ -507,9 +617,16 @@ export function useWorkDashboard(teamId: string | undefined) {
   };
 
   const deleteLeave = async (id: string) => {
-    // Soft delete — the DB trigger trg_sync_leave_balance restores used_days.
-    const { error } = await (supabase.from('leaves' as any).update({ is_deleted: true, deleted_at: new Date().toISOString() }).eq('id', id) as any);
+    // Fetch first — the row is needed to restore the balance after the soft delete.
+    // deducted_years 는 지우지 않는다. 복원 시 같은 연도로 되돌리기 위해 보존.
+    const { data: leaveRow } = await (supabase.from('leaves' as any)
+      .select('user_id, type, deducted_years').eq('id', id).maybeSingle() as any);
+    const { error } = await (supabase.from('leaves' as any)
+      .update({ is_deleted: true, deleted_at: new Date().toISOString(), balance_deducted: false })
+      .eq('id', id) as any);
     if (error) { console.error('[WorkDashboard] deleteLeave error:', error); return; }
+
+    if (leaveRow) await applyDeductions(leaveRow.user_id, parseDeductions(leaveRow), -1);
     await fetchAll();
   };
 
@@ -524,7 +641,17 @@ export function useWorkDashboard(teamId: string | undefined) {
   };
 
   const restoreLeave = async (id: string) => {
-    await (supabase.from('leaves' as any).update({ is_deleted: false, deleted_at: null }).eq('id', id) as any);
+    const { data: leaveRow } = await (supabase.from('leaves' as any)
+      .select('user_id, type, leave_date, deducted_years').eq('id', id).maybeSingle() as any);
+    // 삭제 때 보존해 둔 차감 내역을 그대로 되돌린다.
+    // 내역이 없으면 애초에 차감된 적이 없다는 뜻이므로 아무것도 더하지 않는다.
+    const plan = leaveRow ? parseDeductions(leaveRow) : [];
+    const { error } = await (supabase.from('leaves' as any)
+      .update({ is_deleted: false, deleted_at: null, balance_deducted: plan.length > 0, deducted_years: plan })
+      .eq('id', id) as any);
+    if (error) { console.error('[WorkDashboard] restoreLeave error:', error); return; }
+
+    if (leaveRow) await applyDeductions(leaveRow.user_id, plan, 1);
     await fetchAll();
   };
 
@@ -539,12 +666,11 @@ export function useWorkDashboard(teamId: string | undefined) {
     await fetchAll();
   };
 
-  // total_days only — used_days is maintained by the DB trigger trg_sync_leave_balance.
-  const upsertLeaveBalance = async (totalDays: number, targetUserId?: string) => {
+  const upsertLeaveBalance = async (totalDays: number, usedDays: number, targetUserId?: string) => {
     if (!user) return;
     const currentYear = getYearKST();
     const uid = targetUserId || user.id;
-    const payload = { user_id: uid, total_days: totalDays, year: currentYear };
+    const payload = { user_id: uid, total_days: totalDays, used_days: usedDays, year: currentYear };
     console.log('[upsertLeaveBalance] payload:', payload);
     const { data, error } = await (supabase.from('leave_balance' as any)
       .upsert(payload, { onConflict: 'user_id,year' })
@@ -661,6 +787,8 @@ export function useWorkDashboard(teamId: string | undefined) {
     events: viewingSnapshot ? viewingSnapshot.snapshot.events : events,
     leaves: viewingSnapshot ? viewingSnapshot.snapshot.leaves : leaves,
     balances: viewingSnapshot ? viewingSnapshot.snapshot.balances : balances,
+    currentYear: getYearKST(),
+    carryYear,
     projectTypes, loading,
     addProject, addEvent, addLeave,
     updateProject, updateEvent, updateLeave,

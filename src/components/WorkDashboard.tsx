@@ -49,7 +49,7 @@ const getWeekRange = (weeksAhead: number) => {
 export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   const { user } = useAuth();
   const {
-    projects, events, leaves, balances, projectTypes, loading,
+    projects, events, leaves, balances, currentYear, carryYear, projectTypes, loading,
     addProject, addEvent, addLeave,
     updateProject, updateEvent, updateLeave,
     deleteProject, deleteEvent, deleteLeave, deleteProjectTask,
@@ -70,6 +70,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   // Leave balance edit
   const [editBalanceUserId, setEditBalanceUserId] = useState<string | null>(null);
   const [editTotal, setEditTotal] = useState('');
+  const [editUsed, setEditUsed] = useState('');
 
   // Edit target IDs (null = create mode)
   const [editProjectId, setEditProjectId] = useState<string | null>(null);
@@ -159,6 +160,15 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   };
 
   const toggle = (key: string) => setCollapsed(prev => ({ ...prev, [key]: !prev[key] }));
+
+  // 연차 잔여 조회 — 1~2월에는 전년도 이월분(carryYear)이 아직 살아 있어 함께 계산한다.
+  const balanceOf = (userId: string, year: number) =>
+    balances.find(b => b.user_id === userId && Number(b.year) === year);
+  const carryOf = (userId: string) => {
+    if (!carryYear) return 0;
+    const prev = balanceOf(userId, carryYear);
+    return prev ? Math.max(0, prev.total_days - prev.used_days) : 0;
+  };
 
   const getCreatorName = (userId: string) => {
     const member = teamMembers.find(m => m.user_id === userId);
@@ -364,18 +374,19 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     }).join('') || '<tr><td colspan="3" class="empty">연차 없음</td></tr>';
 
     const balanceRows = sortByPosition(teamMembers).map(m => {
-      const bal = balances.find(b => b.user_id === m.user_id);
+      const bal = balanceOf(m.user_id, currentYear);
+      const carry = carryOf(m.user_id);
       const name = getDisplayName(m.profiles);
       const pos = m.profiles?.position || '';
       const label = (pos ? esc(pos) + ' ' : '') + esc(name);
       if (!bal) return `<tr><td>${label}</td><td class="c">-</td><td class="c">-</td><td class="c muted">미등록</td></tr>`;
-      const remaining = bal.total_days - bal.used_days;
+      const remaining = (bal.total_days - bal.used_days) + carry;
       const color = remaining <= 2 ? '#ef4444' : remaining <= 5 ? '#f59e0b' : '#f97316';
       return `<tr>
         <td>${label}</td>
         <td class="c mono">${bal.total_days}</td>
         <td class="c mono">${bal.used_days}</td>
-        <td class="c bold" style="color:${color}">${remaining}</td>
+        <td class="c bold" style="color:${color}">${remaining}${carry > 0 ? ` <span class="muted">(이월 ${carry})</span>` : ''}</td>
       </tr>`;
     }).join('');
 
@@ -660,7 +671,8 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
         ) : (
           <div className="space-y-2">
             {sortByPosition(teamMembers).map(m => {
-              const bal = balances.find(b => b.user_id === m.user_id);
+              const bal = balanceOf(m.user_id, currentYear);
+              const carry = carryOf(m.user_id);
               const isMe = user?.id === m.user_id;
               const canEdit = isMe || isAdmin;
               const isEditing = editBalanceUserId === m.user_id;
@@ -680,14 +692,12 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                         <Input type="number" value={editTotal} onChange={e => setEditTotal(e.target.value)} className="h-9 text-base" step="0.25" min="0" />
                       </div>
                       <div className="flex-1">
-                        <label className="text-sm text-muted-foreground block mb-1">사용 (자동)</label>
-                        <div className="h-9 flex items-center px-3 rounded-md border border-input bg-muted/40 text-base font-mono text-muted-foreground">
-                          {bal?.used_days ?? 0}
-                        </div>
+                        <label className="text-sm text-muted-foreground block mb-1">사용</label>
+                        <Input type="number" value={editUsed} onChange={e => setEditUsed(e.target.value)} className="h-9 text-base" step="0.25" min="0" />
                       </div>
                       <Button className="h-9 px-5 mt-6" disabled={saving} onClick={async () => {
                         setSaving(true);
-                        await upsertLeaveBalance(parseFloat(editTotal) || 0, m.user_id);
+                        await upsertLeaveBalance(parseFloat(editTotal) || 0, parseFloat(editUsed) || 0, m.user_id);
                         setSaving(false);
                         setEditBalanceUserId(null);
                       }}>
@@ -704,14 +714,17 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                     <span className="text-base font-medium flex-1 truncate">{pos && <span className="text-muted-foreground text-sm">{pos}</span>} {name}</span>
                     <span className="text-sm text-muted-foreground">미등록</span>
                     {canEdit && (
-                      <button onClick={() => { setEditBalanceUserId(m.user_id); setEditTotal('15'); }} className="text-sm text-primary font-medium hover:underline shrink-0">등록</button>
+                      <button onClick={() => { setEditBalanceUserId(m.user_id); setEditTotal('15'); setEditUsed('0'); }} className="text-sm text-primary font-medium hover:underline shrink-0">등록</button>
                     )}
                   </div>
                 );
               }
 
-              const remaining = bal.total_days - bal.used_days;
-              const pct = bal.total_days > 0 ? (remaining / bal.total_days) * 100 : 0;
+              // 1~2월에는 전년도 이월분이 먼저 소진되므로 잔여에 합산해서 보여준다.
+              const curRemaining = bal.total_days - bal.used_days;
+              const remaining = curRemaining + carry;
+              const capacity = bal.total_days + carry;
+              const pct = capacity > 0 ? (remaining / capacity) * 100 : 0;
               const colorClass = remaining <= 2 ? 'text-red-400' : remaining <= 5 ? 'text-amber-400' : 'text-emerald-400';
               const barColor = remaining <= 2 ? 'hsl(0, 72%, 51%)' : remaining <= 5 ? 'hsl(38, 92%, 50%)' : 'hsl(142, 71%, 45%)';
 
@@ -719,10 +732,14 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                 <div key={m.user_id} className="py-2.5 px-3 rounded-xl bg-secondary/20 space-y-1.5">
                   <div className="flex items-center gap-3">
                     <span className="text-base font-medium flex-1 truncate">{pos && <span className="text-muted-foreground text-sm">{pos}</span>} {name}</span>
-                    <span className="text-sm text-muted-foreground font-mono">{bal.used_days}/{bal.total_days}</span>
+                    <span className="text-sm text-muted-foreground font-mono">
+                      {carry > 0
+                        ? `${carryYear}년 이월 ${carry}일 + ${currentYear}년 ${curRemaining}일`
+                        : `${bal.used_days}/${bal.total_days}`}
+                    </span>
                     <span className={cn("text-base font-bold font-mono w-9 text-right", colorClass)}>{remaining}</span>
                     {canEdit && (
-                      <button onClick={() => { setEditBalanceUserId(m.user_id); setEditTotal(String(bal.total_days)); }} className="text-muted-foreground hover:text-primary shrink-0"><Pencil className="h-4 w-4" /></button>
+                      <button onClick={() => { setEditBalanceUserId(m.user_id); setEditTotal(String(bal.total_days)); setEditUsed(String(bal.used_days)); }} className="text-muted-foreground hover:text-primary shrink-0"><Pencil className="h-4 w-4" /></button>
                     )}
                   </div>
                   <div className="h-3 rounded-full bg-secondary/50 overflow-hidden">
