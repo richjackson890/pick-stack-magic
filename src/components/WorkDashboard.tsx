@@ -10,7 +10,7 @@ import { TaskDetailPanel } from '@/components/TaskDetailPanel';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { sortByPosition, getMemberOrder } from '@/utils/sortMembers';
+import { sortByPosition, compareMembers } from '@/utils/sortMembers';
 
 interface WorkDashboardProps {
   teamId: string | undefined;
@@ -110,6 +110,12 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   const [taskDetail, setTaskDetail] = useState<{ projectId: string; projectName: string; taskId?: string; taskTitle?: string } | null>(null);
   const memoCache = useRef<Record<string, string>>({});
 
+  // 연차 관리 대상 팀원만 (부설연구소 소속 제외). 연차 화면에서만 쓰고,
+  // 프로젝트·일정·팁 등 다른 기능에서는 teamMembers 를 그대로 쓴다.
+  const leaveMembers = teamMembers.filter(m => m.leave_tracked !== false);
+  const leaveUserIds = new Set(leaveMembers.map(m => m.user_id));
+  const isLeaveTracked = (userId: string) => leaveUserIds.has(userId);
+
   // Dashboard shows leaves from today through 2 months ahead.
   // Print (leavesHtml) keeps its narrower current+next week window.
   const today = new Date();
@@ -118,6 +124,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   twoMonthsLater.setMonth(twoMonthsLater.getMonth() + 2);
   twoMonthsLater.setHours(23, 59, 59, 999);
   const visibleLeaves = leaves.filter(l => {
+    if (!isLeaveTracked(l.user_id)) return false;
     const d = new Date(l.leave_date);
     return d >= today && d <= twoMonthsLater;
   });
@@ -125,6 +132,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
   const thisWeek = getWeekRange(0);
   const nextWeek = getWeekRange(1);
   const printableLeaves = leaves.filter(l => {
+    if (!isLeaveTracked(l.user_id)) return false;
     const d = new Date(l.leave_date);
     return d >= thisWeek.start && d <= nextWeek.end;
   });
@@ -344,7 +352,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
     const esc = (s: string) => s.replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
     const projectsHtml = projects.map(p => {
-      const memberNames = [...p.members].sort((a, b) => getMemberOrder(a.name) - getMemberOrder(b.name)).map(m => [m.position, m.name].filter(Boolean).join(' ')).join(', ');
+      const memberNames = [...p.members].sort(compareMembers).map(m => [m.position, m.name].filter(Boolean).join(' ')).join(', ');
       const tasksHtml = (p.tasks || []).map(t =>
         `<tr class="sub"><td class="sub-name">└ ${esc(t.title)}</td><td></td><td></td><td class="r mono">${formatShortDate(t.start_date)} ~ ${formatShortDate(t.end_date)}</td></tr>`
       ).join('');
@@ -373,7 +381,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
       </tr>`;
     }).join('') || '<tr><td colspan="3" class="empty">연차 없음</td></tr>';
 
-    const balanceRows = sortByPosition(teamMembers).map(m => {
+    const balanceRows = sortByPosition(leaveMembers).map(m => {
       const bal = balanceOf(m.user_id, currentYear);
       const carry = carryOf(m.user_id);
       const name = getDisplayName(m.profiles);
@@ -665,12 +673,12 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
             <Users className="h-5 w-5" />
           </GuideTooltip>
         }
-        title="팀원 연차 현황" count={teamMembers.length} collapsed={!!collapsed.teamLeave} onToggle={() => toggle('teamLeave')}>
-        {teamMembers.length === 0 ? (
+        title="팀원 연차 현황" count={leaveMembers.length} collapsed={!!collapsed.teamLeave} onToggle={() => toggle('teamLeave')}>
+        {leaveMembers.length === 0 ? (
           <p className="text-base text-muted-foreground py-4 text-center">팀원이 없습니다</p>
         ) : (
           <div className="space-y-2">
-            {sortByPosition(teamMembers).map(m => {
+            {sortByPosition(leaveMembers).map(m => {
               const bal = balanceOf(m.user_id, currentYear);
               const carry = carryOf(m.user_id);
               const isMe = user?.id === m.user_id;
@@ -986,7 +994,7 @@ export function WorkDashboard({ teamId, teamMembers }: WorkDashboardProps) {
                         className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring"
                       >
                         {isAdmin ? (
-                          sortByPosition(teamMembers).map(m => (
+                          sortByPosition(leaveMembers).map(m => (
                             <option key={m.user_id} value={m.user_id}>
                               {m.profiles?.position ? `${m.profiles.position} ` : ''}{getDisplayName(m.profiles)}
                             </option>
@@ -1177,7 +1185,7 @@ function ProjectRow({
             <span className="shrink-0">{getCreatorName(p.created_by)}</span>
             {p.members.length > 0 && (
               <span className="text-primary font-medium break-all line-clamp-1">
-                {[...p.members].sort((a, b) => getMemberOrder(a.name) - getMemberOrder(b.name)).map(m => [m.position, m.name].filter(Boolean).join(' ')).join(' · ')}
+                {[...p.members].sort(compareMembers).map(m => [m.position, m.name].filter(Boolean).join(' ')).join(' · ')}
               </span>
             )}
           </div>

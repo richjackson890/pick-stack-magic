@@ -17,6 +17,8 @@ export interface TeamMember {
   invited_email: string;
   status: string;
   created_at: string;
+  // 연차 관리 대상 여부. 부설연구소 소속은 false — 팁/프로젝트/일정에서는 제외하지 않는다.
+  leave_tracked?: boolean;
   profiles?: {
     name: string | null;
     display_name: string | null;
