@@ -98,9 +98,10 @@ export interface WeekSnapshot {
 
 export function useWorkDashboard(teamId: string | undefined) {
   // TEMP debug — tracing the fetchAll remount loop. Remove once the driver is found.
+  const instanceId = useRef(Math.random().toString(36).slice(2, 6));
   useEffect(() => {
-    console.log('[WD] MOUNT');
-    return () => console.log('[WD] UNMOUNT');
+    console.log('[WD] MOUNT', instanceId.current, teamId);
+    return () => console.log('[WD] UNMOUNT', instanceId.current);
   }, []);
 
   const { user } = useAuth();
@@ -305,7 +306,7 @@ export function useWorkDashboard(teamId: string | undefined) {
   }, [user?.id, teamId, carryYear]);
 
   useEffect(() => {
-    console.log('[WorkDashboard] fetchAll triggered — user:', user?.id, 'teamId:', teamId);
+    console.log('[WorkDashboard] fetchAll triggered —', instanceId.current, 'user:', user?.id, 'teamId:', teamId);
     fetchAll();
   }, [fetchAll]);
 
