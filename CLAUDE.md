@@ -61,3 +61,7 @@
   승진·오타 정정은 SQL 로만 가능하다
 - leave_balance.total_days/used_days 수동 보정이 유일한 교정 수단.
   델타 차감이 네트워크 실패로 어긋나도 자동 복구되지 않는다.
+- fetchAll 이 teamId undefined → uuid 확정 과정에서 2회 실행된다.
+  첫 번째는 버려지는 결과인데 16쿼리를 다 쏜다. teamId 확정 전 실행을 막을 것.
+- 뮤테이션 17곳이 await fetchAll() 로 끝나 연차 하나 추가에 16쿼리를 재조회한다.
+  로컬 patch 방식으로 바꿀 것.
