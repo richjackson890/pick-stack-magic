@@ -33,11 +33,12 @@ interface TipDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCommentAdded?: (tipId: string, tipOwnerId: string, commentText: string) => void;
+  onCommentDeleted?: (tipId: string) => void;
   onTipUpdated?: () => void;
   teamMembers?: TeamMember[];
 }
 
-export function TipDetailModal({ tip, isOpen, onClose, onCommentAdded, onTipUpdated, teamMembers }: TipDetailModalProps) {
+export function TipDetailModal({ tip, isOpen, onClose, onCommentAdded, onCommentDeleted, onTipUpdated, teamMembers }: TipDetailModalProps) {
   const { user } = useAuth();
   const { comments, loading, fetchComments, addComment, deleteComment } = useTipComments();
   const [newComment, setNewComment] = useState('');
@@ -220,7 +221,10 @@ export function TipDetailModal({ tip, isOpen, onClose, onCommentAdded, onTipUpda
                   key={comment.id}
                   comment={comment}
                   isOwn={comment.user_id === user?.id}
-                  onDelete={() => deleteComment(comment.id, tip.id)}
+                  onDelete={async () => {
+                    const ok = await deleteComment(comment.id, tip.id);
+                    if (ok) onCommentDeleted?.(tip.id);
+                  }}
                 />
               ))}
             </AnimatePresence>

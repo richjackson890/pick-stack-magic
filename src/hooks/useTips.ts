@@ -23,6 +23,7 @@ export interface Tip {
   tags: string[];
   competition_name: string | null;
   likes: number;
+  comment_count: number;
   team_id: string | null;
   attachments: TipAttachment[];
   created_at: string;
@@ -60,19 +61,21 @@ export function useTips() {
 
   const fetchTips = useCallback(async () => {
     try {
-      // Fetch tips without join to avoid CORS issues with foreign table relations
+      // Profiles are still fetched separately, but comment counts come embedded
+      // via the tip_comments FK — a separate count query caused a request storm.
       const { data, error } = await (supabase
         .from('tips' as any)
-        .select('*')
+        .select('*, tip_comments(count)')
         .or('is_deleted.is.null,is_deleted.eq.false')
         .order('created_at', { ascending: false }) as any);
 
       if (error) throw error;
 
-      const rawTips: Tip[] = (data || []).map((tip: any) => ({
+      const rawTips: Tip[] = (data || []).map(({ tip_comments, ...tip }: any) => ({
         ...tip,
         tags: tip.tags || [],
         likes: tip.likes || 0,
+        comment_count: tip_comments?.[0]?.count ?? 0,
         attachments: tip.attachments || [],
         ai_summary: tip.ai_summary || null,
         ai_tags: tip.ai_tags || [],
@@ -109,7 +112,7 @@ export function useTips() {
         .eq('is_deleted', true)
         .gte('deleted_at', thirtyDaysAgo)
         .order('deleted_at', { ascending: false }) as any);
-      setDeletedTips((delData || []).map((tip: any) => ({ ...tip, tags: tip.tags || [], likes: tip.likes || 0, attachments: tip.attachments || [], ai_tags: tip.ai_tags || [] })));
+      setDeletedTips((delData || []).map((tip: any) => ({ ...tip, tags: tip.tags || [], likes: tip.likes || 0, comment_count: 0, attachments: tip.attachments || [], ai_tags: tip.ai_tags || [] })));
     } catch (error: any) {
       console.error('Error fetching tips:', error);
       toast({
@@ -164,6 +167,7 @@ export function useTips() {
         ...data,
         tags: data.tags || [],
         likes: data.likes || 0,
+        comment_count: 0,
         attachments: data.attachments || [],
         ai_summary: data.ai_summary || null,
         ai_tags: data.ai_tags || [],
@@ -243,6 +247,17 @@ export function useTips() {
     }
   };
 
+  // Local-only patches, so likes/comments don't trigger a full refetch.
+  const patchTip = useCallback((id: string, patch: Partial<Tip>) => {
+    setTips(prev => prev.map(tip => (tip.id === id ? { ...tip, ...patch } : tip)));
+  }, []);
+
+  const bumpCommentCount = useCallback((id: string, delta: number) => {
+    setTips(prev => prev.map(tip =>
+      tip.id === id ? { ...tip, comment_count: Math.max(0, (tip.comment_count || 0) + delta) } : tip
+    ));
+  }, []);
+
   const restoreTip = async (id: string) => {
     await (supabase.from('tips' as any).update({ is_deleted: false, deleted_at: null }).eq('id', id) as any);
     await fetchTips();
@@ -256,6 +271,8 @@ export function useTips() {
     updateTip,
     deleteTip,
     restoreTip,
+    patchTip,
+    bumpCommentCount,
     refetch: fetchTips,
   };
 }

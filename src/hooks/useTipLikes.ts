@@ -71,18 +71,19 @@ export function useTipLikes() {
     }
   };
 
-  const isLiked = (tipId: string) => likedTipIds.has(tipId);
+  const isLiked = useCallback((tipId: string) => likedTipIds.has(tipId), [likedTipIds]);
 
-  const setInitialCount = (tipId: string, count: number) => {
+  // Must stay referentially stable — callers put it in useEffect deps.
+  const setInitialCount = useCallback((tipId: string, count: number) => {
     setLikeCounts(prev => {
       if (prev[tipId] !== undefined) return prev;
       return { ...prev, [tipId]: count };
     });
-  };
+  }, []);
 
-  const getCount = (tipId: string, fallback: number) => {
+  const getCount = useCallback((tipId: string, fallback: number) => {
     return likeCounts[tipId] ?? fallback;
-  };
+  }, [likeCounts]);
 
   return { toggleLike, isLiked, setInitialCount, getCount, refetch: fetchLikes };
 }

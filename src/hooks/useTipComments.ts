@@ -19,7 +19,6 @@ export function useTipComments() {
   const { user } = useAuth();
   const [comments, setComments] = useState<TipComment[]>([]);
   const [loading, setLoading] = useState(false);
-  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
 
   const fetchComments = useCallback(async (tipId: string) => {
     setLoading(true);
@@ -72,7 +71,6 @@ export function useTipComments() {
       if (error) throw error;
 
       await fetchComments(tipId);
-      setCommentCounts(prev => ({ ...prev, [tipId]: (prev[tipId] || 0) + 1 }));
       return true;
     } catch (err) {
       console.error('[useTipComments] add error:', err);
@@ -90,7 +88,6 @@ export function useTipComments() {
       if (error) throw error;
 
       await fetchComments(tipId);
-      setCommentCounts(prev => ({ ...prev, [tipId]: Math.max(0, (prev[tipId] || 1) - 1) }));
       return true;
     } catch (err) {
       console.error('[useTipComments] delete error:', err);
@@ -98,26 +95,8 @@ export function useTipComments() {
     }
   };
 
-  const fetchCommentCount = useCallback(async (tipIds: string[]) => {
-    if (tipIds.length === 0) return;
-    try {
-      const { data } = await (supabase
-        .from('tip_comments' as any)
-        .select('tip_id') as any);
+  // Comment counts are no longer fetched here — they come embedded in the tips
+  // query (useTips: `tip_comments(count)`). See Tip.comment_count.
 
-      if (data) {
-        const counts: Record<string, number> = {};
-        data.forEach((c: any) => {
-          counts[c.tip_id] = (counts[c.tip_id] || 0) + 1;
-        });
-        setCommentCounts(counts);
-      }
-    } catch (err) {
-      console.error('[useTipComments] count error:', err);
-    }
-  }, []);
-
-  const getCount = (tipId: string) => commentCounts[tipId] || 0;
-
-  return { comments, loading, fetchComments, addComment, deleteComment, fetchCommentCount, getCount, commentCounts };
+  return { comments, loading, fetchComments, addComment, deleteComment };
 }

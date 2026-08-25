@@ -13,7 +13,6 @@ interface StatsTabProps {
   tips: Tip[];
   categories: ArchiCategory[];
   getCategoryById: (id: string | null) => ArchiCategory | undefined;
-  commentCounts: Record<string, number>;
 }
 
 const CHART_COLORS = [
@@ -27,9 +26,9 @@ const CHART_COLORS = [
   'hsl(0, 72%, 51%)',   // red
 ];
 
-export function StatsTab({ tips, categories, getCategoryById, commentCounts }: StatsTabProps) {
+export function StatsTab({ tips, categories, getCategoryById }: StatsTabProps) {
   const totalLikes = useMemo(() => tips.reduce((sum, t) => sum + (t.likes || 0), 0), [tips]);
-  const totalComments = useMemo(() => Object.values(commentCounts).reduce((sum, c) => sum + c, 0), [commentCounts]);
+  const totalComments = useMemo(() => tips.reduce((sum, t) => sum + (t.comment_count || 0), 0), [tips]);
 
   // Category distribution
   const categoryData = useMemo(() => {

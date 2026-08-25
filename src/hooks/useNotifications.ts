@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -29,6 +29,9 @@ export function useNotifications() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [newTaskAssignment, setNewTaskAssignment] = useState<Notification | null>(null);
   const [newMentionNotification, setNewMentionNotification] = useState<Notification | null>(null);
+  // Mentions already surfaced this session — a dismissed toast must not
+  // reappear while markAsRead is still in flight and the poll still sees unread.
+  const shownMentionIds = useRef<Set<string>>(new Set());
 
   const fetchNotifications = useCallback(async () => {
     if (!user) return;
@@ -75,10 +78,16 @@ export function useNotifications() {
     setNotifications(enriched);
     setUnreadCount(enriched.filter((n: any) => !n.read).length);
 
-    // Show toast for most recent unread mention (on initial load)
-    const unreadMention = enriched.find((n: any) => n.type === 'mention' && !n.read);
-    if (unreadMention && !newMentionNotification) {
-      setNewMentionNotification(unreadMention);
+    // Show toast for most recent unread mention (on initial load).
+    // Functional update: this callback is captured by the 30s poll and the
+    // realtime subscription, so reading newMentionNotification directly would
+    // always see the first-render value and re-open a dismissed toast.
+    const unreadMention = enriched.find(
+      (n: any) => n.type === 'mention' && !n.read && !shownMentionIds.current.has(n.id)
+    );
+    if (unreadMention) {
+      shownMentionIds.current.add(unreadMention.id);
+      setNewMentionNotification(prev => prev ?? unreadMention);
     }
   }, [user]);
 
@@ -116,6 +125,7 @@ export function useNotifications() {
           if (row.type === 'task_assignment') {
             setNewTaskAssignment(enriched);
           } else if (row.type === 'mention') {
+            shownMentionIds.current.add(row.id);
             setNewMentionNotification(enriched);
           }
           fetchNotifications();

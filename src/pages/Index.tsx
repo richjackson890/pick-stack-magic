@@ -7,7 +7,6 @@ import { useArchiCategories } from '@/hooks/useArchiCategories';
 import { useGroqAnalysis } from '@/hooks/useGroqAnalysis';
 import { useTeam } from '@/hooks/useTeam';
 import { useTipLikes } from '@/hooks/useTipLikes';
-import { useTipComments } from '@/hooks/useTipComments';
 import { useBookmarks } from '@/hooks/useBookmarks';
 import { useNotifications } from '@/hooks/useNotifications';
 import { Header } from '@/components/Header';
@@ -36,13 +35,12 @@ import { cn } from '@/lib/utils';
 
 const Index = () => {
   const { user } = useAuth();
-  const { tips, deletedTips, loading: tipsLoading, addTip, updateTip, deleteTip, restoreTip, refetch } = useTips();
+  const { tips, deletedTips, loading: tipsLoading, addTip, updateTip, deleteTip, restoreTip, patchTip, bumpCommentCount, refetch } = useTips();
   const { categories, loading: categoriesLoading, getCategoryById, getDefaultCategory, addCategory, updateCategory, deleteCategory } = useArchiCategories();
   const { analyzeTip, analyzingIds } = useGroqAnalysis();
   const { team, members: teamMembers } = useTeam();
   const { projects: calProjects, events: calEvents, leaves: calLeaves } = useWorkDashboard(team?.id);
   const { toggleLike, isLiked, setInitialCount, getCount } = useTipLikes();
-  const { fetchCommentCount, getCount: getCommentCount, commentCounts } = useTipComments();
   const { toggleBookmark, isBookmarked, bookmarkedIds } = useBookmarks();
   const { notifications, unreadCount, newTaskAssignment, dismissTaskAssignment, newMentionNotification, dismissMention, markAsRead, markAllAsRead, createNotification } = useNotifications();
 
@@ -131,21 +129,21 @@ const Index = () => {
 
     return filtered.sort((a, b) => {
       if (sortMode === 'likes') return (b.likes || 0) - (a.likes || 0);
-      if (sortMode === 'comments') return (getCommentCount(b.id) || 0) - (getCommentCount(a.id) || 0);
+      if (sortMode === 'comments') return (b.comment_count || 0) - (a.comment_count || 0);
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
-  }, [tips, selectedCategoryId, searchQuery, sortMode, showBookmarksOnly, bookmarkedIds, getCategoryById, getCommentCount]);
+  }, [tips, selectedCategoryId, searchQuery, sortMode, showBookmarksOnly, bookmarkedIds, getCategoryById]);
 
-  // Initialize like counts and comment counts
+  // Seed like counts. Comment counts arrive with the tips query.
   useEffect(() => {
     tips.forEach(tip => setInitialCount(tip.id, tip.likes));
-    if (tips.length > 0) fetchCommentCount(tips.map(t => t.id));
-  }, [tips, setInitialCount, fetchCommentCount]);
+  }, [tips, setInitialCount]);
 
   const handleLike = async (tipId: string) => {
     const result = await toggleLike(tipId);
     if (result) {
-      refetch();
+      // Patch locally — a full refetch here re-queried every tip on each click.
+      patchTip(tipId, { likes: result.count });
       if (result.liked) {
         const tip = tips.find(t => t.id === tipId);
         if (tip) createNotification(tip.user_id, 'like', tipId);
@@ -251,7 +249,7 @@ const Index = () => {
           onMarkAllAsRead={markAllAsRead}
           onNotificationClick={handleNotificationClick}
         />
-        <StatsTab tips={tips} categories={categories} getCategoryById={getCategoryById} commentCounts={commentCounts} />
+        <StatsTab tips={tips} categories={categories} getCategoryById={getCategoryById} />
         <GlassDock currentTab={currentTab} onTabChange={setCurrentTab} onAdd={handleAddClick} />
       </>
     );
@@ -463,7 +461,7 @@ const Index = () => {
                   isLiked={isLiked(tip.id)}
                   isBookmarked={isBookmarked(tip.id)}
                   likeCount={getCount(tip.id, tip.likes)}
-                  commentCount={getCommentCount(tip.id)}
+                  commentCount={tip.comment_count}
                   isAnalyzing={analyzingIds.has(tip.id)}
                   viewMode={viewMode}
                 />
@@ -571,6 +569,7 @@ const Index = () => {
         isOpen={!!detailTip}
         onClose={() => setDetailTip(null)}
         onCommentAdded={(tipId, tipOwnerId, commentText) => {
+          bumpCommentCount(tipId, 1);
           console.log('[mention] comment:', commentText);
           console.log('[mention] teamMembers count:', teamMembers.length);
           console.log('[mention] full member[0]:', JSON.stringify(teamMembers[0]));
@@ -599,6 +598,7 @@ const Index = () => {
             });
           }
         }}
+        onCommentDeleted={(tipId) => bumpCommentCount(tipId, -1)}
         onTipUpdated={refetch}
         teamMembers={teamMembers}
       />
